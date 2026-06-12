@@ -27,5 +27,5 @@ export function levelForXp(xp: number, data: GameData): number {
   for (let i = 0; i < thresholds.length; i++) {
     if (xp >= (thresholds[i] ?? 0)) level = i + 1;
   }
-  return Math.min(level, 9);
+  return Math.min(level, thresholds.length);
 }

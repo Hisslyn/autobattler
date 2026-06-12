@@ -35,9 +35,8 @@ function flushQueue(): void {
     queueTimer = null;
   }
   const humans = queue.splice(0, QUEUE_TARGET);
-  const botCount = QUEUE_TARGET - humans.length;
   broadcastQueueStatus();
-  createRoom(humans, botCount);
+  createRoom(humans);
 }
 
 function broadcastQueueStatus(): void {

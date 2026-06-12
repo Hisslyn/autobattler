@@ -5,26 +5,23 @@ import { buildInitialPool, returnToPool } from "./pool.js";
 import { rollShop } from "./shop.js";
 import { runCombatPhase, distributeIncome } from "./rounds.js";
 
-const PLAYER_COUNT = 8;
-const STARTING_HP = 100;
-const STARTING_GOLD = 0;
-
 export function createMatch(seed: number, data: GameData): MatchState {
   const prng = mulberry32(seed);
   const pool = buildInitialPool(data);
+  const gp = data.gameplay;
 
   const players: PlayerState[] = [];
-  for (let i = 0; i < PLAYER_COUNT; i++) {
+  for (let i = 0; i < gp.playerCount; i++) {
     players.push({
       id: i,
-      hp: STARTING_HP,
-      gold: STARTING_GOLD,
+      hp: gp.startingHp,
+      gold: gp.startingGold,
       xp: 0,
       level: 1,
       bench: [],
-      board: new Array(28).fill(null),
+      board: new Array(gp.boardSlots).fill(null),
       items: [],
-      shop: [null, null, null, null, null],
+      shop: new Array(data.economy.shopSlots).fill(null),
       winStreak: 0,
       loseStreak: 0,
       alive: true,
@@ -39,9 +36,11 @@ export function createMatch(seed: number, data: GameData): MatchState {
     round: 1,
     phase: "PLANNING",
     prngState: prng(),
+    nextUid: 10000, // magic-ok: uid namespace start, not a tuning number
     pairingHistory: new Map(),
     placements: [],
     lastPairings: [],
+    lastRoundSeed: 0,
     lastCombatResults: new Map(),
     lastOpponentBoards: new Map(),
   };
@@ -49,7 +48,7 @@ export function createMatch(seed: number, data: GameData): MatchState {
   // Roll initial shops
   const shopPrng = mulberry32(state.prngState);
   state.prngState = shopPrng();
-  for (let i = 0; i < PLAYER_COUNT; i++) {
+  for (let i = 0; i < gp.playerCount; i++) {
     rollShop(state, i, shopPrng, data);
   }
 
@@ -97,7 +96,7 @@ export function runMatchToEnd(
   const state = createMatch(seed, data);
   setup?.(state);
   let safeguard = 0;
-  while (!isMatchOver(state) && safeguard < 10000) {
+  while (!isMatchOver(state) && safeguard < 10000) { // magic-ok: runaway-loop guard
     advancePhase(state, data);
     safeguard++;
   }

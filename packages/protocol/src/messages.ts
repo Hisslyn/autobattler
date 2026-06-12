@@ -1,5 +1,5 @@
 // Client → Server message types
-export type C2SType = "QUEUE_JOIN" | "QUEUE_LEAVE" | "CMD" | "READY" | "PING";
+export type C2SType = "QUEUE_JOIN" | "QUEUE_LEAVE" | "CMD" | "READY" | "PING" | "RECONNECT";
 
 export interface C2S_QueueJoin { type: "QUEUE_JOIN" }
 export interface C2S_QueueLeave { type: "QUEUE_LEAVE" }
@@ -12,8 +12,9 @@ export interface C2S_Cmd {
 }
 export interface C2S_Ready { type: "READY" }
 export interface C2S_Ping { type: "PING"; ts: number }
+export interface C2S_Reconnect { type: "RECONNECT"; token: string }
 
-export type C2SMessage = C2S_QueueJoin | C2S_QueueLeave | C2S_Cmd | C2S_Ready | C2S_Ping;
+export type C2SMessage = C2S_QueueJoin | C2S_QueueLeave | C2S_Cmd | C2S_Ready | C2S_Ping | C2S_Reconnect;
 
 // Server → Client message types
 export type S2CType =
@@ -37,7 +38,7 @@ export interface S2C_CombatStart {
   type: "COMBAT_START";
   pairings: [number, number][];
   opponentSnapshots: Record<number, unknown>;
-  seed: number;
+  roundSeed: number;
 }
 export interface S2C_CombatResult { type: "COMBAT_RESULT"; results: unknown }
 export interface S2C_MatchEnd { type: "MATCH_END"; placements: number[] }
@@ -63,4 +64,5 @@ export type ErrorCode =
   | "WRONG_SEAT"
   | "COMMAND_REJECTED"
   | "RATE_LIMITED"
-  | "ALREADY_QUEUED";
+  | "ALREADY_QUEUED"
+  | "RECONNECT_FAILED";

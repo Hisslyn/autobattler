@@ -26,30 +26,13 @@ export function returnToPool(pool: Map<string, number>, defId: string): void {
 
 export function returnUnitsToPool(
   state: MatchState,
-  units: import("@autobattler/sim/src/types.js").UnitInstance[]
+  units: import("@autobattler/sim/src/types.js").UnitInstance[],
+  data: GameData
 ): void {
   for (const u of units) {
-    const copies = u.star === 1 ? 1 : u.star === 2 ? 3 : 9;
+    const copies = data.gameplay.copiesPerStar[String(u.star)] ?? 1;
     for (let i = 0; i < copies; i++) {
       returnToPool(state.pool, u.defId);
     }
   }
-}
-
-export function poolAvailable(
-  pool: Map<string, number>,
-  defId: string
-): number {
-  return pool.get(defId) ?? 0;
-}
-
-export function totalPoolCount(
-  pool: Map<string, number>,
-  data: GameData
-): number {
-  let total = 0;
-  for (const unit of data.units) {
-    total += pool.get(unit.id) ?? 0;
-  }
-  return total;
 }

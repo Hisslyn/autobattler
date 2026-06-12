@@ -1,7 +1,8 @@
-import rawUnits from "./units.json" assert { type: "json" };
-import rawTraits from "./traits.json" assert { type: "json" };
-import rawItems from "./items.json" assert { type: "json" };
-import rawEconomy from "./economy.json" assert { type: "json" };
+import rawUnits from "./units.json" with { type: "json" };
+import rawTraits from "./traits.json" with { type: "json" };
+import rawItems from "./items.json" with { type: "json" };
+import rawEconomy from "./economy.json" with { type: "json" };
+import rawGameplay from "./gameplay.json" with { type: "json" };
 
 export interface UnitDataDef {
   id: string;
@@ -55,7 +56,34 @@ export interface EconomyData {
   baseIncome: number;
   streakTable: StreakEntry[];
   damageBase: number;
+  damageRoundDivisor: number;
   damageTierWeights: Record<string, number>;
+  overtimeBaseDamage: number;
+  overtimeRampPerTick: number;
+  overtimeHardCapTicks: number;
+  critChance: number;
+  critMultiplier: number;
+  resolutionSeconds: number;
+}
+
+export interface GameplayData {
+  playerCount: number;
+  startingHp: number;
+  startingGold: number;
+  benchMax: number;
+  boardSlots: number;
+  copiesPerStar: Record<string, number>;
+  sellValueMultiplier: number;
+  pveRounds: number[];
+  manaPerAttack: number;
+  manaPerDamageTaken: number;
+  starMultipliers: Record<string, number>;
+  ticksPerSec: number;
+  overtimeStartTick: number;
+  mitigationBase: number;
+  aiXpGoldThreshold: number;
+  aiInterestReserve: number;
+  aiTraitOverlapWeight: number;
 }
 
 export interface GameData {
@@ -63,6 +91,7 @@ export interface GameData {
   traits: TraitDataDef[];
   items: ItemDataDef[];
   economy: EconomyData;
+  gameplay: GameplayData;
 }
 
 export const gameData: GameData = {
@@ -70,4 +99,5 @@ export const gameData: GameData = {
   traits: rawTraits as TraitDataDef[],
   items: rawItems as ItemDataDef[],
   economy: rawEconomy as EconomyData,
+  gameplay: rawGameplay as GameplayData,
 };

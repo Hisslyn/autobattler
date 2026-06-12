@@ -1,6 +1,7 @@
 import type { GameData } from "@autobattler/data";
 import type { MatchState, ShopSlot } from "./state.js";
 import type { Prng } from "@autobattler/sim/src/prng.js";
+import { drawFromPool } from "./pool.js";
 
 // Returns the tier (1-based index) by rolling against shopOdds for the given level.
 // shopOdds rows are 0-indexed by level-1; level capped at row count.
@@ -8,7 +9,8 @@ function rollTier(prng: Prng, level: number, data: GameData): number {
   const odds = data.economy.shopOdds;
   const rowIdx = Math.min(level - 1, odds.length - 1);
   const row = odds[rowIdx]!;
-  const roll = prng() % 100;
+  const rowSum = row.reduce((s, v) => s + v, 0);
+  const roll = prng() % rowSum;
   let cumulative = 0;
   for (let t = 0; t < row.length; t++) {
     cumulative += row[t]!;
@@ -44,7 +46,13 @@ export function rollShop(
   for (let i = 0; i < slots; i++) {
     const tier = rollTier(prng, player.level, data);
     const defId = pickDefIdForTier(prng, tier, state.pool, data);
-    newShop.push(defId ? { defId, tier } : null);
+    // Rolled units are drawn from the pool at roll time; unsold ones are
+    // returned before the next roll (REROLL / round refresh / elimination).
+    if (defId && drawFromPool(state.pool, defId)) {
+      newShop.push({ defId, tier });
+    } else {
+      newShop.push(null);
+    }
   }
   player.shop = newShop;
 }

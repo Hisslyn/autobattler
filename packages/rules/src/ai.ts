@@ -26,8 +26,8 @@ export function applyAiCommands(
   const player = state.players[playerId];
   if (!player || !player.alive) return;
 
-  // Buy XP if gold > 30
-  if (player.gold > 30) {
+  // Buy XP when sitting on surplus gold
+  if (player.gold > data.gameplay.aiXpGoldThreshold) {
     applyCommand(state, playerId, { type: "BUY_XP" }, prng, data);
   }
 
@@ -44,7 +44,7 @@ export function applyAiCommands(
     const cost = def.tier;
     if (player.gold < cost) continue;
     const overlap = traitOverlapScore(slot.defId, boardDefIds, data);
-    slots.push({ idx: i, score: overlap * 10 - cost, cost });
+    slots.push({ idx: i, score: overlap * data.gameplay.aiTraitOverlapWeight - cost, cost });
   }
   slots.sort((a, b) => b.score - a.score);
 
@@ -55,8 +55,8 @@ export function applyAiCommands(
     const def = data.units.find((u) => u.id === slot.defId);
     if (!def) continue;
     if (p.gold < def.tier) continue;
-    // Keep ~10g for interest unless unit is great overlap
-    const interestThreshold = 10;
+    // Keep some gold for interest unless unit is great overlap
+    const interestThreshold = data.gameplay.aiInterestReserve;
     if (p.gold - def.tier < interestThreshold && traitOverlapScore(slot.defId, p.board.filter((u): u is NonNullable<typeof u> => u != null).map((u) => u.defId), data) === 0) continue;
     applyCommand(state, playerId, { type: "BUY", shopSlotIndex: idx }, prng, data);
   }

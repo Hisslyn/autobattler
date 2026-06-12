@@ -4,7 +4,10 @@ import type { UnitInstance, CombatResult } from "@autobattler/sim/src/types.js";
 import { createMatch, advancePhase, isMatchOver } from "@autobattler/rules";
 import { applyCommand } from "@autobattler/rules/src/commands.js";
 import { applyAiCommands } from "@autobattler/rules/src/ai.js";
+import { getPairingFor } from "@autobattler/rules/src/rounds.js";
 import { mulberry32 } from "@autobattler/sim/src/prng.js";
+
+export type Outcome = "win" | "loss" | "draw";
 
 export interface IDriver {
   readonly seatIndex: number;
@@ -13,9 +16,11 @@ export interface IDriver {
   startPlanning(): void;
   playerCommand(cmd: Parameters<typeof applyCommand>[2]): ReturnType<typeof applyCommand>;
   ready(): void;
-  getMyPairing(): { opponentId: number; isGhost: boolean } | null;
+  getMyPairing(): { opponentId: number; isGhost: boolean; side: 0 | 1 } | null;
   getMyOpponentBoard(): (UnitInstance | null)[] | null;
   getMyCombatResult(): CombatResult | null;
+  /** Win/loss/draw normalized to this driver's seat. */
+  getMyOutcome(): Outcome | null;
   advanceFromResolution(): void;
   /** Returns ms remaining in current planning phase, or 0 if not applicable. */
   getPlanningTimeLeft(): number;
@@ -35,6 +40,7 @@ export class LocalDriver implements IDriver {
   private prng: () => number;
   private listeners: Array<(e: DriverEvent) => void> = [];
   private planningTimerId: ReturnType<typeof setTimeout> | null = null;
+  private resolutionTimerId: ReturnType<typeof setTimeout> | null = null;
   private planningStartTime = 0;
 
   constructor(seed = Date.now()) {
@@ -58,22 +64,22 @@ export class LocalDriver implements IDriver {
     return this.state;
   }
 
-  /** Returns [myPairingOpponentId, isGhost] for the human player in the last combat. */
-  getMyPairing(): { opponentId: number; isGhost: boolean } | null {
-    const pairing = this.state.lastPairings.find(([a]) => a === HUMAN_PLAYER_ID);
-    if (!pairing) return null;
-    const [, bId] = pairing;
-    return bId !== undefined
-      ? { opponentId: bId, isGhost: bId < 0 }
-      : null;
+  getMyPairing(): { opponentId: number; isGhost: boolean; side: 0 | 1 } | null {
+    const view = getPairingFor(this.state, HUMAN_PLAYER_ID);
+    if (!view) return null;
+    return { opponentId: view.opponentId, isGhost: view.isGhost, side: view.side };
   }
 
   getMyOpponentBoard(): (UnitInstance | null)[] | null {
-    return this.state.lastOpponentBoards.get(HUMAN_PLAYER_ID) ?? null;
+    return getPairingFor(this.state, HUMAN_PLAYER_ID)?.opponentBoard ?? null;
   }
 
   getMyCombatResult(): CombatResult | null {
-    return this.state.lastCombatResults.get(HUMAN_PLAYER_ID) ?? null;
+    return getPairingFor(this.state, HUMAN_PLAYER_ID)?.result ?? null;
+  }
+
+  getMyOutcome(): Outcome | null {
+    return getPairingFor(this.state, HUMAN_PLAYER_ID)?.outcome ?? null;
   }
 
   getPlanningTimeLeft(): number {
@@ -90,7 +96,7 @@ export class LocalDriver implements IDriver {
 
   playerCommand(cmd: Parameters<typeof applyCommand>[2]): ReturnType<typeof applyCommand> {
     if (this.state.phase !== "PLANNING") {
-      return { ok: false, error: "INVALID_POSITION" };
+      return { ok: false, error: "PHASE_INVALID" };
     }
     const result = applyCommand(this.state, HUMAN_PLAYER_ID, cmd, this.prng, gameData);
     if (result.ok) {
@@ -118,29 +124,38 @@ export class LocalDriver implements IDriver {
   }
 
   private _advanceToResolution(): void {
-    // PLANNING -> COMBAT -> RESOLUTION
+    // PLANNING → COMBAT (runs combat) → state ends in RESOLUTION
     advancePhase(this.state, gameData);
     this.emit({ type: "phase_change", phase: "COMBAT", round: this.state.round });
     this.emit({ type: "state", state: this.state });
 
-    // Auto-advance to next planning after a short delay for animation
     if (isMatchOver(this.state)) {
       this.emit({ type: "match_over", placements: [...this.state.placements] });
       return;
     }
 
-    // Now in RESOLUTION, advance again
-    advancePhase(this.state, gameData);
+    // Emit RESOLUTION while the state is actually in RESOLUTION; pause, then
+    // advance (Continue button can advance earlier via advanceFromResolution).
     this.emit({ type: "phase_change", phase: "RESOLUTION", round: this.state.round });
     this.emit({ type: "state", state: this.state });
+    this.resolutionTimerId = setTimeout(
+      () => this.advanceFromResolution(),
+      gameData.economy.resolutionSeconds * 1000
+    );
   }
 
   advanceFromResolution(): void {
     if (this.state.phase !== "RESOLUTION") return;
+    if (this.resolutionTimerId !== null) {
+      clearTimeout(this.resolutionTimerId);
+      this.resolutionTimerId = null;
+    }
     if (isMatchOver(this.state)) {
       this.emit({ type: "match_over", placements: [...this.state.placements] });
       return;
     }
+    // RESOLUTION → PLANNING (income + shop refresh)
+    advancePhase(this.state, gameData);
     this.startPlanning();
     this.emit({ type: "state", state: this.state });
   }

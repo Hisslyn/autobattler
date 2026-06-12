@@ -25,6 +25,7 @@ export class NetClient {
   }
 
   get rttMs(): number { return this._rttMs; }
+  get seatToken(): string | null { return this.token; }
 
   on(listener: (e: NetEvent) => void): () => void {
     this.listeners.push(listener);
@@ -53,9 +54,9 @@ export class NetClient {
       this.emit({ type: "connected" });
       this.startPing();
 
-      // If we have a token, try to rejoin
+      // If we have a seat token, resume the match instead of re-queueing
       if (this.token) {
-        this.send({ type: "QUEUE_JOIN" });
+        this.send({ type: "RECONNECT", token: this.token });
       }
     };
 

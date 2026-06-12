@@ -8,7 +8,7 @@ import {
   send,
   checkRateLimit,
   registerToken,
-  findSessionByToken,
+  findSeatByToken,
 } from "./session.js";
 import { joinQueue, leaveQueue } from "./matchmaker.js";
 import { getRoom, handlePlayerCommand, markReady, reconnectSession } from "./room.js";
@@ -60,18 +60,20 @@ wss.on("connection", (ws: WebSocket) => {
           send(session, { type: "ERROR", code: "ALREADY_QUEUED", message: "Already in match" });
           break;
         }
-        // Check if reconnecting to existing room via token
-        const existing = findSessionByToken(session.token!);
-        if (existing && existing !== session && existing.roomId) {
-          // Reconnect to existing room
-          const room = getRoom(existing.roomId);
-          if (room && existing.seatIndex !== null) {
-            reconnectSession(room, session, existing.seatIndex);
-            registerToken(session.id, session.token!);
-          }
-        } else {
-          joinQueue(session);
+        joinQueue(session);
+        break;
+      }
+
+      case "RECONNECT": {
+        const claim = findSeatByToken(msg.token);
+        const room = claim ? getRoom(claim.roomId) : undefined;
+        if (!claim || !room) {
+          send(session, { type: "ERROR", code: "RECONNECT_FAILED", message: "Unknown or expired token" });
+          break;
         }
+        // Adopt the original seat token on this fresh connection
+        registerToken(session.id, msg.token);
+        reconnectSession(room, session, claim.seatIndex);
         break;
       }
 

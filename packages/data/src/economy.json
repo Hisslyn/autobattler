@@ -5,11 +5,11 @@
     [ 70,  30,   0,   0,   0],
     [ 60,  35,   5,   0,   0],
     [ 50,  35,  15,   0,   0],
-    [ 40,  35,  20,   5,   0],
-    [ 30,  35,  25,  10,   0],
-    [ 19,  35,  30,  15,   1],
-    [ 15,  25,  35,  20,   5],
-    [ 10,  20,  30,  30,  10]
+    [ 40,  35,  25,   0,   0],
+    [ 30,  35,  35,   0,   0],
+    [ 19,  35,  46,   0,   0],
+    [ 15,  25,  60,   0,   0],
+    [ 10,  20,  70,   0,   0]
   ],
   "shopSlots": 5,
   "rerollCost": 2,
@@ -26,5 +26,12 @@
     { "min": 5, "max": 99, "bonus": 3 }
   ],
   "damageBase": 2,
-  "damageTierWeights": { "1": 1, "2": 2, "3": 3, "4": 4, "5": 5 }
+  "damageRoundDivisor": 3,
+  "damageTierWeights": { "1": 1, "2": 2, "3": 3, "4": 4, "5": 5 },
+  "overtimeBaseDamage": 50,
+  "overtimeRampPerTick": 10,
+  "overtimeHardCapTicks": 1800,
+  "critChance": 150,
+  "critMultiplier": 1500,
+  "resolutionSeconds": 5
 }

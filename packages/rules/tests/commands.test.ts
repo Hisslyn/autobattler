@@ -53,24 +53,45 @@ describe("command validation", () => {
     if (!result.ok) expect(result.error).toBe("EMPTY_SLOT");
   });
 
-  it("BUY rejects when bench is full and board is at level cap", () => {
+  it("BUY rejects when bench is full and purchase does not complete a merge", () => {
+    const state = createMatch(1, gameData);
+    const prng = mulberry32(1);
+    const player = state.players[0]!;
+    player.gold = 100;
+    player.level = 1;
+    // Fill bench to max with 9 distinct units so no merge is possible
+    for (let i = 0; i < 9; i++) {
+      player.bench.push(makeUnit(9000 + i, gameData.units[i]!.id));
+    }
+    const defId = gameData.units[10]!.id;
+    player.shop[0] = { defId, tier: gameData.units[10]!.tier };
+    const result = applyCommand(state, 0, { type: "BUY", shopSlotIndex: 0 }, prng, gameData);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe("BENCH_FULL");
+    expect(player.bench.length).toBe(9);
+  });
+
+  it("BUY with full bench succeeds when it immediately completes a merge", () => {
     const state = createMatch(1, gameData);
     const prng = mulberry32(1);
     const player = state.players[0]!;
     player.gold = 100;
     player.level = 1;
     const defId = gameData.units[0]!.id;
-    // Fill bench to max
-    for (let i = 0; i < 9; i++) {
-      player.bench.push(makeUnit(9000 + i, defId));
+    // Bench: 2 copies of defId + 7 distinct fillers = full
+    player.bench.push(makeUnit(9000, defId));
+    player.bench.push(makeUnit(9001, defId));
+    for (let i = 0; i < 7; i++) {
+      player.bench.push(makeUnit(9100 + i, gameData.units[i + 1]!.id));
     }
-    // Fill board to level cap (1 unit at level 1)
-    player.board[0] = makeUnit(9009, defId);
+    expect(player.bench.length).toBe(9);
     player.shop[0] = { defId, tier: 1 };
-    state.pool.set(defId, 10);
     const result = applyCommand(state, 0, { type: "BUY", shopSlotIndex: 0 }, prng, gameData);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toBe("BENCH_FULL");
+    expect(result.ok).toBe(true);
+    // Net bench growth <= 0: 3 copies merged into one 2-star
+    expect(player.bench.length).toBeLessThanOrEqual(9);
+    const twoStar = player.bench.find((u) => u.defId === defId && u.star === 2);
+    expect(twoStar).toBeDefined();
   });
 
   it("MOVE rejects board cap at player level", () => {
@@ -131,6 +152,35 @@ describe("command validation", () => {
     const result = applyCommand(state, 0, { type: "BUY_XP" }, prng, gameData);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toBe("INSUFFICIENT_GOLD");
+  });
+
+  it("rejects every command outside PLANNING with PHASE_INVALID", () => {
+    const state = createMatch(1, gameData);
+    const prng = mulberry32(1);
+    const player = state.players[0]!;
+    player.gold = 100;
+    player.bench = [makeUnit(5001, gameData.units[0]!.id)];
+    player.items = ["iron_sword"];
+    const slot = player.shop.findIndex((s) => s !== null);
+    const commands = [
+      { type: "BUY", shopSlotIndex: slot },
+      { type: "SELL", unitUid: 5001 },
+      { type: "REROLL" },
+      { type: "BUY_XP" },
+      { type: "MOVE", unitUid: 5001, toBench: false, toIndex: 0 },
+      { type: "EQUIP", unitUid: 5001, itemId: "iron_sword" },
+    ] as const;
+    for (const phase of ["COMBAT", "RESOLUTION"] as const) {
+      state.phase = phase;
+      for (const cmd of commands) {
+        const result = applyCommand(state, 0, cmd, prng, gameData);
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.error).toBe("PHASE_INVALID");
+      }
+    }
+    // Sanity: same commands are accepted again in PLANNING
+    state.phase = "PLANNING";
+    expect(applyCommand(state, 0, { type: "BUY_XP" }, prng, gameData).ok).toBe(true);
   });
 
   it("EQUIP rejects missing item", () => {

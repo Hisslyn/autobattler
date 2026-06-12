@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { hexFromPointer, hexToPixel, HEX_R, BOARD_COLS } from "../src/hexUtils.js";
 
 const OX = 27; // arbitrary offsetX
@@ -31,34 +31,5 @@ describe("hexFromPointer", () => {
     // Point far to the left
     const slot = hexFromPointer(-200, OY, OX, OY);
     expect(slot).toBe(-1);
-  });
-});
-
-describe("resolution auto-advance timer", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("fires after RESOLUTION_AUTO_ADVANCE_MS", () => {
-    vi.useFakeTimers();
-    const DELAY = 5000;
-    let fired = false;
-    const id = setTimeout(() => { fired = true; }, DELAY);
-    expect(fired).toBe(false);
-    vi.advanceTimersByTime(DELAY - 1);
-    expect(fired).toBe(false);
-    vi.advanceTimersByTime(1);
-    expect(fired).toBe(true);
-    clearTimeout(id);
-  });
-
-  it("does not fire if cleared before timeout", () => {
-    vi.useFakeTimers();
-    const DELAY = 5000;
-    let fired = false;
-    const id = setTimeout(() => { fired = true; }, DELAY);
-    clearTimeout(id);
-    vi.advanceTimersByTime(DELAY + 1000);
-    expect(fired).toBe(false);
   });
 });

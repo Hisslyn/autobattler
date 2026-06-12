@@ -6,3 +6,4 @@ dist/
 .env.local
 .cache
 .vscode/settings.json
+*.tsbuildinfo

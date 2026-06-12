@@ -1,0 +1,19 @@
+{
+  "playerCount": 8,
+  "startingHp": 100,
+  "startingGold": 0,
+  "benchMax": 9,
+  "boardSlots": 28,
+  "copiesPerStar": { "1": 1, "2": 3, "3": 9 },
+  "sellValueMultiplier": 1,
+  "pveRounds": [1, 2, 4],
+  "manaPerAttack": 10,
+  "manaPerDamageTaken": 7,
+  "starMultipliers": { "1": 1000, "2": 1800, "3": 3240 },
+  "ticksPerSec": 20,
+  "overtimeStartTick": 1200,
+  "mitigationBase": 100,
+  "aiXpGoldThreshold": 30,
+  "aiInterestReserve": 10,
+  "aiTraitOverlapWeight": 10
+}

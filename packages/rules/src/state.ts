@@ -30,9 +30,11 @@ export interface MatchState {
   round: number;
   phase: Phase;
   prngState: number;
-  pairingHistory: Map<number, Set<number>>;
+  nextUid: number;
+  pairingHistory: Map<number, Map<number, number>>; // player id → opponent id → times met
   placements: number[];
   lastPairings: [number, number][]; // [playerA id, playerB id or negative ghost]
-  lastCombatResults: Map<number, CombatResult>; // key = playerA id
-  lastOpponentBoards: Map<number, (UnitInstance | null)[]>; // key = playerA id → opponent's board at combat start
+  lastRoundSeed: number; // drawn from the match stream before the round's combats
+  lastCombatResults: Map<number, CombatResult>; // keyed by player id (both sides of each pairing)
+  lastOpponentBoards: Map<number, (UnitInstance | null)[]>; // keyed by player id → opponent's board at combat start
 }

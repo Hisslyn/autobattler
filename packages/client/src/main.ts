@@ -65,7 +65,7 @@ function showModeSelect(app: PIXI.Application): Promise<"local" | "online"> {
 
     const title = new PIXI.Text("AUTOBATTLER", {
       fontSize: 28,
-      fill: 0xbbc4d0,
+      fill: C.textLabel,
       fontFamily: "monospace",
       fontWeight: "bold",
     });
@@ -76,17 +76,17 @@ function showModeSelect(app: PIXI.Application): Promise<"local" | "online"> {
 
     function makeButton(label: string, y: number, onClick: () => void): void {
       const btn = new PIXI.Graphics();
-      btn.beginFill(0x2a2a3a);
+      btn.beginFill(C.bgMenuBtn);
       btn.drawRoundedRect(-120, -22, 240, 44, 8);
       btn.endFill();
       btn.x = DESIGN_W / 2;
       btn.y = y;
-      btn.interactive = true;
+      btn.eventMode = "static";
       btn.cursor = "pointer";
 
       const txt = new PIXI.Text(label, {
         fontSize: 16,
-        fill: 0xbbc4d0,
+        fill: C.textLabel,
         fontFamily: "monospace",
       });
       txt.anchor.set(0.5);

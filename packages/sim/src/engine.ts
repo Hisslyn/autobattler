@@ -1,29 +1,15 @@
 import { mulberry32 } from "./prng.js";
 import { fmul, SCALE } from "./fixed.js";
-import { hexDistance, hexAstar, hexKey as _hexKey } from "./hex.js";
+import { hexDistance, hexAstar, COLS } from "./hex.js";
 import type { BoardState, CombatEvent, CombatResult, UnitInstance } from "./types.js";
 import type { GameData } from "@autobattler/data";
 
-const TICKS_PER_SEC = 20;
-const MAX_TICKS = 1200;
-const MANA_PER_ATTACK = 10;
-const MANA_PER_DAMAGE_RECV = 7;
-const OVERTIME_DAMAGE_PER_TICK = 50;
-
-// Star multipliers in fixed-point (SCALE=1000): 1-star=1000, 2-star=1800, 3-star=3240
-const STAR_MULT: Record<number, number> = { 1: 1000, 2: 1800, 3: 3240 };
-
 function hexKey(q: number, r: number): number {
-  return r * 7 + q;
+  return r * COLS + q;
 }
 
-function applyArmor(rawDamage: number, armor: number): number {
-  const mitigation = fmul(armor, SCALE / (100 + armor) * 1000 | 0);
-  return Math.max(1, rawDamage - Math.trunc(rawDamage * armor / (100 + armor)));
-}
-
-function applyMr(rawDamage: number, mr: number): number {
-  return Math.max(1, rawDamage - Math.trunc(rawDamage * mr / (100 + mr)));
+function mitigate(rawDamage: number, resist: number, mitigationBase: number): number {
+  return Math.max(1, rawDamage - Math.trunc(rawDamage * resist / (mitigationBase + resist)));
 }
 
 function findTarget(unit: UnitInstance, enemies: UnitInstance[]): UnitInstance | undefined {
@@ -54,8 +40,8 @@ function cloneBoard(b: BoardState): BoardState {
   return { units: b.units.map(cloneUnit) };
 }
 
-function applyStarMultiplier(unit: UnitInstance): void {
-  const mult = STAR_MULT[unit.star] ?? SCALE;
+function applyStarMultiplier(unit: UnitInstance, data: GameData): void {
+  const mult = data.gameplay.starMultipliers[String(unit.star)] ?? SCALE;
   if (mult === SCALE) return;
   unit.hp = fmul(unit.hp, mult);
   unit.maxHp = fmul(unit.maxHp, mult);
@@ -63,14 +49,23 @@ function applyStarMultiplier(unit: UnitInstance): void {
   unit.abilityDamage = fmul(unit.abilityDamage, mult);
 }
 
+function addStat(unit: UnitInstance, stat: string, value: number): void {
+  const rec = unit as unknown as Record<string, number>;
+  rec[stat] = (rec[stat] ?? 0) + value;
+  if (stat === "hp") unit.maxHp = unit.hp;
+}
+
 function applyTraits(units: UnitInstance[], data: GameData): void {
   for (const team of [0, 1] as const) {
     const teamUnits = units.filter((u) => u.team === team);
     for (const traitDef of data.traits) {
-      const count = teamUnits.filter((u) => {
+      // Count unique defIds, not copies
+      const uniqueDefIds = new Set<string>();
+      for (const u of teamUnits) {
         const def = data.units.find((d) => d.id === u.defId);
-        return def?.traits.includes(traitDef.id) ?? false;
-      }).length;
+        if (def?.traits.includes(traitDef.id)) uniqueDefIds.add(u.defId);
+      }
+      const count = uniqueDefIds.size;
       // find highest active breakpoint
       let activeEffect: { stat: string; value: number } | null = null;
       for (const bp of traitDef.breakpoints) {
@@ -81,8 +76,7 @@ function applyTraits(units: UnitInstance[], data: GameData): void {
       for (const u of teamUnits) {
         const def = data.units.find((d) => d.id === u.defId);
         if (!def?.traits.includes(traitDef.id)) continue;
-        (u as Record<string, unknown>)[stat] = ((u as Record<string, unknown>)[stat] as number) + value;
-        if (stat === "hp") u.maxHp = u.hp;
+        addStat(u, stat, value);
       }
     }
   }
@@ -94,8 +88,7 @@ function applyItems(unit: UnitInstance, data: GameData): void {
     if (!itemDef) continue;
     for (const [stat, value] of Object.entries(itemDef.stats)) {
       if (value === undefined) continue;
-      (unit as Record<string, unknown>)[stat] = ((unit as Record<string, unknown>)[stat] as number) + value;
-      if (stat === "hp") unit.maxHp = unit.hp;
+      addStat(unit, stat, value);
     }
   }
 }
@@ -106,7 +99,7 @@ export function simulateCombat(
   seed: number,
   data: GameData
 ): CombatResult {
-  const _prng = mulberry32(seed);
+  const prng = mulberry32(seed);
   const events: CombatEvent[] = [];
 
   const allUnits: UnitInstance[] = [
@@ -116,13 +109,15 @@ export function simulateCombat(
 
   // Apply star multipliers and items per unit
   for (const unit of allUnits) {
-    applyStarMultiplier(unit);
+    applyStarMultiplier(unit, data);
     applyItems(unit, data);
   }
 
   // Apply trait bonuses per team
   applyTraits(allUnits, data);
 
+  const { manaPerAttack, manaPerDamageTaken, mitigationBase, ticksPerSec, overtimeStartTick } = data.gameplay;
+  const hardCap = data.economy.overtimeHardCapTicks;
   let tick = 0;
   let overtime = false;
 
@@ -134,31 +129,33 @@ export function simulateCombat(
     return getAlive().filter((u) => u.team !== unit.team);
   }
 
-  function getFriends(unit: UnitInstance): UnitInstance[] {
-    return getAlive().filter((u) => u.team === unit.team && u.uid !== unit.uid);
-  }
-
-  while (tick < MAX_TICKS + (overtime ? 0 : 0)) {
-    if (tick === MAX_TICKS && !overtime) {
-      overtime = true;
-      events.push({ tick, type: "overtime", sourceUid: -1 });
-    }
-
-    if (overtime && tick >= MAX_TICKS) {
-      const alive = getAlive();
-      const t0 = alive.filter((u) => u.team === 0);
-      const t1 = alive.filter((u) => u.team === 1);
-      if (t0.length === 0 || t1.length === 0) break;
-      const trueDmg = OVERTIME_DAMAGE_PER_TICK * (tick - MAX_TICKS + 1);
-      for (const u of alive) {
-        u.hp -= trueDmg;
-      }
-    }
-
-    const alive = getAlive();
-    if (alive.filter((u) => u.team === 0).length === 0 ||
-        alive.filter((u) => u.team === 1).length === 0) {
+  while (tick < hardCap) {
+    const aliveCheck = getAlive();
+    if (aliveCheck.filter((u) => u.team === 0).length === 0 ||
+        aliveCheck.filter((u) => u.team === 1).length === 0) {
       break;
+    }
+
+    if (tick >= overtimeStartTick) {
+      if (!overtime) {
+        overtime = true;
+        events.push({ tick, type: "overtime", sourceUid: -1 });
+      }
+      // Ramping true damage to all units
+      const trueDmg = data.economy.overtimeBaseDamage +
+        data.economy.overtimeRampPerTick * (tick - overtimeStartTick);
+      for (const u of getAlive()) {
+        u.hp -= trueDmg;
+        if (u.hp <= 0) {
+          events.push({ tick, type: "death", sourceUid: u.uid });
+        }
+      }
+      const alive = getAlive();
+      if (alive.filter((u) => u.team === 0).length === 0 ||
+          alive.filter((u) => u.team === 1).length === 0) {
+        tick++;
+        break;
+      }
     }
 
     const tickUnits = getAlive().slice().sort((a, b) => a.uid - b.uid);
@@ -179,7 +176,7 @@ export function simulateCombat(
       if (unit.mana >= unit.maxMana) {
         const target = findTarget(unit, enemies);
         if (target) {
-          const dmg = applyMr(unit.abilityDamage, target.mr);
+          const dmg = mitigate(unit.abilityDamage, target.mr, mitigationBase);
           target.hp -= dmg;
           unit.mana = 0;
           events.push({
@@ -192,8 +189,8 @@ export function simulateCombat(
           if (target.hp <= 0) {
             events.push({ tick, type: "death", sourceUid: target.uid });
           } else {
-            target.mana = Math.min(target.maxMana, target.mana + MANA_PER_DAMAGE_RECV);
-            events.push({ tick, type: "mana_gain", sourceUid: target.uid, value: MANA_PER_DAMAGE_RECV });
+            target.mana = Math.min(target.maxMana, target.mana + manaPerDamageTaken);
+            events.push({ tick, type: "mana_gain", sourceUid: target.uid, value: manaPerDamageTaken });
           }
         }
         continue;
@@ -223,20 +220,23 @@ export function simulateCombat(
       const freshDist = hexDistance(unit.pos, target.pos);
       if (freshDist <= unit.range) {
         if (unit.attackCooldown <= 0) {
-          const dmg = applyArmor(unit.ad, target.armor);
+          // Crit roll from the sim's seeded PRNG (fixed-point, SCALE=1000)
+          const isCrit = prng() % SCALE < data.economy.critChance;
+          const rawAd = isCrit ? fmul(unit.ad, data.economy.critMultiplier) : unit.ad;
+          const dmg = mitigate(rawAd, target.armor, mitigationBase);
           target.hp -= dmg;
-          unit.mana = Math.min(unit.maxMana, unit.mana + MANA_PER_ATTACK);
-          events.push({ tick, type: "attack", sourceUid: unit.uid, targetUid: target.uid, value: dmg });
-          events.push({ tick, type: "mana_gain", sourceUid: unit.uid, value: MANA_PER_ATTACK });
+          unit.mana = Math.min(unit.maxMana, unit.mana + manaPerAttack);
+          events.push({ tick, type: "attack", sourceUid: unit.uid, targetUid: target.uid, value: dmg, crit: isCrit });
+          events.push({ tick, type: "mana_gain", sourceUid: unit.uid, value: manaPerAttack });
 
           if (target.hp <= 0) {
             events.push({ tick, type: "death", sourceUid: target.uid });
           } else {
-            target.mana = Math.min(target.maxMana, target.mana + MANA_PER_DAMAGE_RECV);
-            events.push({ tick, type: "mana_gain", sourceUid: target.uid, value: MANA_PER_DAMAGE_RECV });
+            target.mana = Math.min(target.maxMana, target.mana + manaPerDamageTaken);
+            events.push({ tick, type: "mana_gain", sourceUid: target.uid, value: manaPerDamageTaken });
           }
 
-          unit.attackCooldown = Math.trunc(TICKS_PER_SEC * SCALE / unit.as);
+          unit.attackCooldown = Math.trunc(ticksPerSec * SCALE / unit.as);
         } else {
           unit.attackCooldown--;
         }
@@ -246,7 +246,6 @@ export function simulateCombat(
     }
 
     tick++;
-    if (tick > MAX_TICKS + 600) break;
   }
 
   const finalAlive = getAlive();
@@ -256,7 +255,13 @@ export function simulateCombat(
   let winner: 0 | 1 | "draw";
   if (t0alive.length > 0 && t1alive.length === 0) winner = 0;
   else if (t1alive.length > 0 && t0alive.length === 0) winner = 1;
-  else winner = "draw";
+  else if (t0alive.length === 0 && t1alive.length === 0) winner = "draw";
+  else {
+    // Hard cap reached with both sides alive: higher total remaining HP wins
+    const hp0 = t0alive.reduce((s, u) => s + u.hp, 0);
+    const hp1 = t1alive.reduce((s, u) => s + u.hp, 0);
+    winner = hp0 > hp1 ? 0 : hp1 > hp0 ? 1 : "draw";
+  }
 
   return {
     winner,

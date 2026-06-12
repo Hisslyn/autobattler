@@ -28,9 +28,9 @@ packages/
 ## Commands
 
 ```bash
-npm install          # install all workspace deps
-npm test             # run all tests via vitest
-npm run typecheck    # tsc --build
+npm install          # install all workspace deps (Node >= 20)
+npm test             # typecheck (via pretest) + all tests via vitest
+npm run typecheck    # tsc --build (must exit 0; npm test runs it automatically via pretest)
 npm run dev          # start Vite dev server for the client
 npm run server       # start the authoritative WS server (default port 3001)
 ```

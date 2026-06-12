@@ -66,6 +66,11 @@ export function validateC2S(p: unknown): C2SMessage | null {
       return { type: "PING", ts: msg["ts"] as number };
     }
 
+    case "RECONNECT": {
+      if (typeof msg["token"] !== "string") return null;
+      return { type: "RECONNECT", token: msg["token"] as string };
+    }
+
     case "CMD": {
       if (typeof msg["cmd"] !== "object" || msg["cmd"] === null) return null;
       const cmd = msg["cmd"] as Record<string, unknown>;

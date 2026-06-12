@@ -83,7 +83,7 @@ function drawUnitCircle(
   const def = gameData.units.find((u) => u.id === unit.defId);
   const label = new PIXI.Text((def?.name ?? "??").slice(0, 2).toUpperCase(), {
     fontSize: 7,
-    fill: dimmed ? 0x666677 : 0xbbc4d0,
+    fill: dimmed ? C.textDimmed : C.textLabel,
     fontFamily: "monospace",
   });
   label.anchor.set(0.5);
@@ -140,7 +140,7 @@ export class MatchScene {
 
     // Invisible full-screen drag target for pointer-up — only active while dragging
     const dragCatcher = new PIXI.Graphics();
-    dragCatcher.beginFill(0x000000, 0);
+    dragCatcher.beginFill(C.bgOverlay, 0);
     dragCatcher.drawRect(0, 0, DESIGN_W, DESIGN_H);
     dragCatcher.endFill();
     dragCatcher.eventMode = "none"; // disabled until drag starts
@@ -266,7 +266,7 @@ export class MatchScene {
         const { x, y } = hexToPixel(q, r, BOARD_OFFSET_X, BOARD_OFFSET_Y);
         const isSelected = this.selectedBoardIdx === slotIdx && me.board[slotIdx] != null;
         const g = new PIXI.Graphics();
-        drawHex(g, x, y, HEX_R - 2, isSelected ? 0x1a3a5a : C.bgBoard, 0.7);
+        drawHex(g, x, y, HEX_R - 2, isSelected ? C.bgBoardSel : C.bgBoard, 0.7);
         g.eventMode = "static";
         g.cursor = "pointer";
         g.on("pointerdown", () => this.onHexPointerDown(slotIdx, me, x, y));
@@ -299,7 +299,7 @@ export class MatchScene {
       const x = startX + i * BENCH_SLOT_W;
       const isSelected = this.selectedBenchIdx === i && me.bench[i] != null;
       const g = new PIXI.Graphics();
-      g.beginFill(isSelected ? 0x1a3050 : C.bgBench, 0.7);
+      g.beginFill(isSelected ? C.bgBenchSel : C.bgBench, 0.7);
       g.drawRoundedRect(x - 16, BENCH_Y - 16, 32, 32, 3);
       g.endFill();
       g.eventMode = "static";
@@ -321,7 +321,7 @@ export class MatchScene {
 
     // Sell zone
     const sellG = new PIXI.Graphics();
-    sellG.beginFill(0x280808, 0.7);
+    sellG.beginFill(C.bgSellZone, 0.7);
     sellG.drawRoundedRect(DESIGN_W - 44, BENCH_Y - 16, 40, 32, 3);
     sellG.endFill();
     sellG.eventMode = "static";
@@ -775,7 +775,7 @@ export class MatchScene {
 
     // Close button
     const closeBtn = new PIXI.Graphics();
-    closeBtn.beginFill(0x2a1a1a, 0.9);
+    closeBtn.beginFill(C.bgCloseBtn, 0.9);
     closeBtn.drawRoundedRect(DESIGN_W - 50, 64, 30, 24, 4);
     closeBtn.endFill();
     closeBtn.eventMode = "static";
@@ -906,9 +906,10 @@ export class MatchScene {
     const me = state.players[this.driver.seatIndex];
     if (!me) return;
 
-    const result = this.driver.getMyCombatResult();
-    const won = result?.winner === 0;
-    const drew = result?.winner === "draw";
+    // Win/loss comes from the driver's normalized perspective, never winner === 0
+    const outcome = this.driver.getMyOutcome();
+    const won = outcome === "win";
+    const drew = outcome === "draw";
 
     const bg = new PIXI.Graphics();
     bg.beginFill(C.bgOverlay, 0.72);
@@ -956,7 +957,7 @@ export class MatchScene {
 
     // Continue button — must be interactive and above all overlays
     const continueBtn = new PIXI.Graphics();
-    continueBtn.beginFill(0x1a3020, 0.95);
+    continueBtn.beginFill(C.bgContinue, 0.95);
     continueBtn.drawRoundedRect(DESIGN_W / 2 - 55, 330, 110, 36, 6);
     continueBtn.endFill();
     continueBtn.eventMode = "static";

@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { gameData } from "@autobattler/data";
-import { createMatch, runMatchToEnd, isMatchOver } from "../src/match.js";
+import { createMatch, advancePhase, runMatchToEnd, isMatchOver } from "../src/match.js";
+import { applyAiCommands } from "../src/ai.js";
+import { mulberry32 } from "@autobattler/sim/src/prng.js";
 import type { MatchState } from "../src/state.js";
 import type { UnitInstance } from "@autobattler/sim/src/types.js";
+import { serializeMatchState as serializeState } from "./serializeMatchState.js";
 
 function makeUnit(uid: number, defId: string, team: 0 | 1): UnitInstance {
   const def = gameData.units.find((d) => d.id === defId)!;
@@ -39,21 +42,43 @@ function setupBoards(state: MatchState): void {
   }
 }
 
+function runAiMatch(seed: number): MatchState {
+  const prng = mulberry32(seed);
+  const state = createMatch(seed, gameData);
+  let safeguard = 0;
+  while (!isMatchOver(state) && safeguard < 10000) {
+    if (state.phase === "PLANNING") {
+      for (const player of state.players) {
+        if (!player.alive) continue;
+        applyAiCommands(state, player.id, prng, gameData);
+      }
+    }
+    advancePhase(state, gameData);
+    safeguard++;
+  }
+  return state;
+}
+
 describe("full match determinism", () => {
   it("same seed -> identical placement order, 50 runs", () => {
     const seed = 0xc0ffee;
-    const first = JSON.stringify(runMatchToEnd(seed, gameData, setupBoards));
+    const first = serializeState(runMatchToEnd(seed, gameData, setupBoards));
     for (let i = 1; i < 50; i++) {
-      const result = JSON.stringify(runMatchToEnd(seed, gameData, setupBoards));
+      const result = serializeState(runMatchToEnd(seed, gameData, setupBoards));
       expect(result).toBe(first);
     }
   });
 
+  it("two same-seed AI-driven matches in one process are byte-identical (uids included)", () => {
+    const a = serializeState(runAiMatch(0xfeed));
+    const b = serializeState(runAiMatch(0xfeed));
+    expect(b).toBe(a);
+  });
+
   it("different seeds produce different outcomes", () => {
-    const r1 = JSON.stringify(runMatchToEnd(1, gameData, setupBoards));
-    const r2 = JSON.stringify(runMatchToEnd(2, gameData, setupBoards));
-    expect(typeof r1).toBe("string");
-    expect(typeof r2).toBe("string");
+    const r1 = serializeState(runAiMatch(1));
+    const r2 = serializeState(runAiMatch(2));
+    expect(r1).not.toBe(r2);
   });
 
   it("match ends with exactly 1 alive player", () => {

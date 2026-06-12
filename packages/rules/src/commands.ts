@@ -2,7 +2,7 @@ import type { GameData } from "@autobattler/data";
 import type { MatchState } from "./state.js";
 import type { UnitInstance } from "@autobattler/sim/src/types.js";
 import type { Prng } from "@autobattler/sim/src/prng.js";
-import { returnToPool, drawFromPool } from "./pool.js";
+import { returnToPool } from "./pool.js";
 import { rollShop } from "./shop.js";
 import { levelForXp } from "./economy.js";
 
@@ -22,12 +22,9 @@ export type CommandError =
   | "UNIT_NOT_FOUND"
   | "ITEM_NOT_FOUND"
   | "INVALID_POSITION"
-  | "NOT_YOUR_UNIT";
+  | "PHASE_INVALID";
 
 export type CommandResult = { ok: true } | { ok: false; error: CommandError };
-
-const BENCH_MAX = 9;
-const BOARD_SLOTS = 28; // 7 cols × 4 rows
 
 function countBoardUnits(board: (UnitInstance | null)[]): number {
   return board.reduce((n, u) => n + (u ? 1 : 0), 0);
@@ -47,7 +44,7 @@ function findUnitAnywhere(
   return null;
 }
 
-function tryAutoMerge(
+export function tryAutoMerge(
   state: MatchState,
   playerId: number,
   defId: string,
@@ -63,10 +60,12 @@ function tryAutoMerge(
     ].filter((u) => u.defId === defId && u.star === targetStar);
     if (allUnits.length < 3) continue;
 
-    // Remove 3 copies
+    // Remove 3 copies, collecting their items (slot order per source)
+    const sourceItems: string[] = [];
     let removed = 0;
     for (let i = player.bench.length - 1; i >= 0 && removed < 3; i--) {
       if (player.bench[i]!.defId === defId && player.bench[i]!.star === targetStar) {
+        sourceItems.push(...player.bench[i]!.items);
         player.bench.splice(i, 1);
         removed++;
       }
@@ -74,6 +73,7 @@ function tryAutoMerge(
     for (let i = player.board.length - 1; i >= 0 && removed < 3; i--) {
       const u = player.board[i];
       if (u && u.defId === defId && u.star === targetStar) {
+        sourceItems.push(...u.items);
         player.board[i] = null;
         removed++;
       }
@@ -101,11 +101,13 @@ function tryAutoMerge(
       abilityDamage: def.abilityDamage,
       attackCooldown: 0,
       statusEffects: [],
-      items: [],
+      items: sourceItems.slice(0, 3),
     };
+    // Overflow items go to the player's unequipped inventory
+    player.items.push(...sourceItems.slice(3));
 
     // Place on bench if space, else first empty board slot
-    if (player.bench.length < BENCH_MAX) {
+    if (player.bench.length < data.gameplay.benchMax) {
       player.bench.push(newUnit);
     } else {
       const emptySlot = player.board.indexOf(null);
@@ -122,9 +124,8 @@ function tryAutoMerge(
   }
 }
 
-let _uidCounter = 10000;
-function nextUid(_state: MatchState): number {
-  return _uidCounter++;
+function nextUid(state: MatchState): number {
+  return state.nextUid++;
 }
 
 export function applyCommand(
@@ -134,6 +135,9 @@ export function applyCommand(
   prng: Prng,
   data: GameData
 ): CommandResult {
+  // Commands are only legal during planning; MatchState owns the phase.
+  if (state.phase !== "PLANNING") return { ok: false, error: "PHASE_INVALID" };
+
   const player = state.players[playerId];
   if (!player) return { ok: false, error: "UNIT_NOT_FOUND" };
 
@@ -145,11 +149,17 @@ export function applyCommand(
       if (!def) return { ok: false, error: "UNIT_NOT_FOUND" };
       const cost = def.tier;
       if (player.gold < cost) return { ok: false, error: "INSUFFICIENT_GOLD" };
-      const boardUnits = countBoardUnits(player.board);
-      if (player.bench.length >= BENCH_MAX && boardUnits >= player.level) return { ok: false, error: "BENCH_FULL" };
+      if (player.bench.length >= data.gameplay.benchMax) {
+        // Full bench: only allow if this purchase immediately completes a merge
+        // (3rd star-1 copy), so net bench growth is <= 0.
+        const sameStarCopies = [
+          ...player.bench,
+          ...player.board.filter((u): u is UnitInstance => u != null),
+        ].filter((u) => u.defId === slot.defId && u.star === 1).length;
+        if (sameStarCopies < 2) return { ok: false, error: "BENCH_FULL" };
+      }
 
-      if (!drawFromPool(state.pool, slot.defId)) return { ok: false, error: "UNIT_NOT_FOUND" };
-
+      // The shop copy was already drawn from the pool at roll time — no draw here.
       player.gold -= cost;
       player.shop[cmd.shopSlotIndex] = null;
 
@@ -195,12 +205,11 @@ export function applyCommand(
       }
 
       // Return pool copies based on star
-      const copies = unit.star === 1 ? 1 : unit.star === 2 ? 3 : 9;
+      const copies = data.gameplay.copiesPerStar[String(unit.star)] ?? 1;
       for (let i = 0; i < copies; i++) returnToPool(state.pool, unit.defId);
 
-      // Sell value = tier * copies_in_star (1 for 1*, 3 for 2*, 9 for 3*)
-      // Simplified: tier gold per unit's equivalent 1-star copies
-      player.gold += def.tier * copies;
+      // Sell value = tier gold per equivalent 1-star copy
+      player.gold += def.tier * copies * data.gameplay.sellValueMultiplier;
       return { ok: true };
     }
 
@@ -230,7 +239,7 @@ export function applyCommand(
       if (!unit) return { ok: false, error: "UNIT_NOT_FOUND" };
 
       if (cmd.toBench) {
-        if (player.bench.length >= BENCH_MAX) return { ok: false, error: "BENCH_FULL" };
+        if (player.bench.length >= data.gameplay.benchMax) return { ok: false, error: "BENCH_FULL" };
         // Remove from source
         if (found.onBench) {
           player.bench.splice(found.idx, 1);
@@ -241,7 +250,7 @@ export function applyCommand(
         player.bench.splice(clampedIdx, 0, unit);
       } else {
         // Moving to board slot
-        const targetSlot = Math.min(Math.max(0, cmd.toIndex), BOARD_SLOTS - 1);
+        const targetSlot = Math.min(Math.max(0, cmd.toIndex), data.gameplay.boardSlots - 1);
         const occupant = player.board[targetSlot] ?? null;
         const isFromBoard = !found.onBench;
         const boardCount = countBoardUnits(player.board);

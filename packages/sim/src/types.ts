@@ -78,6 +78,7 @@ export interface CombatEvent {
   targetUid?: number;
   value?: number;
   pos?: HexCoord;
+  crit?: boolean;
 }
 
 export interface CombatResult {

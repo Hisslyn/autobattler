@@ -12,7 +12,7 @@ import { mulberry32 } from "@autobattler/sim/src/prng.js";
 import type { MatchState, PlayerState } from "@autobattler/rules/src/state.js";
 import type { Command } from "@autobattler/rules/src/commands.js";
 import type { Session } from "./session.js";
-import { send } from "./session.js";
+import { send, registerSeatToken, clearRoomSeatTokens } from "./session.js";
 
 const PLANNING_MS = 30_000;
 const HUMAN_SEAT_COUNT = 8;
@@ -28,9 +28,9 @@ export interface Room {
 const rooms = new Map<string, Room>();
 let _roomCounter = 0;
 
-export function createRoom(sessions: Session[], botCount: number): Room {
+export function createRoom(sessions: Session[], seedOverride?: number): Room {
   const roomId = `room${++_roomCounter}`;
-  const seed = Date.now() ^ (Math.random() * 0xffffffff);
+  const seed = seedOverride ?? (Date.now() ^ (Math.random() * 0xffffffff));
   const prng = mulberry32(seed);
   const state = createMatch(seed, gameData);
 
@@ -49,9 +49,10 @@ export function createRoom(sessions: Session[], botCount: number): Room {
     s.seatIndex = i;
   }
 
-  // Broadcast MATCH_FOUND to all human seats
+  // Broadcast MATCH_FOUND to all human seats; seat tokens persist until match end
   for (let i = 0; i < sessions.length; i++) {
     const s = sessions[i]!;
+    registerSeatToken(s.token!, roomId, i);
     send(s, { type: "MATCH_FOUND", roomId, token: s.token!, seatIndex: i });
   }
 
@@ -92,11 +93,14 @@ export function handlePlayerCommand(room: Room, seatIndex: number, rawCmd: Recor
   broadcastDelta(room, seatIndex);
 }
 
-export function handlePlayerReady(room: Room, seatIndex: number): void {
-  if (room.state.phase !== "PLANNING") return;
+export function handlePlayerReady(room: Room, _seatIndex: number): void {
   const allReady = room.seats.every((s) => s === null || s.afk || isReady(room, s));
-  if (allReady) {
+  if (!allReady) return;
+  // READY from all human seats skips the planning wait / resolution pause
+  if (room.state.phase === "PLANNING") {
     advanceCombat(room);
+  } else if (room.state.phase === "RESOLUTION") {
+    finishResolution(room);
   }
 }
 
@@ -106,6 +110,11 @@ function isReady(room: Room, session: Session): boolean {
   return readySet.get(room)?.has(session.seatIndex!) ?? false;
 }
 
+function clearReady(room: Room): void {
+  if (!readySet.has(room)) readySet.set(room, new Set());
+  readySet.get(room)!.clear();
+}
+
 export function markReady(room: Room, seatIndex: number): void {
   if (!readySet.has(room)) readySet.set(room, new Set());
   readySet.get(room)!.add(seatIndex);
@@ -113,8 +122,7 @@ export function markReady(room: Room, seatIndex: number): void {
 }
 
 function startPlanning(room: Room): void {
-  if (!readySet.has(room)) readySet.set(room, new Set());
-  readySet.get(room)!.clear();
+  clearReady(room);
 
   const endsAt = Date.now() + PLANNING_MS;
   broadcastAll(room, {
@@ -144,25 +152,25 @@ function advanceCombat(room: Room): void {
     }
   }
 
-  // Capture pre-combat snapshots per seat for COMBAT_START
-  const opponentSnapshots: Record<number, unknown> = {};
-  for (const [aId, bId] of room.state.lastPairings) {
-    if (bId >= 0) {
-      opponentSnapshots[aId] = serializePlayerPublic(room.state.players[bId]!);
-      opponentSnapshots[bId] = serializePlayerPublic(room.state.players[aId]!);
-    }
-  }
-
-  // PLANNING → COMBAT (runs combat internally)
+  // PLANNING → COMBAT (runs combat internally). This sets the CURRENT round's
+  // pairings, roundSeed, per-player opponent boards, and per-player results.
   advancePhase(room.state, gameData);
 
-  const combatSeed = room.state.prngState;
+  // Opponent snapshots come from the boards captured at combat start in rules,
+  // keyed by the receiving player's id (both sides of each pairing).
+  const opponentSnapshots: Record<number, unknown> = {};
+  for (const [aId, bId] of room.state.lastPairings) {
+    opponentSnapshots[aId] = serializeOpponentSnapshot(room.state, aId, bId < 0 ? null : bId);
+    if (bId >= 0) {
+      opponentSnapshots[bId] = serializeOpponentSnapshot(room.state, bId, aId);
+    }
+  }
 
   broadcastAll(room, {
     type: "COMBAT_START",
     pairings: room.state.lastPairings,
     opponentSnapshots,
-    seed: combatSeed,
+    roundSeed: room.state.lastRoundSeed,
   });
 
   broadcastAll(room, {
@@ -170,27 +178,51 @@ function advanceCombat(room: Room): void {
     results: serializeCombatResults(room),
   });
 
-  // COMBAT → RESOLUTION
-  advancePhase(room.state, gameData);
-
   if (isMatchOver(room.state)) {
     const placements = [...room.state.placements];
     // Add last survivor
     const lastAlive = room.state.players.find((p) => p.alive);
     if (lastAlive) placements.push(lastAlive.id);
     broadcastAll(room, { type: "MATCH_END", placements });
+    clearRoomSeatTokens(room.id);
     rooms.delete(room.id);
     return;
   }
 
+  startResolution(room);
+}
+
+// Real resolution pause: state stays in RESOLUTION (round = just-finished
+// round) until the timer fires or all human seats READY again.
+function startResolution(room: Room): void {
+  clearReady(room);
+  const resolutionMs = gameData.economy.resolutionSeconds * 1000;
   broadcastAll(room, {
     type: "PHASE_CHANGE",
     phase: "RESOLUTION",
     round: room.state.round,
-    endsAt: Date.now(),
+    endsAt: Date.now() + resolutionMs,
   });
 
-  // Send updated snapshots
+  // Snapshots reflect post-combat state (hp, eliminations)
+  for (let i = 0; i < HUMAN_SEAT_COUNT; i++) {
+    const s = room.seats[i];
+    if (s && !s.afk) sendSnapshot(room, s);
+  }
+
+  room.phaseTimer = setTimeout(() => finishResolution(room), resolutionMs);
+}
+
+function finishResolution(room: Room): void {
+  if (room.phaseTimer) {
+    clearTimeout(room.phaseTimer);
+    room.phaseTimer = null;
+  }
+  if (room.state.phase !== "RESOLUTION") return;
+
+  // RESOLUTION → PLANNING (income, round++, shop refresh)
+  advancePhase(room.state, gameData);
+
   for (let i = 0; i < HUMAN_SEAT_COUNT; i++) {
     const s = room.seats[i];
     if (s && !s.afk) sendSnapshot(room, s);
@@ -211,12 +243,13 @@ function sendSnapshot(room: Room, session: Session): void {
   send(session, { type: "STATE_SNAPSHOT", state: serializeState(room.state, session.seatIndex!) });
 }
 
+// Per-seat deltas: private fields (gold, shop, unequipped item inventory)
+// go only to the acting player's own seat; everyone else gets public fields.
 function broadcastDelta(room: Room, changedSeat: number): void {
-  const delta = serializeDelta(room.state, changedSeat);
   for (let i = 0; i < HUMAN_SEAT_COUNT; i++) {
     const s = room.seats[i];
     if (s && !s.afk) {
-      send(s, { type: "STATE_DELTA", delta });
+      send(s, { type: "STATE_DELTA", delta: serializeDelta(room.state, changedSeat, i) });
     }
   }
 }
@@ -258,14 +291,36 @@ function validateCommand(raw: Record<string, unknown>): Command | null {
   }
 }
 
+// Public view: hp, level, xp, streaks, board (fielded units carry their
+// items), bench. Private (own seat only): gold, shop, item inventory.
 function serializePlayerPublic(p: PlayerState) {
   return {
     id: p.id,
     hp: p.hp,
     level: p.level,
+    xp: p.xp,
+    winStreak: p.winStreak,
+    loseStreak: p.loseStreak,
     board: p.board,
+    bench: p.bench,
     alive: p.alive,
     placement: p.placement,
+  };
+}
+
+// Snapshot of the recipient's opponent at combat start. The board comes from
+// the rules-side capture (lastOpponentBoards) so it is exactly what the
+// server simulated, even if the opponent was eliminated this round.
+function serializeOpponentSnapshot(state: MatchState, recipientId: number, opponentId: number | null) {
+  const board = state.lastOpponentBoards.get(recipientId) ?? [];
+  const opponent = opponentId !== null ? state.players[opponentId] : undefined;
+  return {
+    id: opponentId ?? -1,
+    hp: opponent?.hp ?? 0,
+    level: opponent?.level ?? 0,
+    board,
+    alive: opponent?.alive ?? false,
+    placement: opponent?.placement ?? null,
   };
 }
 
@@ -279,11 +334,12 @@ function serializeState(state: MatchState, seatIndex: number) {
   };
 }
 
-function serializeDelta(state: MatchState, changedSeat: number) {
+function serializeDelta(state: MatchState, changedSeat: number, recipientSeat: number) {
   return {
     changedSeat,
-    player: state.players[changedSeat],
     players: state.players.map(serializePlayerPublic),
+    // Full state (incl. gold/shop/items) only for the recipient's own seat
+    ...(changedSeat === recipientSeat ? { me: state.players[changedSeat] } : {}),
   };
 }
 

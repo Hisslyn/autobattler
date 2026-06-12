@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/engine.ts",
     "./src/prng.js": "./src/prng.ts",
-    "./src/types.js": "./src/types.ts"
+    "./src/types.js": "./src/types.ts",
+    "./src/hex.js": "./src/hex.ts"
   },
   "dependencies": {
     "@autobattler/data": "*"

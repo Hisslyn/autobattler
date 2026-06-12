@@ -5,11 +5,17 @@
     "breakpoints": [
       {
         "count": 2,
-        "effect": { "stat": "armor", "value": 200 }
+        "effect": {
+          "stat": "armor",
+          "value": 200
+        }
       },
       {
         "count": 4,
-        "effect": { "stat": "armor", "value": 500 }
+        "effect": {
+          "stat": "armor",
+          "value": 500
+        }
       }
     ]
   },
@@ -19,11 +25,77 @@
     "breakpoints": [
       {
         "count": 2,
-        "effect": { "stat": "abilityDamage", "value": 200 }
+        "effect": {
+          "stat": "abilityDamage",
+          "value": 200
+        }
       },
       {
         "count": 4,
-        "effect": { "stat": "abilityDamage", "value": 500 }
+        "effect": {
+          "stat": "abilityDamage",
+          "value": 500
+        }
+      }
+    ]
+  },
+  {
+    "id": "ranger",
+    "name": "Ranger",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "as",
+          "value": 150
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "as",
+          "value": 350
+        }
+      }
+    ]
+  },
+  {
+    "id": "assassin",
+    "name": "Assassin",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "ad",
+          "value": 40
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "ad",
+          "value": 100
+        }
+      }
+    ]
+  },
+  {
+    "id": "holy",
+    "name": "Holy",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "mr",
+          "value": 150
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "mr",
+          "value": 350
+        }
       }
     ]
   }

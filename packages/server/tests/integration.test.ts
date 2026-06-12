@@ -96,7 +96,8 @@ describe("integration: 2 humans + 6 bots full match", () => {
     function autoReady(ws: WebSocket): void {
       ws.on("message", (data: Buffer | string) => {
         const msg = decodeS2C(typeof data === "string" ? data : data.toString());
-        if (msg?.type === "PHASE_CHANGE" && msg.phase === "PLANNING") {
+        // READY skips both the planning wait and the resolution pause
+        if (msg?.type === "PHASE_CHANGE" && (msg.phase === "PLANNING" || msg.phase === "RESOLUTION")) {
           setTimeout(() => sendRaw(ws, { type: "READY" }), 30);
         }
       });
@@ -117,6 +118,66 @@ describe("integration: 2 humans + 6 bots full match", () => {
     expect(end1!.placements).toHaveLength(8);
     expect(end1!.placements).toEqual(end2!.placements);
   }, 60_000);
+});
+
+describe("reconnect: token restores seat mid-match", () => {
+  let proc: ChildProcess;
+  let port: number;
+
+  beforeAll(async () => {
+    port = await getFreePort();
+    proc = launchServer(port);
+    await waitForPort(port, 8000);
+  }, 15_000);
+
+  afterAll(() => { proc.kill(); });
+
+  it("client drops, reconnects with RECONNECT {token}, receives snapshot with its seat", async () => {
+    const ws1 = new WebSocket(`ws://localhost:${port}`);
+    const ws2 = new WebSocket(`ws://localhost:${port}`);
+    await Promise.all([waitOpen(ws1), waitOpen(ws2)]);
+
+    // ws2 keeps the match alive by auto-readying
+    ws2.on("message", (data: Buffer | string) => {
+      const msg = decodeS2C(typeof data === "string" ? data : data.toString());
+      if (msg?.type === "PHASE_CHANGE" && (msg.phase === "PLANNING" || msg.phase === "RESOLUTION")) {
+        setTimeout(() => sendRaw(ws2, { type: "READY" }), 30);
+      }
+    });
+
+    const found1 = collectUntil(ws1, "MATCH_FOUND", 15_000);
+    sendRaw(ws1, { type: "QUEUE_JOIN" });
+    sendRaw(ws2, { type: "QUEUE_JOIN" });
+    const msgs1 = await found1;
+    const found = msgs1.find((m) => m.type === "MATCH_FOUND") as
+      | { type: "MATCH_FOUND"; token: string; seatIndex: number }
+      | undefined;
+    expect(found, "client 1 did not receive MATCH_FOUND").toBeDefined();
+    const { token, seatIndex } = found!;
+
+    // Play one round, then drop the socket
+    const roundDone = collectUntil(ws1, "PHASE_CHANGE", 10_000);
+    sendRaw(ws1, { type: "READY" });
+    await roundDone;
+    const closed = waitClose(ws1);
+    ws1.close();
+    await closed;
+
+    // Fresh connection + RECONNECT with the original token
+    const ws1b = new WebSocket(`ws://localhost:${port}`);
+    await waitOpen(ws1b);
+    const snapPromise = collectUntil(ws1b, "STATE_SNAPSHOT", 10_000);
+    sendRaw(ws1b, { type: "RECONNECT", token });
+    const msgs = await snapPromise;
+    ws1b.close();
+    ws2.close();
+
+    const snap = msgs.find((m) => m.type === "STATE_SNAPSHOT") as
+      | { type: "STATE_SNAPSHOT"; state: { me: { id: number } } }
+      | undefined;
+    expect(snap, "reconnected client did not receive STATE_SNAPSHOT").toBeDefined();
+    expect(snap!.state.me.id).toBe(seatIndex);
+  }, 40_000);
 });
 
 describe("rate limit: flood disconnects client", () => {
@@ -153,8 +214,7 @@ describe("rate limit: flood disconnects client", () => {
     await closedPromise;
 
     const rateLimitError = msgs.find(
-      (m): m is { type: "ERROR"; code: string; message: string } =>
-        m.type === "ERROR" && (m as { code: string }).code === "RATE_LIMITED"
+      (m) => m.type === "ERROR" && m.code === "RATE_LIMITED"
     );
     expect(rateLimitError).toBeDefined();
   }, 10_000);

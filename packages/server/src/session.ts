@@ -59,6 +59,29 @@ export function findSessionByToken(token: string): Session | undefined {
   return id ? sessions.get(id) : undefined;
 }
 
+// Seat tokens survive disconnects: token → seat mapping is kept until the
+// match ends so RECONNECT can restore the seat from a fresh connection.
+export interface SeatClaim {
+  roomId: string;
+  seatIndex: number;
+}
+
+const tokenToSeat = new Map<string, SeatClaim>();
+
+export function registerSeatToken(token: string, roomId: string, seatIndex: number): void {
+  tokenToSeat.set(token, { roomId, seatIndex });
+}
+
+export function findSeatByToken(token: string): SeatClaim | undefined {
+  return tokenToSeat.get(token);
+}
+
+export function clearRoomSeatTokens(roomId: string): void {
+  for (const [token, claim] of tokenToSeat) {
+    if (claim.roomId === roomId) tokenToSeat.delete(token);
+  }
+}
+
 export function send(session: Session, msg: S2CMessage): void {
   if (session.ws.readyState === 1 /* OPEN */) {
     session.ws.send(encode(msg));

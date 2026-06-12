@@ -17,6 +17,12 @@ export const C = {
   bgOverlay:   0x000000,
   bgPanel:     0x10151e,
   bgScout:     0x0e1420,
+  bgBoardSel:  0x1a3a5a,
+  bgBenchSel:  0x1a3050,
+  bgSellZone:  0x280808,
+  bgCloseBtn:  0x2a1a1a,
+  bgContinue:  0x1a3020,
+  bgMenuBtn:   0x2a2a3a,
 
   // Tier colors — desaturated
   tier1: 0x7a7a8a,
@@ -50,6 +56,8 @@ export const C = {
   textToast:    0xcc6666,
   textCombat:   0xcc7040,
   textBanner:   0xb0c8e0,
+  textLabel:    0xbbc4d0,
+  textDimmed:   0x666677,
 
   // Trait tracker
   traitActive:  0x3a6a3a,
