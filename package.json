@@ -1,0 +1,16 @@
+{
+  "name": "autobattler",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "test": "vitest run --reporter=verbose",
+    "typecheck": "tsc --build",
+    "dev": "npm run dev --workspace=packages/client",
+    "server": "tsx packages/server/src/index.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0",
+    "tsx": "^4.11.2"
+  }
+}

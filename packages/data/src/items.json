@@ -1,0 +1,17 @@
+[
+  {
+    "id": "iron_sword",
+    "name": "Iron Sword",
+    "stats": { "ad": 100 }
+  },
+  {
+    "id": "chain_vest",
+    "name": "Chain Vest",
+    "stats": { "armor": 200 }
+  },
+  {
+    "id": "mana_crystal",
+    "name": "Mana Crystal",
+    "stats": { "mana": 30, "abilityDamage": 50 }
+  }
+]

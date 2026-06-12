@@ -1,0 +1,30 @@
+{
+  "poolCounts": { "1": 29, "2": 22, "3": 18, "4": 12, "5": 10 },
+  "shopOdds": [
+    [100,   0,   0,   0,   0],
+    [ 70,  30,   0,   0,   0],
+    [ 60,  35,   5,   0,   0],
+    [ 50,  35,  15,   0,   0],
+    [ 40,  35,  20,   5,   0],
+    [ 30,  35,  25,  10,   0],
+    [ 19,  35,  30,  15,   1],
+    [ 15,  25,  35,  20,   5],
+    [ 10,  20,  30,  30,  10]
+  ],
+  "shopSlots": 5,
+  "rerollCost": 2,
+  "xpBuyCost": 4,
+  "xpBuyAmount": 4,
+  "levelXpThresholds": [0, 2, 6, 12, 20, 32, 50, 76, 110],
+  "interestCap": 5,
+  "interestPer": 10,
+  "baseIncome": 5,
+  "streakTable": [
+    { "min": 0, "max": 1, "bonus": 0 },
+    { "min": 2, "max": 2, "bonus": 1 },
+    { "min": 3, "max": 4, "bonus": 2 },
+    { "min": 5, "max": 99, "bonus": 3 }
+  ],
+  "damageBase": 2,
+  "damageTierWeights": { "1": 1, "2": 2, "3": 3, "4": 4, "5": 5 }
+}

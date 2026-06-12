@@ -1,0 +1,30 @@
+[
+  {
+    "id": "knight",
+    "name": "Knight",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": { "stat": "armor", "value": 200 }
+      },
+      {
+        "count": 4,
+        "effect": { "stat": "armor", "value": 500 }
+      }
+    ]
+  },
+  {
+    "id": "sorcerer",
+    "name": "Sorcerer",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": { "stat": "abilityDamage", "value": 200 }
+      },
+      {
+        "count": 4,
+        "effect": { "stat": "abilityDamage", "value": 500 }
+      }
+    ]
+  }
+]

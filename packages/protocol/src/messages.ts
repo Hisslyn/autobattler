@@ -1,0 +1,66 @@
+// Client → Server message types
+export type C2SType = "QUEUE_JOIN" | "QUEUE_LEAVE" | "CMD" | "READY" | "PING";
+
+export interface C2S_QueueJoin { type: "QUEUE_JOIN" }
+export interface C2S_QueueLeave { type: "QUEUE_LEAVE" }
+export interface C2S_Cmd {
+  type: "CMD";
+  cmd: {
+    type: string;
+    [key: string]: unknown;
+  };
+}
+export interface C2S_Ready { type: "READY" }
+export interface C2S_Ping { type: "PING"; ts: number }
+
+export type C2SMessage = C2S_QueueJoin | C2S_QueueLeave | C2S_Cmd | C2S_Ready | C2S_Ping;
+
+// Server → Client message types
+export type S2CType =
+  | "QUEUE_STATUS"
+  | "MATCH_FOUND"
+  | "STATE_SNAPSHOT"
+  | "STATE_DELTA"
+  | "PHASE_CHANGE"
+  | "COMBAT_START"
+  | "COMBAT_RESULT"
+  | "MATCH_END"
+  | "ERROR"
+  | "PONG";
+
+export interface S2C_QueueStatus { type: "QUEUE_STATUS"; position: number; size: number }
+export interface S2C_MatchFound { type: "MATCH_FOUND"; roomId: string; token: string; seatIndex: number }
+export interface S2C_StateSnapshot { type: "STATE_SNAPSHOT"; state: unknown }
+export interface S2C_StateDelta { type: "STATE_DELTA"; delta: unknown }
+export interface S2C_PhaseChange { type: "PHASE_CHANGE"; phase: string; round: number; endsAt: number }
+export interface S2C_CombatStart {
+  type: "COMBAT_START";
+  pairings: [number, number][];
+  opponentSnapshots: Record<number, unknown>;
+  seed: number;
+}
+export interface S2C_CombatResult { type: "COMBAT_RESULT"; results: unknown }
+export interface S2C_MatchEnd { type: "MATCH_END"; placements: number[] }
+export interface S2C_Error { type: "ERROR"; code: ErrorCode; message: string }
+export interface S2C_Pong { type: "PONG"; ts: number; serverTs: number }
+
+export type S2CMessage =
+  | S2C_QueueStatus
+  | S2C_MatchFound
+  | S2C_StateSnapshot
+  | S2C_StateDelta
+  | S2C_PhaseChange
+  | S2C_CombatStart
+  | S2C_CombatResult
+  | S2C_MatchEnd
+  | S2C_Error
+  | S2C_Pong;
+
+export type ErrorCode =
+  | "INVALID_MESSAGE"
+  | "NOT_IN_MATCH"
+  | "WRONG_PHASE"
+  | "WRONG_SEAT"
+  | "COMMAND_REJECTED"
+  | "RATE_LIMITED"
+  | "ALREADY_QUEUED";

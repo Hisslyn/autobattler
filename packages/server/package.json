@@ -1,0 +1,19 @@
+{
+  "name": "@autobattler/server",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@autobattler/data": "*",
+    "@autobattler/protocol": "*",
+    "@autobattler/rules": "*",
+    "@autobattler/sim": "*",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10"
+  }
+}

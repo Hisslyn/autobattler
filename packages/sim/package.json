@@ -1,0 +1,14 @@
+{
+  "name": "@autobattler/sim",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/engine.ts",
+  "exports": {
+    ".": "./src/engine.ts",
+    "./src/prng.js": "./src/prng.ts",
+    "./src/types.js": "./src/types.ts"
+  },
+  "dependencies": {
+    "@autobattler/data": "*"
+  }
+}

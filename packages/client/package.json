@@ -1,0 +1,21 @@
+{
+  "name": "@autobattler/client",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@autobattler/data": "*",
+    "@autobattler/protocol": "*",
+    "@autobattler/rules": "*",
+    "@autobattler/sim": "*",
+    "pixi.js": "^8.9.2"
+  },
+  "devDependencies": {
+    "vite": "^5.4.19"
+  }
+}

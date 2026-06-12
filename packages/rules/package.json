@@ -1,0 +1,20 @@
+{
+  "name": "@autobattler/rules",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/match.ts",
+  "exports": {
+    ".": "./src/match.ts",
+    "./src/commands.js": "./src/commands.ts",
+    "./src/state.js": "./src/state.ts",
+    "./src/economy.js": "./src/economy.ts",
+    "./src/rounds.js": "./src/rounds.ts",
+    "./src/pool.js": "./src/pool.ts",
+    "./src/shop.js": "./src/shop.ts",
+    "./src/ai.js": "./src/ai.ts"
+  },
+  "dependencies": {
+    "@autobattler/data": "*",
+    "@autobattler/sim": "*"
+  }
+}
