@@ -115,7 +115,7 @@ describe("overtime", () => {
     // Team 0 units have more per-unit HP, so the ramp kills team 1 first
     const result = simulateCombat(makeTankBoard(0, 120_000), makeTankBoard(1, 100_000), 99, gameData);
 
-    const overtimeEvents = result.events.filter((e) => e.type === "overtime");
+    const overtimeEvents = result.events.filter((e) => e.type === "overtime_start");
     expect(overtimeEvents.length).toBe(1);
     expect(overtimeEvents[0]!.tick).toBe(1200);
     expect(result.ticks).toBeGreaterThan(1200);
@@ -167,10 +167,11 @@ describe("trait breakpoints count unique units", () => {
     const boardB: BoardState = { units: [attacker] };
     const result = simulateCombat(boardA, boardB, 42, gameData);
     const firstAttack = result.events.find(
-      (e) => e.type === "attack" && e.sourceUid === 100 && e.crit === false
+      (e): e is Extract<typeof e, { type: "attack" }> =>
+        e.type === "attack" && e.uid === 100 && e.crit === false
     );
     expect(firstAttack).toBeDefined();
-    return firstAttack!.value!;
+    return firstAttack!.dmg;
   }
 
   it("2 copies of one knight do NOT activate knight(2)", () => {

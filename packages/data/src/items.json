@@ -2,16 +2,542 @@
   {
     "id": "iron_sword",
     "name": "Iron Sword",
-    "stats": { "ad": 100 }
+    "stats": {
+      "ad": 100
+    },
+    "component": true
   },
   {
     "id": "chain_vest",
     "name": "Chain Vest",
-    "stats": { "armor": 200 }
+    "stats": {
+      "armor": 200
+    },
+    "component": true
   },
   {
     "id": "mana_crystal",
     "name": "Mana Crystal",
-    "stats": { "mana": 30, "abilityDamage": 50 }
+    "stats": {
+      "mana": 30,
+      "abilityDamage": 50
+    },
+    "component": true
+  },
+  {
+    "id": "recurve_bow",
+    "name": "Recurve Bow",
+    "stats": {
+      "as": 150
+    },
+    "component": true
+  },
+  {
+    "id": "negatron_cloak",
+    "name": "Negatron Cloak",
+    "stats": {
+      "mr": 150
+    },
+    "component": true
+  },
+  {
+    "id": "giants_belt",
+    "name": "Giant's Belt",
+    "stats": {
+      "hp": 400
+    },
+    "component": true
+  },
+  {
+    "id": "sorcerer_rod",
+    "name": "Sorcerer Rod",
+    "stats": {
+      "abilityDamage": 100
+    },
+    "component": true
+  },
+  {
+    "id": "sparring_gloves",
+    "name": "Sparring Gloves",
+    "stats": {
+      "ad": 40,
+      "as": 80
+    },
+    "component": true
+  },
+  {
+    "id": "tear_flask",
+    "name": "Tear Flask",
+    "stats": {
+      "mana": 20,
+      "hp": 200
+    },
+    "component": true
+  },
+  {
+    "id": "iron_sword__chain_vest",
+    "name": "Iron Sword + Chain Vest",
+    "stats": {
+      "ad": 100,
+      "armor": 200
+    },
+    "recipe": [
+      "iron_sword",
+      "chain_vest"
+    ]
+  },
+  {
+    "id": "iron_sword__mana_crystal",
+    "name": "Iron Sword + Mana Crystal",
+    "stats": {
+      "ad": 100,
+      "mana": 30,
+      "abilityDamage": 50
+    },
+    "recipe": [
+      "iron_sword",
+      "mana_crystal"
+    ]
+  },
+  {
+    "id": "iron_sword__recurve_bow",
+    "name": "Iron Sword + Recurve Bow",
+    "stats": {
+      "ad": 100,
+      "as": 150
+    },
+    "recipe": [
+      "iron_sword",
+      "recurve_bow"
+    ]
+  },
+  {
+    "id": "iron_sword__negatron_cloak",
+    "name": "Iron Sword + Negatron Cloak",
+    "stats": {
+      "ad": 100,
+      "mr": 150
+    },
+    "recipe": [
+      "iron_sword",
+      "negatron_cloak"
+    ]
+  },
+  {
+    "id": "iron_sword__giants_belt",
+    "name": "Iron Sword + Giant's Belt",
+    "stats": {
+      "ad": 100,
+      "hp": 400
+    },
+    "recipe": [
+      "iron_sword",
+      "giants_belt"
+    ]
+  },
+  {
+    "id": "iron_sword__sorcerer_rod",
+    "name": "Iron Sword + Sorcerer Rod",
+    "stats": {
+      "ad": 100,
+      "abilityDamage": 100
+    },
+    "recipe": [
+      "iron_sword",
+      "sorcerer_rod"
+    ],
+    "passive": {
+      "kind": "burn",
+      "value": 30,
+      "duration": 40
+    }
+  },
+  {
+    "id": "iron_sword__sparring_gloves",
+    "name": "Iron Sword + Sparring Gloves",
+    "stats": {
+      "ad": 140,
+      "as": 80
+    },
+    "recipe": [
+      "iron_sword",
+      "sparring_gloves"
+    ]
+  },
+  {
+    "id": "iron_sword__tear_flask",
+    "name": "Iron Sword + Tear Flask",
+    "stats": {
+      "ad": 100,
+      "mana": 20,
+      "hp": 200
+    },
+    "recipe": [
+      "iron_sword",
+      "tear_flask"
+    ]
+  },
+  {
+    "id": "chain_vest__mana_crystal",
+    "name": "Chain Vest + Mana Crystal",
+    "stats": {
+      "armor": 200,
+      "mana": 30,
+      "abilityDamage": 50
+    },
+    "recipe": [
+      "chain_vest",
+      "mana_crystal"
+    ]
+  },
+  {
+    "id": "chain_vest__recurve_bow",
+    "name": "Chain Vest + Recurve Bow",
+    "stats": {
+      "armor": 200,
+      "as": 150
+    },
+    "recipe": [
+      "chain_vest",
+      "recurve_bow"
+    ]
+  },
+  {
+    "id": "chain_vest__negatron_cloak",
+    "name": "Chain Vest + Negatron Cloak",
+    "stats": {
+      "armor": 200,
+      "mr": 150
+    },
+    "recipe": [
+      "chain_vest",
+      "negatron_cloak"
+    ]
+  },
+  {
+    "id": "chain_vest__giants_belt",
+    "name": "Chain Vest + Giant's Belt",
+    "stats": {
+      "armor": 200,
+      "hp": 400
+    },
+    "recipe": [
+      "chain_vest",
+      "giants_belt"
+    ],
+    "passive": {
+      "kind": "shield",
+      "value": 350,
+      "duration": 100
+    }
+  },
+  {
+    "id": "chain_vest__sorcerer_rod",
+    "name": "Chain Vest + Sorcerer Rod",
+    "stats": {
+      "armor": 200,
+      "abilityDamage": 100
+    },
+    "recipe": [
+      "chain_vest",
+      "sorcerer_rod"
+    ]
+  },
+  {
+    "id": "chain_vest__sparring_gloves",
+    "name": "Chain Vest + Sparring Gloves",
+    "stats": {
+      "armor": 200,
+      "ad": 40,
+      "as": 80
+    },
+    "recipe": [
+      "chain_vest",
+      "sparring_gloves"
+    ]
+  },
+  {
+    "id": "chain_vest__tear_flask",
+    "name": "Chain Vest + Tear Flask",
+    "stats": {
+      "armor": 200,
+      "mana": 20,
+      "hp": 200
+    },
+    "recipe": [
+      "chain_vest",
+      "tear_flask"
+    ]
+  },
+  {
+    "id": "mana_crystal__recurve_bow",
+    "name": "Mana Crystal + Recurve Bow",
+    "stats": {
+      "mana": 30,
+      "abilityDamage": 50,
+      "as": 150
+    },
+    "recipe": [
+      "mana_crystal",
+      "recurve_bow"
+    ]
+  },
+  {
+    "id": "mana_crystal__negatron_cloak",
+    "name": "Mana Crystal + Negatron Cloak",
+    "stats": {
+      "mana": 30,
+      "abilityDamage": 50,
+      "mr": 150
+    },
+    "recipe": [
+      "mana_crystal",
+      "negatron_cloak"
+    ]
+  },
+  {
+    "id": "mana_crystal__giants_belt",
+    "name": "Mana Crystal + Giant's Belt",
+    "stats": {
+      "mana": 30,
+      "abilityDamage": 50,
+      "hp": 400
+    },
+    "recipe": [
+      "mana_crystal",
+      "giants_belt"
+    ]
+  },
+  {
+    "id": "mana_crystal__sorcerer_rod",
+    "name": "Mana Crystal + Sorcerer Rod",
+    "stats": {
+      "mana": 30,
+      "abilityDamage": 150
+    },
+    "recipe": [
+      "mana_crystal",
+      "sorcerer_rod"
+    ]
+  },
+  {
+    "id": "mana_crystal__sparring_gloves",
+    "name": "Mana Crystal + Sparring Gloves",
+    "stats": {
+      "mana": 30,
+      "abilityDamage": 50,
+      "ad": 40,
+      "as": 80
+    },
+    "recipe": [
+      "mana_crystal",
+      "sparring_gloves"
+    ]
+  },
+  {
+    "id": "mana_crystal__tear_flask",
+    "name": "Mana Crystal + Tear Flask",
+    "stats": {
+      "mana": 50,
+      "abilityDamage": 50,
+      "hp": 200
+    },
+    "recipe": [
+      "mana_crystal",
+      "tear_flask"
+    ]
+  },
+  {
+    "id": "recurve_bow__negatron_cloak",
+    "name": "Recurve Bow + Negatron Cloak",
+    "stats": {
+      "as": 150,
+      "mr": 150
+    },
+    "recipe": [
+      "recurve_bow",
+      "negatron_cloak"
+    ]
+  },
+  {
+    "id": "recurve_bow__giants_belt",
+    "name": "Recurve Bow + Giant's Belt",
+    "stats": {
+      "as": 150,
+      "hp": 400
+    },
+    "recipe": [
+      "recurve_bow",
+      "giants_belt"
+    ]
+  },
+  {
+    "id": "recurve_bow__sorcerer_rod",
+    "name": "Recurve Bow + Sorcerer Rod",
+    "stats": {
+      "as": 150,
+      "abilityDamage": 100
+    },
+    "recipe": [
+      "recurve_bow",
+      "sorcerer_rod"
+    ]
+  },
+  {
+    "id": "recurve_bow__sparring_gloves",
+    "name": "Recurve Bow + Sparring Gloves",
+    "stats": {
+      "as": 230,
+      "ad": 40
+    },
+    "recipe": [
+      "recurve_bow",
+      "sparring_gloves"
+    ]
+  },
+  {
+    "id": "recurve_bow__tear_flask",
+    "name": "Recurve Bow + Tear Flask",
+    "stats": {
+      "as": 150,
+      "mana": 20,
+      "hp": 200
+    },
+    "recipe": [
+      "recurve_bow",
+      "tear_flask"
+    ]
+  },
+  {
+    "id": "negatron_cloak__giants_belt",
+    "name": "Negatron Cloak + Giant's Belt",
+    "stats": {
+      "mr": 150,
+      "hp": 400
+    },
+    "recipe": [
+      "negatron_cloak",
+      "giants_belt"
+    ]
+  },
+  {
+    "id": "negatron_cloak__sorcerer_rod",
+    "name": "Negatron Cloak + Sorcerer Rod",
+    "stats": {
+      "mr": 150,
+      "abilityDamage": 100
+    },
+    "recipe": [
+      "negatron_cloak",
+      "sorcerer_rod"
+    ],
+    "passive": {
+      "kind": "burn",
+      "value": 25,
+      "duration": 60
+    }
+  },
+  {
+    "id": "negatron_cloak__sparring_gloves",
+    "name": "Negatron Cloak + Sparring Gloves",
+    "stats": {
+      "mr": 150,
+      "ad": 40,
+      "as": 80
+    },
+    "recipe": [
+      "negatron_cloak",
+      "sparring_gloves"
+    ]
+  },
+  {
+    "id": "negatron_cloak__tear_flask",
+    "name": "Negatron Cloak + Tear Flask",
+    "stats": {
+      "mr": 150,
+      "mana": 20,
+      "hp": 200
+    },
+    "recipe": [
+      "negatron_cloak",
+      "tear_flask"
+    ]
+  },
+  {
+    "id": "giants_belt__sorcerer_rod",
+    "name": "Giant's Belt + Sorcerer Rod",
+    "stats": {
+      "hp": 400,
+      "abilityDamage": 100
+    },
+    "recipe": [
+      "giants_belt",
+      "sorcerer_rod"
+    ]
+  },
+  {
+    "id": "giants_belt__sparring_gloves",
+    "name": "Giant's Belt + Sparring Gloves",
+    "stats": {
+      "hp": 400,
+      "ad": 40,
+      "as": 80
+    },
+    "recipe": [
+      "giants_belt",
+      "sparring_gloves"
+    ]
+  },
+  {
+    "id": "giants_belt__tear_flask",
+    "name": "Giant's Belt + Tear Flask",
+    "stats": {
+      "hp": 600,
+      "mana": 20
+    },
+    "recipe": [
+      "giants_belt",
+      "tear_flask"
+    ]
+  },
+  {
+    "id": "sorcerer_rod__sparring_gloves",
+    "name": "Sorcerer Rod + Sparring Gloves",
+    "stats": {
+      "abilityDamage": 100,
+      "ad": 40,
+      "as": 80
+    },
+    "recipe": [
+      "sorcerer_rod",
+      "sparring_gloves"
+    ]
+  },
+  {
+    "id": "sorcerer_rod__tear_flask",
+    "name": "Sorcerer Rod + Tear Flask",
+    "stats": {
+      "abilityDamage": 100,
+      "mana": 20,
+      "hp": 200
+    },
+    "recipe": [
+      "sorcerer_rod",
+      "tear_flask"
+    ]
+  },
+  {
+    "id": "sparring_gloves__tear_flask",
+    "name": "Sparring Gloves + Tear Flask",
+    "stats": {
+      "ad": 40,
+      "as": 80,
+      "mana": 20,
+      "hp": 200
+    },
+    "recipe": [
+      "sparring_gloves",
+      "tear_flask"
+    ]
   }
 ]

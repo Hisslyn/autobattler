@@ -19,13 +19,15 @@ export class NetDriver implements IDriver {
   private listeners: Array<(e: DriverEvent) => void> = [];
   private mySeat = -1;
 
-  constructor(url: string) {
+  constructor(url: string, authToken?: string) {
     this.net = new NetClient(url);
 
     this.net.on((e) => {
       if (e.type === "connected") {
         // On reconnect NetClient sends RECONNECT itself; only queue fresh connections
-        if (!this.net.seatToken) this.net.send({ type: "QUEUE_JOIN" });
+        if (!this.net.seatToken) {
+          this.net.send(authToken ? { type: "QUEUE_JOIN", authToken } : { type: "QUEUE_JOIN" });
+        }
         return;
       }
       if (e.type === "disconnected") return;
@@ -144,7 +146,7 @@ export class NetDriver implements IDriver {
         }
 
         case "MATCH_END":
-          this.emit({ type: "match_over", placements: e.placements });
+          this.emit({ type: "match_over", placements: e.placements, ...(e.mmr ? { mmr: e.mmr } : {}) });
           break;
 
         case "PONG":
@@ -219,6 +221,10 @@ export class NetDriver implements IDriver {
     if (!result || !this._myPairing) return null;
     if (result.winner === "draw") return "draw";
     return result.winner === this._myPairing.side ? "win" : "loss";
+  }
+
+  combatPlaybackDone(): void {
+    // Server paces phases; playback completion is purely visual here
   }
 
   advanceFromResolution(): void {

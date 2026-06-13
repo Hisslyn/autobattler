@@ -48,6 +48,16 @@ function sendRaw(ws: WebSocket, msg: { type: string; [key: string]: unknown }): 
   ws.send(JSON.stringify({ v: PROTOCOL_VERSION, t: msg.type, p: msg }));
 }
 
+async function authGuest(port: number, deviceId: string, name?: string): Promise<{ accountId: string; token: string }> {
+  const res = await fetch(`http://localhost:${port}/auth/guest`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ deviceId, ...(name ? { name } : {}) }),
+  });
+  if (!res.ok) throw new Error(`auth/guest failed: ${res.status}`);
+  return (await res.json()) as { accountId: string; token: string };
+}
+
 function waitOpen(ws: WebSocket): Promise<void> {
   return new Promise((r, e) => { ws.on("open", r); ws.on("error", e); });
 }
@@ -83,6 +93,10 @@ describe("integration: 2 humans + 6 bots full match", () => {
   afterAll(() => { proc.kill(); });
 
   it("both clients receive MATCH_END with consistent placements", async () => {
+    const [auth1, auth2] = await Promise.all([
+      authGuest(port, "it-dev-1"),
+      authGuest(port, "it-dev-2"),
+    ]);
     const ws1 = new WebSocket(`ws://localhost:${port}`);
     const ws2 = new WebSocket(`ws://localhost:${port}`);
     await Promise.all([waitOpen(ws1), waitOpen(ws2)]);
@@ -90,8 +104,8 @@ describe("integration: 2 humans + 6 bots full match", () => {
     const done1 = collectUntil(ws1, "MATCH_END", 40_000);
     const done2 = collectUntil(ws2, "MATCH_END", 40_000);
 
-    sendRaw(ws1, { type: "QUEUE_JOIN" });
-    sendRaw(ws2, { type: "QUEUE_JOIN" });
+    sendRaw(ws1, { type: "QUEUE_JOIN", authToken: auth1.token });
+    sendRaw(ws2, { type: "QUEUE_JOIN", authToken: auth2.token });
 
     function autoReady(ws: WebSocket): void {
       ws.on("message", (data: Buffer | string) => {
@@ -133,6 +147,10 @@ describe("reconnect: token restores seat mid-match", () => {
   afterAll(() => { proc.kill(); });
 
   it("client drops, reconnects with RECONNECT {token}, receives snapshot with its seat", async () => {
+    const [auth1, auth2] = await Promise.all([
+      authGuest(port, "rc-dev-1"),
+      authGuest(port, "rc-dev-2"),
+    ]);
     const ws1 = new WebSocket(`ws://localhost:${port}`);
     const ws2 = new WebSocket(`ws://localhost:${port}`);
     await Promise.all([waitOpen(ws1), waitOpen(ws2)]);
@@ -146,8 +164,8 @@ describe("reconnect: token restores seat mid-match", () => {
     });
 
     const found1 = collectUntil(ws1, "MATCH_FOUND", 15_000);
-    sendRaw(ws1, { type: "QUEUE_JOIN" });
-    sendRaw(ws2, { type: "QUEUE_JOIN" });
+    sendRaw(ws1, { type: "QUEUE_JOIN", authToken: auth1.token });
+    sendRaw(ws2, { type: "QUEUE_JOIN", authToken: auth2.token });
     const msgs1 = await found1;
     const found = msgs1.find((m) => m.type === "MATCH_FOUND") as
       | { type: "MATCH_FOUND"; token: string; seatIndex: number }

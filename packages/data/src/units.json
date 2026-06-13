@@ -3,6 +3,10 @@
     "id": "warrior",
     "name": "Warrior",
     "tier": 1,
+    "origin": "frost",
+    "classes": [
+      "knight"
+    ],
     "hp": 700,
     "ad": 60,
     "as": 750,
@@ -12,12 +16,26 @@
     "mana": 100,
     "manaStart": 0,
     "abilityDamage": 150,
-    "traits": ["knight"]
+    "ability": {
+      "name": "Cleave",
+      "manaCost": 100,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "frost",
+      "knight"
+    ]
   },
   {
     "id": "archer",
     "name": "Archer",
     "tier": 1,
+    "origin": "forest",
+    "classes": [
+      "ranger"
+    ],
     "hp": 450,
     "ad": 55,
     "as": 900,
@@ -27,12 +45,26 @@
     "mana": 80,
     "manaStart": 0,
     "abilityDamage": 120,
-    "traits": ["ranger"]
+    "ability": {
+      "name": "Piercing Shot",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "forest",
+      "ranger"
+    ]
   },
   {
     "id": "mage",
     "name": "Mage",
     "tier": 1,
+    "origin": "arcane",
+    "classes": [
+      "sorcerer"
+    ],
     "hp": 400,
     "ad": 35,
     "as": 700,
@@ -42,12 +74,26 @@
     "mana": 80,
     "manaStart": 20,
     "abilityDamage": 200,
-    "traits": ["sorcerer"]
+    "ability": {
+      "name": "Arcane Bolt",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "arcane",
+      "sorcerer"
+    ]
   },
   {
     "id": "paladin",
     "name": "Paladin",
     "tier": 1,
+    "origin": "holy",
+    "classes": [
+      "knight"
+    ],
     "hp": 800,
     "ad": 50,
     "as": 650,
@@ -57,12 +103,28 @@
     "mana": 120,
     "manaStart": 0,
     "abilityDamage": 130,
-    "traits": ["knight", "holy"]
+    "ability": {
+      "name": "Holy Barrier",
+      "manaCost": 120,
+      "effect": {
+        "kind": "shield",
+        "amount": 360,
+        "duration": 80
+      }
+    },
+    "traits": [
+      "holy",
+      "knight"
+    ]
   },
   {
     "id": "rogue",
     "name": "Rogue",
     "tier": 1,
+    "origin": "shadow",
+    "classes": [
+      "assassin"
+    ],
     "hp": 480,
     "ad": 70,
     "as": 1000,
@@ -72,12 +134,27 @@
     "mana": 60,
     "manaStart": 0,
     "abilityDamage": 140,
-    "traits": ["assassin"]
+    "ability": {
+      "name": "Ambush",
+      "manaCost": 60,
+      "effect": {
+        "kind": "stealth",
+        "duration": 60
+      }
+    },
+    "traits": [
+      "shadow",
+      "assassin"
+    ]
   },
   {
     "id": "cleric",
     "name": "Cleric",
     "tier": 1,
+    "origin": "holy",
+    "classes": [
+      "sorcerer"
+    ],
     "hp": 500,
     "ad": 40,
     "as": 700,
@@ -87,12 +164,29 @@
     "mana": 100,
     "manaStart": 30,
     "abilityDamage": 110,
-    "traits": ["holy", "sorcerer"]
+    "ability": {
+      "name": "Blessing",
+      "manaCost": 100,
+      "effect": {
+        "kind": "buff",
+        "stat": "ad",
+        "value": 25,
+        "duration": 100
+      }
+    },
+    "traits": [
+      "holy",
+      "sorcerer"
+    ]
   },
   {
     "id": "knight_errant",
     "name": "Knight Errant",
     "tier": 2,
+    "origin": "celestial",
+    "classes": [
+      "knight"
+    ],
     "hp": 950,
     "ad": 80,
     "as": 700,
@@ -102,12 +196,29 @@
     "mana": 100,
     "manaStart": 0,
     "abilityDamage": 200,
-    "traits": ["knight"]
+    "ability": {
+      "name": "Bulwark",
+      "manaCost": 100,
+      "effect": {
+        "kind": "shield",
+        "amount": 430,
+        "duration": 80
+      }
+    },
+    "traits": [
+      "celestial",
+      "knight"
+    ]
   },
   {
     "id": "ranger",
     "name": "Ranger",
     "tier": 2,
+    "origin": "beast",
+    "classes": [
+      "ranger",
+      "assassin"
+    ],
     "hp": 620,
     "ad": 75,
     "as": 950,
@@ -117,12 +228,27 @@
     "mana": 80,
     "manaStart": 10,
     "abilityDamage": 170,
-    "traits": ["ranger", "assassin"]
+    "ability": {
+      "name": "Hunter's Mark",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "beast",
+      "ranger",
+      "assassin"
+    ]
   },
   {
     "id": "archmage",
     "name": "Archmage",
     "tier": 2,
+    "origin": "arcane",
+    "classes": [
+      "sorcerer"
+    ],
     "hp": 550,
     "ad": 45,
     "as": 700,
@@ -132,12 +258,26 @@
     "mana": 80,
     "manaStart": 30,
     "abilityDamage": 300,
-    "traits": ["sorcerer"]
+    "ability": {
+      "name": "Arcane Surge",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "arcane",
+      "sorcerer"
+    ]
   },
   {
     "id": "templar",
     "name": "Templar",
     "tier": 3,
+    "origin": "holy",
+    "classes": [
+      "knight"
+    ],
     "hp": 1300,
     "ad": 110,
     "as": 700,
@@ -147,12 +287,28 @@
     "mana": 120,
     "manaStart": 0,
     "abilityDamage": 280,
-    "traits": ["knight", "holy"]
+    "ability": {
+      "name": "Aegis",
+      "manaCost": 120,
+      "effect": {
+        "kind": "shield",
+        "amount": 590,
+        "duration": 80
+      }
+    },
+    "traits": [
+      "holy",
+      "knight"
+    ]
   },
   {
     "id": "shadowblade",
     "name": "Shadowblade",
     "tier": 3,
+    "origin": "shadow",
+    "classes": [
+      "assassin"
+    ],
     "hp": 750,
     "ad": 120,
     "as": 1100,
@@ -162,12 +318,27 @@
     "mana": 60,
     "manaStart": 20,
     "abilityDamage": 250,
-    "traits": ["assassin"]
+    "ability": {
+      "name": "Vanish",
+      "manaCost": 60,
+      "effect": {
+        "kind": "stealth",
+        "duration": 60
+      }
+    },
+    "traits": [
+      "shadow",
+      "assassin"
+    ]
   },
   {
     "id": "sage",
     "name": "Sage",
     "tier": 3,
+    "origin": "holy",
+    "classes": [
+      "sorcerer"
+    ],
     "hp": 700,
     "ad": 60,
     "as": 700,
@@ -177,6 +348,1213 @@
     "mana": 80,
     "manaStart": 40,
     "abilityDamage": 450,
-    "traits": ["sorcerer", "holy"]
+    "ability": {
+      "name": "Immolate",
+      "manaCost": 80,
+      "effect": {
+        "kind": "burn",
+        "burn": 70,
+        "duration": 60
+      }
+    },
+    "traits": [
+      "holy",
+      "sorcerer"
+    ]
+  },
+  {
+    "id": "footman",
+    "name": "Footman",
+    "tier": 1,
+    "origin": "dragon",
+    "classes": [
+      "warden"
+    ],
+    "hp": 850,
+    "ad": 50,
+    "as": 600,
+    "armor": 55,
+    "mr": 45,
+    "range": 1,
+    "mana": 120,
+    "manaStart": 0,
+    "abilityDamage": 140,
+    "ability": {
+      "name": "Brace",
+      "manaCost": 120,
+      "effect": {
+        "kind": "shield",
+        "amount": 380,
+        "duration": 80
+      }
+    },
+    "traits": [
+      "dragon",
+      "warden"
+    ]
+  },
+  {
+    "id": "scout",
+    "name": "Scout",
+    "tier": 1,
+    "origin": "storm",
+    "classes": [
+      "gunner"
+    ],
+    "hp": 520,
+    "ad": 60,
+    "as": 850,
+    "armor": 22,
+    "mr": 22,
+    "range": 3,
+    "mana": 80,
+    "manaStart": 0,
+    "abilityDamage": 150,
+    "ability": {
+      "name": "Snipe",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "storm",
+      "gunner"
+    ]
+  },
+  {
+    "id": "acolyte",
+    "name": "Acolyte",
+    "tier": 1,
+    "origin": "undead",
+    "classes": [
+      "mystic"
+    ],
+    "hp": 460,
+    "ad": 35,
+    "as": 650,
+    "armor": 18,
+    "mr": 32,
+    "range": 2,
+    "mana": 80,
+    "manaStart": 25,
+    "abilityDamage": 230,
+    "ability": {
+      "name": "Hex",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "undead",
+      "mystic"
+    ]
+  },
+  {
+    "id": "brawler",
+    "name": "Brawler",
+    "tier": 1,
+    "origin": "beast",
+    "classes": [
+      "berserker"
+    ],
+    "hp": 720,
+    "ad": 70,
+    "as": 700,
+    "armor": 38,
+    "mr": 28,
+    "range": 1,
+    "mana": 100,
+    "manaStart": 0,
+    "abilityDamage": 170,
+    "ability": {
+      "name": "Rage",
+      "manaCost": 100,
+      "effect": {
+        "kind": "buff",
+        "stat": "ad",
+        "value": 40,
+        "duration": 100
+      }
+    },
+    "traits": [
+      "beast",
+      "berserker"
+    ]
+  },
+  {
+    "id": "squire",
+    "name": "Squire",
+    "tier": 1,
+    "origin": "elemental",
+    "classes": [
+      "knight"
+    ],
+    "hp": 720,
+    "ad": 70,
+    "as": 700,
+    "armor": 38,
+    "mr": 28,
+    "range": 1,
+    "mana": 100,
+    "manaStart": 0,
+    "abilityDamage": 170,
+    "ability": {
+      "name": "Shield Bash",
+      "manaCost": 100,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "elemental",
+      "knight"
+    ]
+  },
+  {
+    "id": "cutpurse",
+    "name": "Cutpurse",
+    "tier": 1,
+    "origin": "shadow",
+    "classes": [
+      "assassin",
+      "duelist"
+    ],
+    "hp": 560,
+    "ad": 80,
+    "as": 1000,
+    "armor": 22,
+    "mr": 22,
+    "range": 1,
+    "mana": 60,
+    "manaStart": 0,
+    "abilityDamage": 170,
+    "ability": {
+      "name": "Backstab",
+      "manaCost": 60,
+      "effect": {
+        "kind": "stealth",
+        "duration": 60
+      }
+    },
+    "traits": [
+      "shadow",
+      "assassin",
+      "duelist"
+    ]
+  },
+  {
+    "id": "novice",
+    "name": "Novice",
+    "tier": 1,
+    "origin": "arcane",
+    "classes": [
+      "summoner"
+    ],
+    "hp": 460,
+    "ad": 35,
+    "as": 650,
+    "armor": 18,
+    "mr": 32,
+    "range": 2,
+    "mana": 80,
+    "manaStart": 25,
+    "abilityDamage": 230,
+    "ability": {
+      "name": "Summon Bolt",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "arcane",
+      "summoner"
+    ]
+  },
+  {
+    "id": "sentinel",
+    "name": "Sentinel",
+    "tier": 2,
+    "origin": "frost",
+    "classes": [
+      "warden",
+      "knight"
+    ],
+    "hp": 1150,
+    "ad": 70,
+    "as": 600,
+    "armor": 63,
+    "mr": 51,
+    "range": 1,
+    "mana": 120,
+    "manaStart": 0,
+    "abilityDamage": 190,
+    "ability": {
+      "name": "Frost Ward",
+      "manaCost": 120,
+      "effect": {
+        "kind": "shield",
+        "amount": 520,
+        "duration": 80
+      }
+    },
+    "traits": [
+      "frost",
+      "warden",
+      "knight"
+    ]
+  },
+  {
+    "id": "sharpshooter",
+    "name": "Sharpshooter",
+    "tier": 2,
+    "origin": "forest",
+    "classes": [
+      "gunner",
+      "ranger"
+    ],
+    "hp": 700,
+    "ad": 85,
+    "as": 850,
+    "armor": 30,
+    "mr": 28,
+    "range": 3,
+    "mana": 80,
+    "manaStart": 0,
+    "abilityDamage": 200,
+    "ability": {
+      "name": "Headshot",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "forest",
+      "gunner",
+      "ranger"
+    ]
+  },
+  {
+    "id": "pyromancer",
+    "name": "Pyromancer",
+    "tier": 2,
+    "origin": "elemental",
+    "classes": [
+      "sorcerer"
+    ],
+    "hp": 620,
+    "ad": 45,
+    "as": 650,
+    "armor": 26,
+    "mr": 38,
+    "range": 2,
+    "mana": 80,
+    "manaStart": 25,
+    "abilityDamage": 310,
+    "ability": {
+      "name": "Scorch",
+      "manaCost": 80,
+      "effect": {
+        "kind": "burn",
+        "burn": 50,
+        "duration": 60
+      }
+    },
+    "traits": [
+      "elemental",
+      "sorcerer"
+    ]
+  },
+  {
+    "id": "fencer",
+    "name": "Fencer",
+    "tier": 2,
+    "origin": "celestial",
+    "classes": [
+      "duelist",
+      "assassin"
+    ],
+    "hp": 760,
+    "ad": 105,
+    "as": 1000,
+    "armor": 30,
+    "mr": 28,
+    "range": 1,
+    "mana": 60,
+    "manaStart": 0,
+    "abilityDamage": 230,
+    "ability": {
+      "name": "Riposte",
+      "manaCost": 60,
+      "effect": {
+        "kind": "buff",
+        "stat": "ad",
+        "value": 65,
+        "duration": 100
+      }
+    },
+    "traits": [
+      "celestial",
+      "duelist",
+      "assassin"
+    ]
+  },
+  {
+    "id": "warpriest",
+    "name": "War Priest",
+    "tier": 2,
+    "origin": "holy",
+    "classes": [
+      "mystic"
+    ],
+    "hp": 780,
+    "ad": 55,
+    "as": 650,
+    "armor": 36,
+    "mr": 44,
+    "range": 2,
+    "mana": 100,
+    "manaStart": 30,
+    "abilityDamage": 160,
+    "ability": {
+      "name": "Sanctuary",
+      "manaCost": 100,
+      "effect": {
+        "kind": "shield",
+        "amount": 350,
+        "duration": 80
+      }
+    },
+    "traits": [
+      "holy",
+      "mystic"
+    ]
+  },
+  {
+    "id": "reaver",
+    "name": "Reaver",
+    "tier": 2,
+    "origin": "abyssal",
+    "classes": [
+      "berserker"
+    ],
+    "hp": 970,
+    "ad": 90,
+    "as": 700,
+    "armor": 46,
+    "mr": 34,
+    "range": 1,
+    "mana": 100,
+    "manaStart": 0,
+    "abilityDamage": 230,
+    "ability": {
+      "name": "Frenzy",
+      "manaCost": 100,
+      "effect": {
+        "kind": "buff",
+        "stat": "ad",
+        "value": 55,
+        "duration": 100
+      }
+    },
+    "traits": [
+      "abyssal",
+      "berserker"
+    ]
+  },
+  {
+    "id": "houndmaster",
+    "name": "Houndmaster",
+    "tier": 2,
+    "origin": "beast",
+    "classes": [
+      "ranger",
+      "summoner"
+    ],
+    "hp": 700,
+    "ad": 85,
+    "as": 850,
+    "armor": 30,
+    "mr": 28,
+    "range": 3,
+    "mana": 80,
+    "manaStart": 0,
+    "abilityDamage": 200,
+    "ability": {
+      "name": "Pack Strike",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "beast",
+      "ranger",
+      "summoner"
+    ]
+  },
+  {
+    "id": "frost_knight",
+    "name": "Frost Knight",
+    "tier": 2,
+    "origin": "frost",
+    "classes": [
+      "knight",
+      "warden"
+    ],
+    "hp": 1150,
+    "ad": 70,
+    "as": 600,
+    "armor": 63,
+    "mr": 51,
+    "range": 1,
+    "mana": 120,
+    "manaStart": 0,
+    "abilityDamage": 190,
+    "ability": {
+      "name": "Glacial Guard",
+      "manaCost": 120,
+      "effect": {
+        "kind": "shield",
+        "amount": 520,
+        "duration": 80
+      }
+    },
+    "traits": [
+      "frost",
+      "knight",
+      "warden"
+    ]
+  },
+  {
+    "id": "stormcaller",
+    "name": "Stormcaller",
+    "tier": 2,
+    "origin": "storm",
+    "classes": [
+      "sorcerer",
+      "mystic"
+    ],
+    "hp": 620,
+    "ad": 45,
+    "as": 650,
+    "armor": 26,
+    "mr": 38,
+    "range": 2,
+    "mana": 80,
+    "manaStart": 25,
+    "abilityDamage": 310,
+    "ability": {
+      "name": "Lightning",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "storm",
+      "sorcerer",
+      "mystic"
+    ]
+  },
+  {
+    "id": "nightblade",
+    "name": "Nightblade",
+    "tier": 2,
+    "origin": "shadow",
+    "classes": [
+      "assassin"
+    ],
+    "hp": 760,
+    "ad": 105,
+    "as": 1000,
+    "armor": 30,
+    "mr": 28,
+    "range": 1,
+    "mana": 60,
+    "manaStart": 0,
+    "abilityDamage": 230,
+    "ability": {
+      "name": "Shadowstep",
+      "manaCost": 60,
+      "effect": {
+        "kind": "stealth",
+        "duration": 60
+      }
+    },
+    "traits": [
+      "shadow",
+      "assassin"
+    ]
+  },
+  {
+    "id": "champion",
+    "name": "Champion",
+    "tier": 3,
+    "origin": "dragon",
+    "classes": [
+      "knight",
+      "berserker"
+    ],
+    "hp": 1260,
+    "ad": 120,
+    "as": 700,
+    "armor": 54,
+    "mr": 40,
+    "range": 1,
+    "mana": 100,
+    "manaStart": 0,
+    "abilityDamage": 300,
+    "ability": {
+      "name": "Warcry",
+      "manaCost": 100,
+      "effect": {
+        "kind": "buff",
+        "stat": "ad",
+        "value": 70,
+        "duration": 100
+      }
+    },
+    "traits": [
+      "dragon",
+      "knight",
+      "berserker"
+    ]
+  },
+  {
+    "id": "arbalest",
+    "name": "Arbalest",
+    "tier": 3,
+    "origin": "storm",
+    "classes": [
+      "gunner"
+    ],
+    "hp": 910,
+    "ad": 110,
+    "as": 850,
+    "armor": 38,
+    "mr": 34,
+    "range": 3,
+    "mana": 80,
+    "manaStart": 0,
+    "abilityDamage": 260,
+    "ability": {
+      "name": "Volley",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "storm",
+      "gunner"
+    ]
+  },
+  {
+    "id": "necromancer",
+    "name": "Necromancer",
+    "tier": 3,
+    "origin": "undead",
+    "classes": [
+      "summoner",
+      "mystic"
+    ],
+    "hp": 810,
+    "ad": 60,
+    "as": 650,
+    "armor": 34,
+    "mr": 44,
+    "range": 2,
+    "mana": 80,
+    "manaStart": 25,
+    "abilityDamage": 400,
+    "ability": {
+      "name": "Soul Drain",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "undead",
+      "summoner",
+      "mystic"
+    ]
+  },
+  {
+    "id": "phoenix",
+    "name": "Phoenix",
+    "tier": 3,
+    "origin": "dragon",
+    "classes": [
+      "sorcerer"
+    ],
+    "hp": 810,
+    "ad": 60,
+    "as": 650,
+    "armor": 34,
+    "mr": 44,
+    "range": 2,
+    "mana": 80,
+    "manaStart": 25,
+    "abilityDamage": 400,
+    "ability": {
+      "name": "Cinder Storm",
+      "manaCost": 80,
+      "effect": {
+        "kind": "burn",
+        "burn": 65,
+        "duration": 60
+      }
+    },
+    "traits": [
+      "dragon",
+      "sorcerer"
+    ]
+  },
+  {
+    "id": "vanguard",
+    "name": "Vanguard",
+    "tier": 3,
+    "origin": "celestial",
+    "classes": [
+      "warden"
+    ],
+    "hp": 1490,
+    "ad": 90,
+    "as": 600,
+    "armor": 71,
+    "mr": 57,
+    "range": 1,
+    "mana": 120,
+    "manaStart": 0,
+    "abilityDamage": 250,
+    "ability": {
+      "name": "Phalanx",
+      "manaCost": 120,
+      "effect": {
+        "kind": "shield",
+        "amount": 670,
+        "duration": 80
+      }
+    },
+    "traits": [
+      "celestial",
+      "warden"
+    ]
+  },
+  {
+    "id": "ravager",
+    "name": "Ravager",
+    "tier": 3,
+    "origin": "beast",
+    "classes": [
+      "berserker",
+      "duelist"
+    ],
+    "hp": 1260,
+    "ad": 120,
+    "as": 700,
+    "armor": 54,
+    "mr": 40,
+    "range": 1,
+    "mana": 100,
+    "manaStart": 0,
+    "abilityDamage": 300,
+    "ability": {
+      "name": "Bloodlust",
+      "manaCost": 100,
+      "effect": {
+        "kind": "buff",
+        "stat": "ad",
+        "value": 70,
+        "duration": 100
+      }
+    },
+    "traits": [
+      "beast",
+      "berserker",
+      "duelist"
+    ]
+  },
+  {
+    "id": "spellblade",
+    "name": "Spellblade",
+    "tier": 3,
+    "origin": "arcane",
+    "classes": [
+      "duelist",
+      "sorcerer"
+    ],
+    "hp": 1260,
+    "ad": 120,
+    "as": 700,
+    "armor": 54,
+    "mr": 40,
+    "range": 1,
+    "mana": 100,
+    "manaStart": 0,
+    "abilityDamage": 300,
+    "ability": {
+      "name": "Rune Slash",
+      "manaCost": 100,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "arcane",
+      "duelist",
+      "sorcerer"
+    ]
+  },
+  {
+    "id": "treant",
+    "name": "Treant",
+    "tier": 3,
+    "origin": "forest",
+    "classes": [
+      "warden"
+    ],
+    "hp": 1490,
+    "ad": 90,
+    "as": 600,
+    "armor": 71,
+    "mr": 57,
+    "range": 1,
+    "mana": 120,
+    "manaStart": 0,
+    "abilityDamage": 250,
+    "ability": {
+      "name": "Barkskin",
+      "manaCost": 120,
+      "effect": {
+        "kind": "shield",
+        "amount": 670,
+        "duration": 80
+      }
+    },
+    "traits": [
+      "forest",
+      "warden"
+    ]
+  },
+  {
+    "id": "wraith",
+    "name": "Wraith",
+    "tier": 3,
+    "origin": "undead",
+    "classes": [
+      "assassin"
+    ],
+    "hp": 980,
+    "ad": 135,
+    "as": 1000,
+    "armor": 38,
+    "mr": 34,
+    "range": 1,
+    "mana": 60,
+    "manaStart": 0,
+    "abilityDamage": 300,
+    "ability": {
+      "name": "Phase",
+      "manaCost": 60,
+      "effect": {
+        "kind": "stealth",
+        "duration": 60
+      }
+    },
+    "traits": [
+      "undead",
+      "assassin"
+    ]
+  },
+  {
+    "id": "dragonlord",
+    "name": "Dragonlord",
+    "tier": 4,
+    "origin": "dragon",
+    "classes": [
+      "knight",
+      "berserker"
+    ],
+    "hp": 1660,
+    "ad": 155,
+    "as": 700,
+    "armor": 62,
+    "mr": 46,
+    "range": 1,
+    "mana": 100,
+    "manaStart": 0,
+    "abilityDamage": 390,
+    "ability": {
+      "name": "Dragon Breath",
+      "manaCost": 100,
+      "effect": {
+        "kind": "burn",
+        "burn": 60,
+        "duration": 60
+      }
+    },
+    "traits": [
+      "dragon",
+      "knight",
+      "berserker"
+    ]
+  },
+  {
+    "id": "archon",
+    "name": "Archon",
+    "tier": 4,
+    "origin": "holy",
+    "classes": [
+      "sorcerer",
+      "mystic"
+    ],
+    "hp": 1060,
+    "ad": 80,
+    "as": 650,
+    "armor": 42,
+    "mr": 50,
+    "range": 2,
+    "mana": 80,
+    "manaStart": 25,
+    "abilityDamage": 530,
+    "ability": {
+      "name": "Judgment",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "holy",
+      "sorcerer",
+      "mystic"
+    ]
+  },
+  {
+    "id": "stormlord",
+    "name": "Stormlord",
+    "tier": 4,
+    "origin": "storm",
+    "classes": [
+      "gunner",
+      "ranger"
+    ],
+    "hp": 1200,
+    "ad": 145,
+    "as": 850,
+    "armor": 46,
+    "mr": 40,
+    "range": 3,
+    "mana": 80,
+    "manaStart": 0,
+    "abilityDamage": 350,
+    "ability": {
+      "name": "Tempest",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "storm",
+      "gunner",
+      "ranger"
+    ]
+  },
+  {
+    "id": "lich",
+    "name": "Lich",
+    "tier": 4,
+    "origin": "undead",
+    "classes": [
+      "summoner",
+      "sorcerer"
+    ],
+    "hp": 1060,
+    "ad": 80,
+    "as": 650,
+    "armor": 42,
+    "mr": 50,
+    "range": 2,
+    "mana": 80,
+    "manaStart": 25,
+    "abilityDamage": 530,
+    "ability": {
+      "name": "Necrotic Blast",
+      "manaCost": 80,
+      "effect": {
+        "kind": "burn",
+        "burn": 85,
+        "duration": 60
+      }
+    },
+    "traits": [
+      "undead",
+      "summoner",
+      "sorcerer"
+    ]
+  },
+  {
+    "id": "paragon",
+    "name": "Paragon",
+    "tier": 4,
+    "origin": "celestial",
+    "classes": [
+      "warden",
+      "knight"
+    ],
+    "hp": 1950,
+    "ad": 115,
+    "as": 600,
+    "armor": 79,
+    "mr": 63,
+    "range": 1,
+    "mana": 120,
+    "manaStart": 0,
+    "abilityDamage": 320,
+    "ability": {
+      "name": "Divine Wall",
+      "manaCost": 120,
+      "effect": {
+        "kind": "shield",
+        "amount": 880,
+        "duration": 80
+      }
+    },
+    "traits": [
+      "celestial",
+      "warden",
+      "knight"
+    ]
+  },
+  {
+    "id": "nightlord",
+    "name": "Nightlord",
+    "tier": 4,
+    "origin": "shadow",
+    "classes": [
+      "assassin",
+      "duelist"
+    ],
+    "hp": 1290,
+    "ad": 180,
+    "as": 1000,
+    "armor": 46,
+    "mr": 40,
+    "range": 1,
+    "mana": 60,
+    "manaStart": 0,
+    "abilityDamage": 390,
+    "ability": {
+      "name": "Death Mark",
+      "manaCost": 60,
+      "effect": {
+        "kind": "stealth",
+        "duration": 60
+      }
+    },
+    "traits": [
+      "shadow",
+      "assassin",
+      "duelist"
+    ]
+  },
+  {
+    "id": "frostmage",
+    "name": "Frostmage",
+    "tier": 4,
+    "origin": "frost",
+    "classes": [
+      "sorcerer"
+    ],
+    "hp": 1060,
+    "ad": 80,
+    "as": 650,
+    "armor": 42,
+    "mr": 50,
+    "range": 2,
+    "mana": 80,
+    "manaStart": 25,
+    "abilityDamage": 530,
+    "ability": {
+      "name": "Glacial Spike",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "frost",
+      "sorcerer"
+    ]
+  },
+  {
+    "id": "huntress",
+    "name": "Huntress",
+    "tier": 4,
+    "origin": "forest",
+    "classes": [
+      "ranger",
+      "gunner"
+    ],
+    "hp": 1200,
+    "ad": 145,
+    "as": 850,
+    "armor": 46,
+    "mr": 40,
+    "range": 3,
+    "mana": 80,
+    "manaStart": 0,
+    "abilityDamage": 350,
+    "ability": {
+      "name": "Rain of Arrows",
+      "manaCost": 80,
+      "effect": {
+        "kind": "magic_damage"
+      }
+    },
+    "traits": [
+      "forest",
+      "ranger",
+      "gunner"
+    ]
+  },
+  {
+    "id": "god_king",
+    "name": "God-King",
+    "tier": 5,
+    "origin": "holy",
+    "classes": [
+      "knight",
+      "warden"
+    ],
+    "hp": 2550,
+    "ad": 150,
+    "as": 600,
+    "armor": 87,
+    "mr": 69,
+    "range": 1,
+    "mana": 120,
+    "manaStart": 0,
+    "abilityDamage": 420,
+    "ability": {
+      "name": "Ascendance",
+      "manaCost": 120,
+      "effect": {
+        "kind": "shield",
+        "amount": 1150,
+        "duration": 80
+      }
+    },
+    "traits": [
+      "holy",
+      "knight",
+      "warden"
+    ]
+  },
+  {
+    "id": "void_reaper",
+    "name": "Void Reaper",
+    "tier": 5,
+    "origin": "abyssal",
+    "classes": [
+      "assassin",
+      "berserker"
+    ],
+    "hp": 1680,
+    "ad": 235,
+    "as": 1000,
+    "armor": 54,
+    "mr": 46,
+    "range": 1,
+    "mana": 60,
+    "manaStart": 0,
+    "abilityDamage": 510,
+    "ability": {
+      "name": "Annihilate",
+      "manaCost": 60,
+      "effect": {
+        "kind": "stealth",
+        "duration": 60
+      }
+    },
+    "traits": [
+      "abyssal",
+      "assassin",
+      "berserker"
+    ]
+  },
+  {
+    "id": "archsage",
+    "name": "Archsage",
+    "tier": 5,
+    "origin": "arcane",
+    "classes": [
+      "sorcerer",
+      "mystic"
+    ],
+    "hp": 1380,
+    "ad": 105,
+    "as": 650,
+    "armor": 50,
+    "mr": 56,
+    "range": 2,
+    "mana": 80,
+    "manaStart": 25,
+    "abilityDamage": 690,
+    "ability": {
+      "name": "Supernova",
+      "manaCost": 80,
+      "effect": {
+        "kind": "burn",
+        "burn": 110,
+        "duration": 60
+      }
+    },
+    "traits": [
+      "arcane",
+      "sorcerer",
+      "mystic"
+    ]
+  },
+  {
+    "id": "world_ender",
+    "name": "World Ender",
+    "tier": 5,
+    "origin": "abyssal",
+    "classes": [
+      "berserker",
+      "duelist"
+    ],
+    "hp": 2160,
+    "ad": 205,
+    "as": 700,
+    "armor": 70,
+    "mr": 52,
+    "range": 1,
+    "mana": 100,
+    "manaStart": 0,
+    "abilityDamage": 510,
+    "ability": {
+      "name": "Cataclysm",
+      "manaCost": 100,
+      "effect": {
+        "kind": "buff",
+        "stat": "ad",
+        "value": 125,
+        "duration": 100
+      }
+    },
+    "traits": [
+      "abyssal",
+      "berserker",
+      "duelist"
+    ]
   }
 ]

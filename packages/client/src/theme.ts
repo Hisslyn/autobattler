@@ -59,6 +59,15 @@ export const C = {
   textLabel:    0xbbc4d0,
   textDimmed:   0x666677,
 
+  // Combat playback fx
+  fxAttackFlash: 0xd0d8e0,
+  fxCastPulse:   0x8a6ad0,
+  fxDeathFade:   0x3a3a4a,
+  floatPhys:     0xd06050,
+  floatCrit:     0xe0a030,
+  floatMagic:    0x9a7ade,
+  textOvertime:  0xcc4040,
+
   // Trait tracker
   traitActive:  0x3a6a3a,
   traitPending: 0x1e2830,

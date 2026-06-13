@@ -11,18 +11,33 @@ import { applyAiCommands } from "@autobattler/rules/src/ai.js";
 import { mulberry32 } from "@autobattler/sim/src/prng.js";
 import type { MatchState, PlayerState } from "@autobattler/rules/src/state.js";
 import type { Command } from "@autobattler/rules/src/commands.js";
+import { randomUUID } from "node:crypto";
 import type { Session } from "./session.js";
 import { send, registerSeatToken, clearRoomSeatTokens } from "./session.js";
+import type { Repository } from "./db/index.js";
+import { MemoryRepository } from "./db/index.js";
+import { recordMatchResult } from "./recorder.js";
+import type { SeatResult } from "./recorder.js";
 
 const PLANNING_MS = 30_000;
 const HUMAN_SEAT_COUNT = 8;
 
 export interface Room {
   id: string;
+  matchId: string;
   state: MatchState;
   seats: (Session | null)[];
+  /** Account per seat, captured at room creation; null = bot seat. */
+  seatAccounts: (string | null)[];
   phaseTimer: ReturnType<typeof setTimeout> | null;
   prng: () => number;
+}
+
+// All persistence goes through the Repository; defaults to in-memory so
+// tests that drive rooms directly need no setup.
+let repo: Repository = new MemoryRepository();
+export function setRoomRepository(r: Repository): void {
+  repo = r;
 }
 
 const rooms = new Map<string, Room>();
@@ -35,11 +50,13 @@ export function createRoom(sessions: Session[], seedOverride?: number): Room {
   const state = createMatch(seed, gameData);
 
   const seats: (Session | null)[] = new Array(HUMAN_SEAT_COUNT).fill(null);
+  const seatAccounts: (string | null)[] = new Array(HUMAN_SEAT_COUNT).fill(null);
   for (let i = 0; i < sessions.length && i < HUMAN_SEAT_COUNT; i++) {
     seats[i] = sessions[i]!;
+    seatAccounts[i] = sessions[i]!.accountId;
   }
 
-  const room: Room = { id: roomId, state, seats, phaseTimer: null, prng };
+  const room: Room = { id: roomId, matchId: randomUUID(), state, seats, seatAccounts, phaseTimer: null, prng };
   rooms.set(roomId, room);
 
   // Assign sessions to room/seat
@@ -179,17 +196,40 @@ function advanceCombat(room: Room): void {
   });
 
   if (isMatchOver(room.state)) {
-    const placements = [...room.state.placements];
-    // Add last survivor
-    const lastAlive = room.state.players.find((p) => p.alive);
-    if (lastAlive) placements.push(lastAlive.id);
-    broadcastAll(room, { type: "MATCH_END", placements });
-    clearRoomSeatTokens(room.id);
-    rooms.delete(room.id);
+    void finalizeMatch(room);
     return;
   }
 
   startResolution(room);
+}
+
+// Persists the result (memory or pg repo) before broadcasting MATCH_END so
+// the payload's MMR deltas always match what the repository stores.
+async function finalizeMatch(room: Room): Promise<void> {
+  const placements = [...room.state.placements];
+  // Add last survivor
+  const lastAlive = room.state.players.find((p) => p.alive);
+  if (lastAlive) placements.push(lastAlive.id);
+
+  // state.placements is elimination order (1 = first out); convert to final
+  // standing where 1 = winner.
+  const playerCount = room.state.players.length;
+  const seatResults: SeatResult[] = room.state.players.map((p, seat) => ({
+    seat,
+    accountId: room.seatAccounts[seat] ?? null,
+    placement: p.alive ? 1 : playerCount - (p.placement ?? playerCount) + 1,
+  }));
+
+  let mmr: Record<number, { before: number; after: number }> = {};
+  try {
+    mmr = await recordMatchResult(repo, room.matchId, seatResults);
+  } catch (err) {
+    console.error(`[room ${room.id}] failed to persist match result`, err);
+  }
+
+  broadcastAll(room, { type: "MATCH_END", placements, mmr });
+  clearRoomSeatTokens(room.id);
+  rooms.delete(room.id);
 }
 
 // Real resolution pause: state stays in RESOLUTION (round = just-finished

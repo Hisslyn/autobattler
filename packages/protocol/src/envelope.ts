@@ -53,7 +53,9 @@ export function validateC2S(p: unknown): C2SMessage | null {
 
   switch (msg["type"]) {
     case "QUEUE_JOIN":
-      return { type: "QUEUE_JOIN" };
+      return typeof msg["authToken"] === "string"
+        ? { type: "QUEUE_JOIN", authToken: msg["authToken"] as string }
+        : { type: "QUEUE_JOIN" };
 
     case "QUEUE_LEAVE":
       return { type: "QUEUE_LEAVE" };

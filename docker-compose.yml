@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: autobattler
+      POSTGRES_PASSWORD: autobattler
+      POSTGRES_DB: autobattler
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+# Server picks this up via:
+# DATABASE_URL=postgres://autobattler:autobattler@localhost:5432/autobattler

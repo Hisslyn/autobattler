@@ -8,7 +8,8 @@
     "test": "vitest run --reporter=verbose",
     "typecheck": "tsc --build",
     "dev": "npm run dev --workspace=packages/client",
-    "server": "tsx packages/server/src/index.ts"
+    "server": "tsx packages/server/src/index.ts",
+    "balance": "tsx packages/balance/src/cli.ts"
   },
   "devDependencies": {
     "typescript": "^5.4.5",

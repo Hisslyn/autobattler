@@ -21,6 +21,12 @@ export interface IDriver {
   getMyCombatResult(): CombatResult | null;
   /** Win/loss/draw normalized to this driver's seat. */
   getMyOutcome(): Outcome | null;
+  /**
+   * Scene → driver: combat playback finished (or was skipped). LocalDriver
+   * holds the RESOLUTION phase until this is called (capped); NetDriver is
+   * server-paced and ignores it.
+   */
+  combatPlaybackDone(): void;
   advanceFromResolution(): void;
   /** Returns ms remaining in current planning phase, or 0 if not applicable. */
   getPlanningTimeLeft(): number;
@@ -28,11 +34,14 @@ export interface IDriver {
 
 const HUMAN_PLAYER_ID = 0;
 const PLANNING_TIMER_MS = 30_000;
+// Fallback cap for combat playback: 1x duration plus a buffer. The scene
+// normally calls combatPlaybackDone() sooner (2x speed / skip / no scene fx).
+const PLAYBACK_CAP_BUFFER_MS = 2_000;
 
 export type DriverEvent =
   | { type: "state"; state: MatchState }
   | { type: "phase_change"; phase: string; round: number }
-  | { type: "match_over"; placements: number[] };
+  | { type: "match_over"; placements: number[]; mmr?: Record<number, { before: number; after: number }> };
 
 export class LocalDriver implements IDriver {
   readonly seatIndex = 0;
@@ -41,6 +50,8 @@ export class LocalDriver implements IDriver {
   private listeners: Array<(e: DriverEvent) => void> = [];
   private planningTimerId: ReturnType<typeof setTimeout> | null = null;
   private resolutionTimerId: ReturnType<typeof setTimeout> | null = null;
+  private playbackCapTimerId: ReturnType<typeof setTimeout> | null = null;
+  private pendingResolution = false;
   private planningStartTime = 0;
 
   constructor(seed = Date.now()) {
@@ -129,6 +140,25 @@ export class LocalDriver implements IDriver {
     this.emit({ type: "phase_change", phase: "COMBAT", round: this.state.round });
     this.emit({ type: "state", state: this.state });
 
+    // Hold RESOLUTION until the scene finishes event-log playback. The cap
+    // uses 1x duration (speed only shortens playback) so a missing scene
+    // can never stall the match.
+    const result = getPairingFor(this.state, HUMAN_PLAYER_ID)?.result ?? null;
+    const capMs = result
+      ? Math.ceil((result.ticks * 1000) / gameData.gameplay.ticksPerSec) + PLAYBACK_CAP_BUFFER_MS
+      : 0;
+    this.pendingResolution = true;
+    this.playbackCapTimerId = setTimeout(() => this.combatPlaybackDone(), capMs);
+  }
+
+  combatPlaybackDone(): void {
+    if (!this.pendingResolution) return;
+    this.pendingResolution = false;
+    if (this.playbackCapTimerId !== null) {
+      clearTimeout(this.playbackCapTimerId);
+      this.playbackCapTimerId = null;
+    }
+
     if (isMatchOver(this.state)) {
       this.emit({ type: "match_over", placements: [...this.state.placements] });
       return;
@@ -146,6 +176,7 @@ export class LocalDriver implements IDriver {
 
   advanceFromResolution(): void {
     if (this.state.phase !== "RESOLUTION") return;
+    if (this.pendingResolution) return; // playback still running
     if (this.resolutionTimerId !== null) {
       clearTimeout(this.resolutionTimerId);
       this.resolutionTimerId = null;

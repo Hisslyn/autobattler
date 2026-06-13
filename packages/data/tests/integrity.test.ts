@@ -94,3 +94,79 @@ describe("data integrity", () => {
     }
   });
 });
+
+describe("v1 content completeness", () => {
+  const originIds = new Set(gameData.traits.filter((t) => t.kind === "origin").map((t) => t.id));
+  const classIds = new Set(gameData.traits.filter((t) => t.kind === "class").map((t) => t.id));
+
+  it("has exactly 50 units with tier counts 13/13/12/8/4", () => {
+    expect(gameData.units.length).toBe(50);
+    const byTier: Record<number, number> = {};
+    for (const u of gameData.units) byTier[u.tier] = (byTier[u.tier] ?? 0) + 1;
+    expect(byTier).toEqual({ 1: 13, 2: 13, 3: 12, 4: 8, 5: 4 });
+  });
+
+  it("no duplicate ids across units, traits, items", () => {
+    for (const coll of [gameData.units, gameData.traits, gameData.items]) {
+      const ids = coll.map((x) => x.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+
+  it("every unit has exactly one origin and 1-2 classes that resolve", () => {
+    for (const u of gameData.units) {
+      expect(originIds.has(u.origin), `${u.id} origin ${u.origin}`).toBe(true);
+      expect(u.classes.length).toBeGreaterThanOrEqual(1);
+      expect(u.classes.length).toBeLessThanOrEqual(2);
+      for (const c of u.classes) expect(classIds.has(c), `${u.id} class ${c}`).toBe(true);
+      // traits is the flattened [origin, ...classes].
+      expect(u.traits).toEqual([u.origin, ...u.classes]);
+    }
+  });
+
+  it("every trait's top breakpoint is reachable by unit count", () => {
+    const counts = new Map<string, number>();
+    for (const u of gameData.units) for (const t of u.traits) counts.set(t, (counts.get(t) ?? 0) + 1);
+    for (const trait of gameData.traits) {
+      const top = trait.breakpoints[trait.breakpoints.length - 1]!.count;
+      expect(counts.get(trait.id) ?? 0, `trait ${trait.id} top breakpoint ${top}`).toBeGreaterThanOrEqual(top);
+      // Breakpoints ascend at the documented 2/4/6 cadence.
+      expect(trait.breakpoints.map((b) => b.count)).toEqual([2, 4, 6].slice(0, trait.breakpoints.length));
+    }
+  });
+
+  it("every ability is valid and casts at full mana", () => {
+    const kinds = new Set(["magic_damage", "burn", "shield", "buff", "stealth"]);
+    for (const u of gameData.units) {
+      expect(kinds.has(u.ability.effect.kind), `${u.id} ability kind`).toBe(true);
+      expect(u.ability.manaCost, `${u.id} manaCost == mana`).toBe(u.mana);
+    }
+  });
+
+  it("items split into 9 components + 36 completed; recipes resolve to component pairs", () => {
+    const components = gameData.items.filter((i) => i.component);
+    const completed = gameData.items.filter((i) => !i.component);
+    expect(components.length).toBe(9);
+    expect(completed.length).toBe(36);
+    const compIds = new Set(components.map((c) => c.id));
+    const seenPairs = new Set<string>();
+    for (const item of completed) {
+      expect(item.recipe, `${item.id} has a recipe`).toBeDefined();
+      const [a, b] = item.recipe!;
+      expect(compIds.has(a) && compIds.has(b), `${item.id} recipe components exist`).toBe(true);
+      const key = [a, b].sort().join("+");
+      expect(seenPairs.has(key), `${item.id} duplicate recipe ${key}`).toBe(false);
+      seenPairs.add(key);
+    }
+    // 36 distinct unordered pairs of 9 components.
+    expect(seenPairs.size).toBe(36);
+  });
+
+  it("all five tiers have pool counts and a nonzero shop-odds level", () => {
+    for (let tier = 1; tier <= 5; tier++) {
+      expect(gameData.economy.poolCounts[String(tier)]).toBeGreaterThan(0);
+      const anyNonzero = gameData.economy.shopOdds.some((row) => (row[tier - 1] ?? 0) > 0);
+      expect(anyNonzero, `tier ${tier} appears in some shop level`).toBe(true);
+    }
+  });
+});

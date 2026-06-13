@@ -8,6 +8,7 @@ export interface Session {
   roomId: string | null;
   seatIndex: number | null;
   token: string | null;
+  accountId: string | null; // set on authenticated QUEUE_JOIN
   afk: boolean;
   cmdCount: number;
   cmdWindowStart: number;
@@ -28,6 +29,7 @@ export function createSession(ws: WebSocket): Session {
     roomId: null,
     seatIndex: null,
     token: null,
+    accountId: null,
     afk: false,
     cmdCount: 0,
     cmdWindowStart: Date.now(),

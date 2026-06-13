@@ -1,7 +1,7 @@
+import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
 import type { WebSocket } from "ws";
 import { decodeC2S } from "@autobattler/protocol";
-import { encode } from "@autobattler/protocol";
 import {
   createSession,
   removeSession,
@@ -11,12 +11,20 @@ import {
   findSeatByToken,
 } from "./session.js";
 import { joinQueue, leaveQueue } from "./matchmaker.js";
-import { getRoom, handlePlayerCommand, markReady, reconnectSession } from "./room.js";
+import { getRoom, handlePlayerCommand, markReady, reconnectSession, setRoomRepository } from "./room.js";
+import { createRepository } from "./db/index.js";
+import { createHttpHandler } from "./http.js";
 
 const PORT = Number(process.env["PORT"] ?? 3001);
 const HEARTBEAT_MS = 5_000;
 
-const wss = new WebSocketServer({ port: PORT });
+const repo = await createRepository();
+setRoomRepository(repo);
+
+const httpServer = createServer((req, res) => {
+  void createHttpHandler(repo)(req, res);
+});
+const wss = new WebSocketServer({ server: httpServer });
 
 function generateToken(): string {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
@@ -60,7 +68,19 @@ wss.on("connection", (ws: WebSocket) => {
           send(session, { type: "ERROR", code: "ALREADY_QUEUED", message: "Already in match" });
           break;
         }
-        joinQueue(session);
+        const authToken = msg.authToken;
+        if (!authToken) {
+          send(session, { type: "ERROR", code: "UNAUTHENTICATED", message: "QUEUE_JOIN requires authToken" });
+          break;
+        }
+        void repo.findByToken(authToken).then((account) => {
+          if (!account) {
+            send(session, { type: "ERROR", code: "UNAUTHENTICATED", message: "Invalid auth token" });
+            return;
+          }
+          session.accountId = account.accountId;
+          joinQueue(session);
+        });
         break;
       }
 
@@ -130,4 +150,6 @@ wss.on("connection", (ws: WebSocket) => {
   });
 });
 
-console.log(`Server listening on ws://localhost:${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log(`Server listening on ws://localhost:${PORT} (HTTP auth/leaderboard on same port)`);
+});

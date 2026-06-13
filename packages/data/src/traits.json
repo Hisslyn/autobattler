@@ -1,40 +1,273 @@
 [
   {
-    "id": "knight",
-    "name": "Knight",
+    "id": "holy",
+    "name": "Holy",
+    "kind": "origin",
     "breakpoints": [
       {
         "count": 2,
         "effect": {
-          "stat": "armor",
-          "value": 200
+          "stat": "mr",
+          "value": 150
         }
       },
       {
         "count": 4,
         "effect": {
-          "stat": "armor",
-          "value": 500
+          "stat": "mr",
+          "value": 350
+        }
+      },
+      {
+        "count": 6,
+        "effect": {
+          "stat": "mr",
+          "value": 600
         }
       }
     ]
   },
   {
-    "id": "sorcerer",
-    "name": "Sorcerer",
+    "id": "shadow",
+    "name": "Shadow",
+    "kind": "origin",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "ad",
+          "value": 25
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "ad",
+          "value": 60
+        }
+      }
+    ]
+  },
+  {
+    "id": "arcane",
+    "name": "Arcane",
+    "kind": "origin",
     "breakpoints": [
       {
         "count": 2,
         "effect": {
           "stat": "abilityDamage",
-          "value": 200
+          "value": 150
         }
       },
       {
         "count": 4,
         "effect": {
           "stat": "abilityDamage",
+          "value": 350
+        }
+      }
+    ]
+  },
+  {
+    "id": "frost",
+    "name": "Frost",
+    "kind": "origin",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "armor",
+          "value": 150
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "armor",
+          "value": 350
+        }
+      }
+    ]
+  },
+  {
+    "id": "forest",
+    "name": "Forest",
+    "kind": "origin",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "as",
+          "value": 120
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "as",
+          "value": 280
+        }
+      }
+    ]
+  },
+  {
+    "id": "beast",
+    "name": "Beast",
+    "kind": "origin",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "ad",
+          "value": 25
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "ad",
+          "value": 60
+        }
+      }
+    ]
+  },
+  {
+    "id": "celestial",
+    "name": "Celestial",
+    "kind": "origin",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "hp",
+          "value": 300
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "hp",
+          "value": 650
+        }
+      }
+    ]
+  },
+  {
+    "id": "dragon",
+    "name": "Dragon",
+    "kind": "origin",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "abilityDamage",
+          "value": 150
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "abilityDamage",
+          "value": 350
+        }
+      }
+    ]
+  },
+  {
+    "id": "storm",
+    "name": "Storm",
+    "kind": "origin",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "as",
+          "value": 120
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "as",
+          "value": 280
+        }
+      }
+    ]
+  },
+  {
+    "id": "undead",
+    "name": "Undead",
+    "kind": "origin",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "abilityDamage",
+          "value": 150
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "abilityDamage",
+          "value": 350
+        }
+      }
+    ]
+  },
+  {
+    "id": "elemental",
+    "name": "Elemental",
+    "kind": "origin",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "abilityDamage",
+          "value": 150
+        }
+      }
+    ]
+  },
+  {
+    "id": "abyssal",
+    "name": "Abyssal",
+    "kind": "origin",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "ad",
+          "value": 25
+        }
+      }
+    ]
+  },
+  {
+    "id": "knight",
+    "name": "Knight",
+    "kind": "class",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "armor",
+          "value": 200
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "armor",
           "value": 500
+        }
+      },
+      {
+        "count": 6,
+        "effect": {
+          "stat": "armor",
+          "value": 800
         }
       }
     ]
@@ -42,19 +275,55 @@
   {
     "id": "ranger",
     "name": "Ranger",
+    "kind": "class",
     "breakpoints": [
       {
         "count": 2,
         "effect": {
           "stat": "as",
-          "value": 150
+          "value": 120
         }
       },
       {
         "count": 4,
         "effect": {
           "stat": "as",
+          "value": 280
+        }
+      },
+      {
+        "count": 6,
+        "effect": {
+          "stat": "as",
+          "value": 450
+        }
+      }
+    ]
+  },
+  {
+    "id": "sorcerer",
+    "name": "Sorcerer",
+    "kind": "class",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "abilityDamage",
+          "value": 150
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "abilityDamage",
           "value": 350
+        }
+      },
+      {
+        "count": 6,
+        "effect": {
+          "stat": "abilityDamage",
+          "value": 650
         }
       }
     ]
@@ -62,38 +331,180 @@
   {
     "id": "assassin",
     "name": "Assassin",
+    "kind": "class",
     "breakpoints": [
       {
         "count": 2,
         "effect": {
           "stat": "ad",
-          "value": 40
+          "value": 25
         }
       },
       {
         "count": 4,
         "effect": {
           "stat": "ad",
-          "value": 100
+          "value": 60
+        }
+      },
+      {
+        "count": 6,
+        "effect": {
+          "stat": "ad",
+          "value": 110
         }
       }
     ]
   },
   {
-    "id": "holy",
-    "name": "Holy",
+    "id": "warden",
+    "name": "Warden",
+    "kind": "class",
     "breakpoints": [
       {
         "count": 2,
         "effect": {
-          "stat": "mr",
+          "stat": "hp",
+          "value": 300
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "hp",
+          "value": 650
+        }
+      },
+      {
+        "count": 6,
+        "effect": {
+          "stat": "hp",
+          "value": 1100
+        }
+      }
+    ]
+  },
+  {
+    "id": "berserker",
+    "name": "Berserker",
+    "kind": "class",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "as",
+          "value": 120
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "as",
+          "value": 280
+        }
+      },
+      {
+        "count": 6,
+        "effect": {
+          "stat": "as",
+          "value": 450
+        }
+      }
+    ]
+  },
+  {
+    "id": "mystic",
+    "name": "Mystic",
+    "kind": "class",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "abilityDamage",
           "value": 150
         }
       },
       {
         "count": 4,
         "effect": {
-          "stat": "mr",
+          "stat": "abilityDamage",
+          "value": 350
+        }
+      },
+      {
+        "count": 6,
+        "effect": {
+          "stat": "abilityDamage",
+          "value": 650
+        }
+      }
+    ]
+  },
+  {
+    "id": "gunner",
+    "name": "Gunner",
+    "kind": "class",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "ad",
+          "value": 25
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "ad",
+          "value": 60
+        }
+      }
+    ]
+  },
+  {
+    "id": "duelist",
+    "name": "Duelist",
+    "kind": "class",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "as",
+          "value": 120
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "as",
+          "value": 280
+        }
+      },
+      {
+        "count": 6,
+        "effect": {
+          "stat": "as",
+          "value": 450
+        }
+      }
+    ]
+  },
+  {
+    "id": "summoner",
+    "name": "Summoner",
+    "kind": "class",
+    "breakpoints": [
+      {
+        "count": 2,
+        "effect": {
+          "stat": "abilityDamage",
+          "value": 150
+        }
+      },
+      {
+        "count": 4,
+        "effect": {
+          "stat": "abilityDamage",
           "value": 350
         }
       }

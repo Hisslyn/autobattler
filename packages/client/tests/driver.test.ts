@@ -64,6 +64,9 @@ describe("LocalDriver phase flow", () => {
       // State must actually be in RESOLUTION while RESOLUTION is current
       expect(driver.getState().phase).toBe("RESOLUTION");
 
+      // Scene reports playback completion before RESOLUTION is emitted
+      driver.combatPlaybackDone();
+
       // Resolution pause: not yet advanced just before the timeout...
       vi.advanceTimersByTime(resolutionMs - 1);
       expect(driver.getState().phase).toBe("RESOLUTION");
@@ -103,6 +106,7 @@ describe("LocalDriver phase flow", () => {
     driver.startPlanning();
     for (let round = 0; round < 3; round++) {
       driver.ready();
+      driver.combatPlaybackDone(); // scene playback finished
       driver.advanceFromResolution(); // Continue button path
     }
 
@@ -120,6 +124,7 @@ describe("LocalDriver phase flow", () => {
     driver.ready();
     expect(driver.getState().phase).toBe("RESOLUTION");
 
+    driver.combatPlaybackDone();
     driver.advanceFromResolution();
     expect(driver.getState().phase).toBe("PLANNING");
     expect(driver.getState().round).toBe(2);
@@ -128,5 +133,28 @@ describe("LocalDriver phase flow", () => {
     // The cancelled resolution timer must not double-advance
     vi.advanceTimersByTime(60_000); // fires the planning timer → ready() → next round
     expect(driver.getState().phase).not.toBe("COMBAT");
+  });
+
+  it("RESOLUTION is held until combatPlaybackDone; duplicate calls are no-ops", () => {
+    const driver = new LocalDriver(13);
+    const phases: string[] = [];
+    driver.on((e: DriverEvent) => {
+      if (e.type === "phase_change") phases.push(e.phase);
+    });
+
+    driver.startPlanning();
+    driver.ready();
+
+    // Combat ran, but RESOLUTION must wait for the scene's playback signal
+    expect(driver.getState().phase).toBe("RESOLUTION");
+    expect(phases).toEqual(["PLANNING", "COMBAT"]);
+    // Continue is ignored while playback is pending
+    driver.advanceFromResolution();
+    expect(driver.getState().round).toBe(1);
+
+    driver.combatPlaybackDone();
+    expect(phases[phases.length - 1]).toBe("RESOLUTION");
+    driver.combatPlaybackDone();
+    expect(phases.filter((p) => p === "RESOLUTION").length).toBe(1);
   });
 });

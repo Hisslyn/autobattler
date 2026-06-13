@@ -1,8 +1,12 @@
 import * as PIXI from "pixi.js";
 import { gameData } from "@autobattler/data";
 import type { MatchState, PlayerState } from "@autobattler/rules/src/state.js";
-import type { UnitInstance } from "@autobattler/sim/src/types.js";
+import type { UnitInstance, CombatEvent } from "@autobattler/sim/src/types.js";
+import type { HexCoord } from "@autobattler/sim/src/hex.js";
 import type { IDriver } from "../driver.js";
+import { CombatPlayer, toDisplayHex } from "../combat/player.js";
+import type { PlaybackSpeed } from "../combat/player.js";
+import { CombatView } from "../combat/view.js";
 import { C, tierColor, starColor } from "../theme.js";
 import {
   HEX_R, HEX_W, HEX_H, BOARD_COLS, BOARD_ROWS, BOARD_SLOTS,
@@ -94,6 +98,7 @@ function drawUnitCircle(
 
 export class MatchScene {
   readonly container: PIXI.Container;
+  private app: PIXI.Application;
   private driver: IDriver;
   private boardLayer: PIXI.Container;
   private benchLayer: PIXI.Container;
@@ -115,8 +120,17 @@ export class MatchScene {
   private dragCatcher!: PIXI.Graphics;
   private resolutionAutoTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private playback: {
+    player: CombatPlayer;
+    view: CombatView;
+    tickerFn: (ticker: PIXI.Ticker) => void;
+  } | null = null;
+  private playbackSpeed: PlaybackSpeed = 1;
+  private speedBtnLabel: PIXI.Text | null = null;
+
   constructor(app: PIXI.Application, driver: IDriver) {
     this.container = new PIXI.Container();
+    this.app = app;
     this.driver = driver;
 
     this.hudLayer = new PIXI.Container();
@@ -158,7 +172,7 @@ export class MatchScene {
         if (e.phase === "COMBAT") this.onCombatPhase();
         if (e.phase === "RESOLUTION") this.onResolutionPhase();
       }
-      if (e.type === "match_over") this.onMatchOver(e.placements);
+      if (e.type === "match_over") this.onMatchOver(e.placements, e.mmr);
     });
 
     this.render(driver.getState());
@@ -797,6 +811,7 @@ export class MatchScene {
   // ─── PHASE TRANSITIONS ───────────────────────────────────────────────────
 
   private onPlanningStart(): void {
+    this.teardownPlayback();
     this.clearResolutionTimer();
     this.combatLayer.removeChildren();
     this.closeScout();
@@ -809,6 +824,7 @@ export class MatchScene {
   }
 
   private renderCombat(state: MatchState): void {
+    this.teardownPlayback();
     this.combatLayer.removeChildren();
     // Hide planning UI
     this.boardLayer.removeChildren();
@@ -820,7 +836,6 @@ export class MatchScene {
     if (!me) return;
 
     const pairing = this.driver.getMyPairing();
-    const oppBoard = this.driver.getMyOpponentBoard();
     const isGhost = pairing?.isGhost ?? false;
     const opponentId = pairing ? pairing.opponentId : null;
 
@@ -842,48 +857,38 @@ export class MatchScene {
     banner.y = BOARD_OFFSET_Y - BOARD_ROWS * HEX_H / 2 - 6;
     this.combatLayer.addChild(banner);
 
-    // Opponent board (mirrored, top half)
-    if (oppBoard) {
-      for (let r = 0; r < BOARD_ROWS; r++) {
-        for (let q = 0; q < BOARD_COLS; q++) {
-          const { x, y } = hexToPixel(q, r, BOARD_OFFSET_X, OPP_BOARD_OFFSET_Y);
-          const g = new PIXI.Graphics();
-          drawHex(g, x, y, HEX_R - 2, C.bgBoardOpp, 0.5);
-          this.combatLayer.addChild(g);
-        }
-      }
-      for (let idx = 0; idx < oppBoard.length && idx < BOARD_SLOTS; idx++) {
-        const unit = oppBoard[idx];
-        if (!unit) continue;
-        // Mirror: opponent row 0 → displayed row 3 (bottom of opp area)
-        const q = idx % BOARD_COLS;
-        const r = Math.floor(idx / BOARD_COLS);
-        const mirroredR = BOARD_ROWS - 1 - r;
-        const { x, y } = hexToPixel(q, mirroredR, BOARD_OFFSET_X, OPP_BOARD_OFFSET_Y);
-        const uc = new PIXI.Container();
-        drawUnitCircle(uc, unit, x, y, 14, false);
-        this.combatLayer.addChild(uc);
-      }
-    }
-
-    // Own board (bottom half)
+    // Full combat field: opponent half (top) + own half (bottom)
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
-        const { x, y } = hexToPixel(q, r, BOARD_OFFSET_X, BOARD_OFFSET_Y);
+        const opp = hexToPixel(q, r, BOARD_OFFSET_X, OPP_BOARD_OFFSET_Y);
+        const og = new PIXI.Graphics();
+        drawHex(og, opp.x, opp.y, HEX_R - 2, C.bgBoardOpp, 0.5);
+        this.combatLayer.addChild(og);
+
+        const own = hexToPixel(q, r, BOARD_OFFSET_X, BOARD_OFFSET_Y);
         const g = new PIXI.Graphics();
-        drawHex(g, x, y, HEX_R - 2, C.bgBoard, 0.5);
+        drawHex(g, own.x, own.y, HEX_R - 2, C.bgBoard, 0.5);
         this.combatLayer.addChild(g);
       }
     }
-    for (let idx = 0; idx < BOARD_SLOTS; idx++) {
-      const unit = me.board[idx];
-      if (!unit) continue;
-      const q = idx % BOARD_COLS;
-      const r = Math.floor(idx / BOARD_COLS);
-      const { x, y } = hexToPixel(q, r, BOARD_OFFSET_X, BOARD_OFFSET_Y);
-      const uc = new PIXI.Container();
-      drawUnitCircle(uc, unit, x, y);
-      this.combatLayer.addChild(uc);
+
+    const result = this.driver.getMyCombatResult();
+    if (result && result.events.length > 0) {
+      this.startPlayback(result.events, pairing?.side ?? 0);
+      this.renderPlaybackControls();
+    } else {
+      // No event log (PvE/bye round): static own board, release the driver
+      for (let idx = 0; idx < BOARD_SLOTS; idx++) {
+        const unit = me.board[idx];
+        if (!unit) continue;
+        const q = idx % BOARD_COLS;
+        const r = Math.floor(idx / BOARD_COLS);
+        const { x, y } = hexToPixel(q, r, BOARD_OFFSET_X, BOARD_OFFSET_Y);
+        const uc = new PIXI.Container();
+        drawUnitCircle(uc, unit, x, y);
+        this.combatLayer.addChild(uc);
+      }
+      this.driver.combatPlaybackDone();
     }
 
     const combatLabel = new PIXI.Text("COMBAT", {
@@ -895,7 +900,96 @@ export class MatchScene {
     this.combatLayer.addChild(combatLabel);
   }
 
+  // ─── COMBAT PLAYBACK ─────────────────────────────────────────────────────
+
+  private startPlayback(events: CombatEvent[], side: 0 | 1): void {
+    // Display rows 0-3 = opponent half, 4-7 = my half (toDisplayHex keeps my
+    // units on the bottom regardless of pairing side).
+    const toPixel = (hex: HexCoord): { x: number; y: number } => {
+      const d = toDisplayHex(hex, side);
+      return d.r < BOARD_ROWS
+        ? hexToPixel(d.q, d.r, BOARD_OFFSET_X, OPP_BOARD_OFFSET_Y)
+        : hexToPixel(d.q, d.r - BOARD_ROWS, BOARD_OFFSET_X, BOARD_OFFSET_Y);
+    };
+
+    const player = new CombatPlayer(events, gameData.gameplay.ticksPerSec);
+    player.setSpeed(this.playbackSpeed);
+    const view = new CombatView(toPixel, {
+      x: DESIGN_W / 2,
+      y: BOARD_OFFSET_Y - BOARD_ROWS * HEX_H + 10,
+    });
+    this.combatLayer.addChild(view.container);
+
+    const tickerFn = (ticker: PIXI.Ticker): void => {
+      const frame = player.advance(ticker.deltaMS);
+      view.renderFrame(frame, ticker.deltaMS);
+      if (frame.done) this.finishPlayback();
+    };
+    this.app.ticker.add(tickerFn);
+    this.playback = { player, view, tickerFn };
+  }
+
+  /** Natural completion or explicit skip: final frame stays on screen. */
+  private finishPlayback(): void {
+    if (!this.playback) return;
+    this.app.ticker.remove(this.playback.tickerFn);
+    this.playback = null;
+    this.driver.combatPlaybackDone();
+  }
+
+  /** Abandon playback (phase moved on, e.g. server advanced first). */
+  private teardownPlayback(): void {
+    if (!this.playback) return;
+    this.app.ticker.remove(this.playback.tickerFn);
+    this.playback.player.skipToEnd();
+    this.playback = null;
+  }
+
+  private skipPlayback(): void {
+    if (!this.playback) return;
+    const { player, view } = this.playback;
+    const frame = player.skipToEnd();
+    view.renderFrame(frame, 0);
+    this.finishPlayback();
+  }
+
+  private toggleSpeed(): void {
+    this.playbackSpeed = this.playbackSpeed === 1 ? 2 : 1;
+    this.playback?.player.setSpeed(this.playbackSpeed);
+    if (this.speedBtnLabel) this.speedBtnLabel.text = `${this.playbackSpeed}x`;
+  }
+
+  private renderPlaybackControls(): void {
+    const btnY = 62;
+    const btnW = 44;
+    const btnH = 22;
+    const mkBtn = (x: number, label: string, onTap: () => void): PIXI.Text => {
+      const g = new PIXI.Graphics();
+      g.beginFill(C.bgMenuBtn, 0.9);
+      g.drawRoundedRect(x, btnY, btnW, btnH, 3);
+      g.endFill();
+      g.eventMode = "static";
+      g.hitArea = new PIXI.Rectangle(x, btnY, btnW, btnH);
+      g.cursor = "pointer";
+      g.on("pointerdown", onTap);
+      this.combatLayer.addChild(g);
+      const t = new PIXI.Text(label, {
+        fontSize: 9, fill: C.textPrimary, fontFamily: "monospace",
+      });
+      t.anchor.set(0.5, 0.5);
+      t.x = x + btnW / 2;
+      t.y = btnY + btnH / 2;
+      t.eventMode = "none";
+      this.combatLayer.addChild(t);
+      return t;
+    };
+    this.speedBtnLabel = mkBtn(DESIGN_W - 2 * btnW - 12, `${this.playbackSpeed}x`, () => this.toggleSpeed());
+    mkBtn(DESIGN_W - btnW - 6, "Skip", () => this.skipPlayback());
+  }
+
   private onResolutionPhase(): void {
+    // Online the server may advance before playback ends: auto-skip to end.
+    this.teardownPlayback();
     const state = this.driver.getState();
     this.renderResolution(state);
   }
@@ -996,7 +1090,8 @@ export class MatchScene {
     }
   }
 
-  private onMatchOver(placements: number[]): void {
+  private onMatchOver(placements: number[], mmr?: Record<number, { before: number; after: number }>): void {
+    this.teardownPlayback();
     this.clearResolutionTimer();
     this.combatLayer.removeChildren();
     const bg = new PIXI.Graphics();
@@ -1024,6 +1119,19 @@ export class MatchScene {
     placeText.x = DESIGN_W / 2;
     placeText.y = 192;
     this.combatLayer.addChild(placeText);
+
+    const myMmr = mmr?.[seat];
+    if (myMmr) {
+      const delta = myMmr.after - myMmr.before;
+      const mmrText = new PIXI.Text(
+        `MMR ${myMmr.after} (${delta >= 0 ? "+" : ""}${delta})`,
+        { fontSize: 12, fill: delta >= 0 ? C.textReady : C.textBadHP, fontFamily: "monospace" }
+      );
+      mmrText.anchor.set(0.5, 0);
+      mmrText.x = DESIGN_W / 2;
+      mmrText.y = 380 + 22;
+      this.combatLayer.addChild(mmrText);
+    }
 
     for (let i = 0; i < placements.length; i++) {
       const pid = placements[i];

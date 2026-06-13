@@ -1,7 +1,7 @@
 // Client → Server message types
 export type C2SType = "QUEUE_JOIN" | "QUEUE_LEAVE" | "CMD" | "READY" | "PING" | "RECONNECT";
 
-export interface C2S_QueueJoin { type: "QUEUE_JOIN" }
+export interface C2S_QueueJoin { type: "QUEUE_JOIN"; authToken?: string }
 export interface C2S_QueueLeave { type: "QUEUE_LEAVE" }
 export interface C2S_Cmd {
   type: "CMD";
@@ -41,7 +41,13 @@ export interface S2C_CombatStart {
   roundSeed: number;
 }
 export interface S2C_CombatResult { type: "COMBAT_RESULT"; results: unknown }
-export interface S2C_MatchEnd { type: "MATCH_END"; placements: number[] }
+export interface MmrChange { before: number; after: number }
+export interface S2C_MatchEnd {
+  type: "MATCH_END";
+  placements: number[];
+  /** Per-seat MMR change; only seats backed by an account appear. */
+  mmr?: Record<number, MmrChange>;
+}
 export interface S2C_Error { type: "ERROR"; code: ErrorCode; message: string }
 export interface S2C_Pong { type: "PONG"; ts: number; serverTs: number }
 
@@ -65,4 +71,5 @@ export type ErrorCode =
   | "COMMAND_REJECTED"
   | "RATE_LIMITED"
   | "ALREADY_QUEUED"
-  | "RECONNECT_FAILED";
+  | "RECONNECT_FAILED"
+  | "UNAUTHENTICATED";

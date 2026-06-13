@@ -4,10 +4,27 @@ import rawItems from "./items.json" with { type: "json" };
 import rawEconomy from "./economy.json" with { type: "json" };
 import rawGameplay from "./gameplay.json" with { type: "json" };
 
+export type AbilityEffectData =
+  | { kind: "magic_damage" }
+  | { kind: "burn"; burn: number; duration: number }
+  | { kind: "shield"; amount: number; duration: number }
+  | { kind: "buff"; stat: "ad" | "as" | "armor" | "mr" | "abilityDamage"; value: number; duration: number }
+  | { kind: "stealth"; duration: number };
+
+export interface AbilityDataDef {
+  name: string;
+  manaCost: number;
+  effect: AbilityEffectData;
+}
+
 export interface UnitDataDef {
   id: string;
   name: string;
   tier: number;
+  /** Single origin trait id. */
+  origin: string;
+  /** 1-2 class trait ids. */
+  classes: string[];
   hp: number;
   ad: number;
   as: number;
@@ -17,6 +34,8 @@ export interface UnitDataDef {
   mana: number;
   manaStart: number;
   abilityDamage: number;
+  ability: AbilityDataDef;
+  /** Flattened [origin, ...classes]; the sim/rules resolve traits from this. */
   traits: string[];
 }
 
@@ -28,13 +47,25 @@ export interface TraitBreakpoint {
 export interface TraitDataDef {
   id: string;
   name: string;
+  /** "origin" or "class"; every unit carries exactly one origin + 1-2 classes. */
+  kind: "origin" | "class";
   breakpoints: TraitBreakpoint[];
 }
+
+export type ItemPassiveData =
+  | { kind: "burn"; value: number; duration: number }
+  | { kind: "shield"; value: number; duration: number };
 
 export interface ItemDataDef {
   id: string;
   name: string;
   stats: Partial<Record<string, number>>;
+  /** True for the 9 base components (stat-only, no recipe). */
+  component?: boolean;
+  /** Completed items: the unordered component pair that builds this item. */
+  recipe?: [string, string];
+  /** At most one passive on a completed item. */
+  passive?: ItemPassiveData;
 }
 
 export interface StreakEntry {
@@ -64,6 +95,9 @@ export interface EconomyData {
   critChance: number;
   critMultiplier: number;
   resolutionSeconds: number;
+  mmrStart: number;
+  mmrK: number;
+  mmrEloDivisor: number;
 }
 
 export interface GameplayData {
@@ -93,6 +127,8 @@ export interface GameData {
   economy: EconomyData;
   gameplay: GameplayData;
 }
+
+export const DATA_VERSION = "0.1.0";
 
 export const gameData: GameData = {
   units: rawUnits as UnitDataDef[],

@@ -11,9 +11,11 @@
     "@autobattler/protocol": "*",
     "@autobattler/rules": "*",
     "@autobattler/sim": "*",
+    "pg": "^8.21.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/pg": "^8.20.0",
     "@types/ws": "^8.5.10"
   }
 }
