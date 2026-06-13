@@ -7,7 +7,8 @@
 - `packages/sim` is pure: no I/O, no `Math.random`, no `Date`, no floats
 - All arithmetic uses integer fixed-point math (scale 1000 = 1.0)
 - All randomness goes through the seeded mulberry32 PRNG in `prng.ts`
-- All tuning numbers (unit stats, trait effects, item stats, economy) live in `packages/data`
+- All tuning numbers (unit stats, trait effects, item stats, economy) live in `packages/data`; content lives entirely in data (no content logic in code)
+- `packages/balance` is the ONLY package permitted I/O (its CLI writes the report files); `sim`/`rules` stay pure
 - Every change must keep determinism tests green (`npm test`)
 - Pool conservation: total unit copies across pool + all player benches/boards is constant
 - Command legality is enforced server-side in `packages/rules`; invalid commands return typed errors, never throw
