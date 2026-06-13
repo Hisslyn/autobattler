@@ -9,6 +9,9 @@ import type { PlaybackSpeed } from "../combat/player.js";
 import { CombatView } from "../combat/view.js";
 import { C, tierColor } from "../theme.js";
 import { drawUnitToken } from "../unitToken.js";
+import { drawGlyph, glyphForTraits } from "../glyphs.js";
+import type { GlyphKind } from "../glyphs.js";
+import { traitStripModel, xpProgress } from "../hudModel.js";
 import { onUnitArtReady } from "../sprites.js";
 import type { SettingsStore } from "../settings.js";
 import type { AudioManager } from "../audio/manager.js";
@@ -30,9 +33,21 @@ const DESIGN_H = 844;
 const BOARD_OFFSET_X = (DESIGN_W - BOARD_COLS * HEX_W) / 2 + HEX_R;
 const BOARD_OFFSET_Y = 265;
 
+// ── Stage-2 chrome layout ───────────────────────────────────────────────────
+const STATUS_Y = 4;          // status row (stage chip / timer)
+const RAIL_Y = 28;           // opponent rail top
+const TRAIT_STRIP_Y = 426;   // trait strip (just below the board panel)
+const HUD_ROW_Y = 476;       // level / gold / streak / reroll / buy-xp row
+const HUD_ROW_H = 38;
+
 const BENCH_SLOT_W = 38;
-const BENCH_Y = BOARD_OFFSET_Y + BOARD_ROWS * HEX_H + 18;
-const SHOP_Y = BENCH_Y + BENCH_SLOT_W + 16;
+const BENCH_Y = 532;
+const SHOP_Y = 574;
+const SHOP_CARD_W = 71;
+const SHOP_CARD_H = 84;
+const SHOP_GAP = 4;
+const SHOP_START_X = 9;
+const READY_Y = SHOP_Y + SHOP_CARD_H + 10;
 
 // Opponent board is mirrored on the top half
 const OPP_BOARD_OFFSET_Y = BOARD_OFFSET_Y - BOARD_ROWS * HEX_H - 12;
@@ -117,7 +132,6 @@ export class MatchScene {
   private isDragging = false;
   private dragUnit: { uid: number; fromBench: boolean; fromIdx: number } | null = null;
   private dragSprite: PIXI.Container | null = null;
-  private traitPanelOpen = true;
   private scoutTargetId: number | null = null;
 
   private dragCatcher!: PIXI.Graphics;
@@ -201,76 +215,130 @@ export class MatchScene {
     if (state.phase === "PLANNING") {
       this.renderBoard(me);
       this.renderBench(me);
+      this.renderTraitStrip(me);
       this.renderShop(state, me);
-      this.renderTraitPanel(me);
     }
   }
 
-  // ─── HUD ─────────────────────────────────────────────────────────────────
+  // ─── CHROME HELPERS ────────────────────────────────────────────────────────
+
+  /** Rounded panel-bg chip with a chip-border outline; returns it for wiring. */
+  private chip(
+    layer: PIXI.Container,
+    x: number, y: number, w: number, h: number,
+    opts: { fill?: number; fillAlpha?: number; border?: number; borderW?: number; radius?: number } = {}
+  ): PIXI.Graphics {
+    const g = new PIXI.Graphics();
+    g.beginFill(opts.fill ?? C.panelBg, opts.fillAlpha ?? 1);
+    g.lineStyle(opts.borderW ?? 1, opts.border ?? C.chipBorder, 1);
+    g.drawRoundedRect(x, y, w, h, opts.radius ?? 5);
+    g.endFill();
+    g.lineStyle(0);
+    layer.addChild(g);
+    return g;
+  }
+
+  private text(
+    layer: PIXI.Container, str: string, x: number, y: number,
+    size: number, fill: number, anchor: [number, number] = [0, 0]
+  ): PIXI.Text {
+    const t = new PIXI.Text(str, { fontSize: size, fill, fontFamily: "monospace" });
+    t.anchor.set(anchor[0], anchor[1]);
+    t.x = x; t.y = y;
+    t.eventMode = "none";
+    layer.addChild(t);
+    return t;
+  }
+
+  private glyph(layer: PIXI.Container, kind: GlyphKind, x: number, y: number, size: number, color: number): void {
+    const g = new PIXI.Graphics();
+    drawGlyph(g, kind, x, y, size, color);
+    g.eventMode = "none";
+    layer.addChild(g);
+  }
+
+  // ─── HUD: status row + opponent rail ─────────────────────────────────────────
 
   private renderHud(state: MatchState, me: PlayerState): void {
     this.hudLayer.removeChildren();
     const bg = new PIXI.Graphics();
     bg.beginFill(C.bgHud);
-    bg.drawRect(0, 0, DESIGN_W, 56);
+    bg.drawRect(0, 0, DESIGN_W, 58);
     bg.endFill();
     this.hudLayer.addChild(bg);
 
-    const barW = Math.floor((DESIGN_W - 8) / 8);
+    // ── A. Status row ──────────────────────────────────────────────────────
+    // Stage chip (left): swords glyph + "Stage X-Y" derived from the round.
+    const stage = Math.floor((state.round - 1) / 5) + 1;
+    const sub = ((state.round - 1) % 5) + 1;
+    const stageW = 96;
+    this.chip(this.hudLayer, 6, STATUS_Y, stageW, 20, { fillAlpha: 0.9 });
+    this.glyph(this.hudLayer, "swords", 17, STATUS_Y + 10, 13, C.starGold);
+    this.text(this.hudLayer, `Stage ${stage}-${sub}`, 28, STATUS_Y + 10, 10, C.textPrimary, [0, 0.5]);
+
+    // Planning timer (center): m:ss, muted; tint toward hp-low under 5s.
+    const timeLeft = this.driver.getPlanningTimeLeft();
+    if (state.phase === "PLANNING" && timeLeft > 0) {
+      const secs = Math.ceil(timeLeft / 1000);
+      const m = Math.floor(secs / 60);
+      const ss = (secs % 60).toString().padStart(2, "0");
+      this.text(
+        this.hudLayer, `${m}:${ss}`, DESIGN_W / 2, STATUS_Y + 10, 13,
+        secs <= 5 ? C.hpLow : C.textMuted, [0.5, 0.5]
+      );
+    } else {
+      this.text(this.hudLayer, state.phase, DESIGN_W / 2, STATUS_Y + 10, 11, C.textMuted, [0.5, 0.5]);
+    }
+    // Right slot reserved for the DOM ☰ pause button (existing hook).
+
+    // ── B. Opponent rail: 8 compact seat tiles ──────────────────────────────
+    const myPairing = this.driver.getMyPairing();
+    const currentOpp = myPairing && !myPairing.isGhost ? myPairing.opponentId : -1;
+    const tileW = (DESIGN_W - 8) / 8;
+    const av = 8; // avatar radius
     for (let i = 0; i < 8; i++) {
       const p = state.players[i];
       if (!p) continue;
-      const x = 4 + i * barW;
-      const g = new PIXI.Graphics();
-      const barColor = p.alive ? (i === this.driver.seatIndex ? C.hpBarSelf : C.hpBarOther) : C.hpBarDead;
-      g.beginFill(barColor, 0.35);
-      g.drawRoundedRect(x, 4, barW - 2, 18, 2);
-      g.endFill();
-      const hpFrac = Math.max(0, p.hp / 100);
-      g.beginFill(barColor, 0.85);
-      g.drawRoundedRect(x, 4, Math.round((barW - 2) * hpFrac), 18, 2);
-      g.endFill();
+      const cx = 4 + i * tileW + tileW / 2;
+      const cy = RAIL_Y + av + 1;
+      const isSelf = i === this.driver.seatIndex;
+      const elim = !p.alive;
 
-      // Make each bar tappable for scouting (not self, alive opponents only)
-      if (i !== this.driver.seatIndex && p.alive && state.phase === "PLANNING") {
-        g.eventMode = "static";
-        g.cursor = "pointer";
-        const capturedId = i;
-        g.on("pointerdown", () => this.openScout(capturedId, state));
-      }
-
-      this.hudLayer.addChild(g);
-
-      const hpText = new PIXI.Text(`${Math.max(0, p.hp)}`, {
-        fontSize: 8,
-        fill: C.textPrimary,
-        fontFamily: "monospace",
+      const avg = new PIXI.Graphics();
+      avg.circle(cx, cy, av).fill({ color: C.panelBg, alpha: elim ? 0.4 : 1 });
+      avg.circle(cx, cy, av).stroke({
+        width: i === currentOpp ? 2 : 1,
+        color: i === currentOpp ? C.starGold : isSelf ? C.tier3 : C.chipBorder,
+        alpha: elim ? 0.4 : 1,
       });
-      hpText.anchor.set(0.5, 0.5);
-      hpText.x = x + (barW - 2) / 2;
-      hpText.y = 13;
-      this.hudLayer.addChild(hpText);
+      this.hudLayer.addChild(avg);
+
+      this.text(this.hudLayer, `${i + 1}`, cx, cy, 9, elim ? C.textMuted : C.textPrimary, [0.5, 0.5]);
+
+      // HP bar below the avatar
+      const hpFrac = Math.max(0, Math.min(1, p.hp / 100));
+      const barW = tileW - 10;
+      const barX = cx - barW / 2;
+      const barY = cy + av + 2;
+      const hb = new PIXI.Graphics();
+      hb.rect(barX, barY, barW, 3).fill({ color: C.hpBg, alpha: elim ? 0.4 : 1 });
+      hb.rect(barX, barY, Math.round(barW * hpFrac), 3)
+        .fill({ color: hpFrac < 0.25 ? C.hpLow : C.hpGreen, alpha: elim ? 0.4 : 1 });
+      this.hudLayer.addChild(hb);
+
+      // Tap-to-scout: alive opponents during planning
+      if (!isSelf && p.alive && state.phase === "PLANNING") {
+        const hit = new PIXI.Graphics();
+        hit.beginFill(C.bgOverlay, 0.001);
+        hit.drawRect(4 + i * tileW, RAIL_Y - 2, tileW, 30);
+        hit.endFill();
+        hit.eventMode = "static";
+        hit.cursor = "pointer";
+        const capturedId = i;
+        hit.on("pointerdown", () => this.openScout(capturedId, state));
+        this.hudLayer.addChild(hit);
+      }
     }
-
-    const timeLeft = this.driver.getPlanningTimeLeft();
-    const timerStr = state.phase === "PLANNING" && timeLeft > 0 ? ` ${Math.ceil(timeLeft / 1000)}s` : "";
-    const roundText = new PIXI.Text(`R${state.round} ${state.phase}${timerStr}`, {
-      fontSize: 9,
-      fill: C.textMuted,
-      fontFamily: "monospace",
-    });
-    roundText.x = 4;
-    roundText.y = 28;
-    this.hudLayer.addChild(roundText);
-
-    const goldText = new PIXI.Text(`${me.gold}g  Lv${me.level}  XP${me.xp}`, {
-      fontSize: 9,
-      fill: C.textGold,
-      fontFamily: "monospace",
-    });
-    goldText.x = 4;
-    goldText.y = 41;
-    this.hudLayer.addChild(goldText);
   }
 
   // ─── BOARD ───────────────────────────────────────────────────────────────
@@ -385,185 +453,183 @@ export class MatchScene {
 
   private renderShop(state: MatchState, me: PlayerState): void {
     this.shopLayer.removeChildren();
-    const shopCardW = 60;
-    const shopCardH = 68;
-    const shopStartX = 8;
+    this.renderControls(me);
 
+    // ── E. Shop cards (5) ────────────────────────────────────────────────────
     for (let i = 0; i < 5; i++) {
-      const x = shopStartX + i * (shopCardW + 4);
+      const x = SHOP_START_X + i * (SHOP_CARD_W + SHOP_GAP);
       const slot = me.shop[i];
-      const g = new PIXI.Graphics();
-      g.beginFill(slot ? C.bgShopCard : C.bgShopEmpty, 0.9);
-      g.drawRoundedRect(x, SHOP_Y, shopCardW, shopCardH, 5);
-      g.endFill();
 
-      if (slot) {
-        const def = gameData.units.find((u) => u.id === slot.defId);
-        const tc = tierColor(slot.tier);
-        g.lineStyle(1, tc, 0.6);
-        g.drawRoundedRect(x, SHOP_Y, shopCardW, shopCardH, 5);
-        g.lineStyle(0);
-        g.eventMode = "static";
-        g.hitArea = new PIXI.Rectangle(x, SHOP_Y, shopCardW, shopCardH);
-        g.cursor = "pointer";
-        const ci = i;
-        g.on("pointerdown", () => this.onShopBuy(ci));
-
-        const nameText = new PIXI.Text(def?.name ?? slot.defId, {
-          fontSize: 8,
-          fill: C.textShop,
-          fontFamily: "monospace",
-          wordWrap: true,
-          wordWrapWidth: shopCardW - 4,
+      if (!slot) {
+        this.chip(this.shopLayer, x, SHOP_Y, SHOP_CARD_W, SHOP_CARD_H, {
+          fill: C.bgShopEmpty, fillAlpha: 0.6, border: C.chipBorder,
         });
-        nameText.anchor.set(0.5, 0);
-        nameText.x = x + shopCardW / 2;
-        nameText.y = SHOP_Y + 4;
-        this.shopLayer.addChild(nameText);
-
-        const costText = new PIXI.Text(`${slot.tier}g`, {
-          fontSize: 10,
-          fill: C.textGold,
-          fontFamily: "monospace",
-        });
-        costText.anchor.set(0.5, 1);
-        costText.x = x + shopCardW / 2;
-        costText.y = SHOP_Y + shopCardH - 4;
-        this.shopLayer.addChild(costText);
-
-        const cg = new PIXI.Graphics();
-        cg.beginFill(tc, 0.18);
-        cg.drawCircle(x + shopCardW / 2, SHOP_Y + shopCardH / 2, 12);
-        cg.endFill();
-        this.shopLayer.addChild(cg);
+        continue;
       }
 
-      this.shopLayer.addChild(g);
+      const def = gameData.units.find((u) => u.id === slot.defId);
+      const tc = tierColor(slot.tier);
+      const cardCx = x + SHOP_CARD_W / 2;
+
+      const card = this.chip(this.shopLayer, x, SHOP_Y, SHOP_CARD_W, SHOP_CARD_H, {
+        fill: C.bgShopCard,
+      });
+      // tier-colored 3px top border
+      const top = new PIXI.Graphics();
+      top.beginFill(tc);
+      top.drawRoundedRect(x, SHOP_Y, SHOP_CARD_W, 3, 2);
+      top.endFill();
+      top.eventMode = "none";
+      this.shopLayer.addChild(top);
+
+      card.eventMode = "static";
+      card.hitArea = new PIXI.Rectangle(x, SHOP_Y, SHOP_CARD_W, SHOP_CARD_H);
+      card.cursor = "pointer";
+      const ci = i;
+      card.on("pointerdown", () => this.onShopBuy(ci));
+
+      // portrait disc (token glyph/art, no bars); non-interactive so taps reach the card
+      const tokenC = new PIXI.Container();
+      tokenC.eventMode = "none";
+      drawUnitToken(tokenC, slot.defId, slot.tier, 0, cardCx, SHOP_Y + 26, { radius: 17 });
+      this.shopLayer.addChild(tokenC);
+
+      this.text(this.shopLayer, def?.name ?? slot.defId, cardCx, SHOP_Y + 48, 8, C.textPrimary, [0.5, 0]);
+
+      const traitNames = [def?.origin, ...(def?.classes ?? [])]
+        .map((tid) => gameData.traits.find((t) => t.id === tid)?.name)
+        .filter((n): n is string => !!n);
+      this.text(this.shopLayer, traitNames.join(" · "), cardCx, SHOP_Y + 60, 6, C.textMuted, [0.5, 0]);
+
+      this.glyph(this.shopLayer, "coin", x + 12, SHOP_Y + SHOP_CARD_H - 9, 9, C.starGold);
+      this.text(this.shopLayer, `${slot.tier}`, x + 20, SHOP_Y + SHOP_CARD_H - 9, 11, C.textGold, [0, 0.5]);
     }
 
-    const rrX = 8 + 5 * (shopCardW + 4) + 4;
-    const rrG = new PIXI.Graphics();
-    rrG.beginFill(C.bgReroll);
-    rrG.drawRoundedRect(rrX, SHOP_Y, 56, 26, 3);
-    rrG.endFill();
-    rrG.eventMode = "static";
-    rrG.hitArea = new PIXI.Rectangle(rrX, SHOP_Y, 56, 26);
-    rrG.cursor = "pointer";
-    rrG.on("pointerdown", () => this.onReroll());
-    const rrText = new PIXI.Text(`Roll\n${gameData.economy.rerollCost}g`, {
-      fontSize: 8, fill: C.textReroll, fontFamily: "monospace", align: "center",
-    });
-    rrText.eventMode = "none";
-    rrText.anchor.set(0.5, 0.5);
-    rrText.x = rrX + 28;
-    rrText.y = SHOP_Y + 13;
-    this.shopLayer.addChild(rrG);
-    this.shopLayer.addChild(rrText);
-
-    const xpG = new PIXI.Graphics();
-    xpG.beginFill(C.bgXp);
-    xpG.drawRoundedRect(rrX, SHOP_Y + 30, 56, 26, 3);
-    xpG.endFill();
-    xpG.eventMode = "static";
-    xpG.hitArea = new PIXI.Rectangle(rrX, SHOP_Y + 30, 56, 26);
-    xpG.cursor = "pointer";
-    xpG.on("pointerdown", () => this.onBuyXp());
-    const xpText = new PIXI.Text(`+XP\n${gameData.economy.xpBuyCost}g`, {
-      fontSize: 8, fill: C.textXp, fontFamily: "monospace", align: "center",
-    });
-    xpText.eventMode = "none";
-    xpText.anchor.set(0.5, 0.5);
-    xpText.x = rrX + 28;
-    xpText.y = SHOP_Y + 43;
-    this.shopLayer.addChild(xpG);
-    this.shopLayer.addChild(xpText);
-
+    // ── Ready button (full-width, below the shop) ────────────────────────────
     const isPlanning = state.phase === "PLANNING";
-    const readyG = new PIXI.Graphics();
-    readyG.beginFill(isPlanning ? C.bgReady : C.bgReadyOff);
-    readyG.drawRoundedRect(rrX, SHOP_Y + 60, 56, 26, 3);
-    readyG.endFill();
-    readyG.eventMode = isPlanning ? "static" : "none";
-    readyG.hitArea = new PIXI.Rectangle(rrX, SHOP_Y + 60, 56, 26);
-    readyG.cursor = isPlanning ? "pointer" : "default";
-    readyG.on("pointerdown", () => isPlanning && this.driver.ready());
-    const readyText = new PIXI.Text(isPlanning ? "Ready" : state.phase, {
-      fontSize: 8, fill: isPlanning ? C.textReady : C.textMuted, fontFamily: "monospace",
+    const ready = this.chip(this.shopLayer, SHOP_START_X, READY_Y, DESIGN_W - 2 * SHOP_START_X, 34, {
+      fill: isPlanning ? C.bgReady : C.bgReadyOff, border: isPlanning ? C.hpGreen : C.chipBorder, radius: 7,
     });
-    readyText.eventMode = "none";
-    readyText.anchor.set(0.5, 0.5);
-    readyText.x = rrX + 28;
-    readyText.y = SHOP_Y + 73;
-    this.shopLayer.addChild(readyG);
-    this.shopLayer.addChild(readyText);
+    ready.eventMode = isPlanning ? "static" : "none";
+    ready.hitArea = new PIXI.Rectangle(SHOP_START_X, READY_Y, DESIGN_W - 2 * SHOP_START_X, 34);
+    ready.cursor = isPlanning ? "pointer" : "default";
+    ready.on("pointerdown", () => isPlanning && this.driver.ready());
+    this.text(
+      this.shopLayer, isPlanning ? "Ready" : state.phase, DESIGN_W / 2, READY_Y + 17, 13,
+      isPlanning ? C.textReady : C.textMuted, [0.5, 0.5]
+    );
   }
 
-  // ─── TRAIT TRACKER ───────────────────────────────────────────────────────
+  // ─── D. HUD row: level / gold / streak / reroll / buy-xp ──────────────────────
 
-  private renderTraitPanel(me: PlayerState): void {
+  private renderControls(me: PlayerState): void {
+    const y = HUD_ROW_Y;
+
+    // Level chip + xp-purple progress bar
+    this.chip(this.shopLayer, SHOP_START_X, y, 66, HUD_ROW_H);
+    this.text(this.shopLayer, `Lv ${me.level}`, SHOP_START_X + 8, y + 12, 11, C.textPrimary, [0, 0.5]);
+    const xp = xpProgress(me.xp, me.level, gameData.economy.levelXpThresholds);
+    const xpBarX = SHOP_START_X + 8;
+    const xpBarW = 50;
+    const xpBarY = y + HUD_ROW_H - 10;
+    const xpb = new PIXI.Graphics();
+    xpb.rect(xpBarX, xpBarY, xpBarW, 4).fill({ color: C.bgShopEmpty });
+    xpb.rect(xpBarX, xpBarY, Math.round(xpBarW * xp.frac), 4).fill({ color: C.xpPurple });
+    xpb.eventMode = "none";
+    this.shopLayer.addChild(xpb);
+
+    // Gold (large, gold + coin glyph)
+    this.glyph(this.shopLayer, "coin", 92, y + HUD_ROW_H / 2, 13, C.starGold);
+    this.text(this.shopLayer, `${me.gold}`, 104, y + HUD_ROW_H / 2, 18, C.textGold, [0, 0.5]);
+
+    // Streak (flame + signed value, streak-orange)
+    const streak = me.winStreak > 0 ? me.winStreak : me.loseStreak > 0 ? -me.loseStreak : 0;
+    if (streak !== 0) {
+      this.glyph(this.shopLayer, "flame", 156, y + HUD_ROW_H / 2, 12, C.streakOrange);
+      this.text(
+        this.shopLayer, `${streak > 0 ? "+" : ""}${streak}`, 168, y + HUD_ROW_H / 2, 12,
+        C.streakOrange, [0, 0.5]
+      );
+    }
+
+    // Reroll button (refresh glyph + cost)
+    const btnY = y + 2;
+    const btnH = HUD_ROW_H - 4;
+    const rrX = 242, rrW = 62;
+    const rr = this.chip(this.shopLayer, rrX, btnY, rrW, btnH, { fill: C.bgReroll });
+    rr.eventMode = "static";
+    rr.hitArea = new PIXI.Rectangle(rrX, btnY, rrW, btnH);
+    rr.cursor = "pointer";
+    rr.on("pointerdown", () => this.onReroll());
+    this.glyph(this.shopLayer, "refresh", rrX + 13, btnY + btnH / 2, 13, C.textPrimary);
+    this.glyph(this.shopLayer, "coin", rrX + 30, btnY + btnH / 2, 8, C.starGold);
+    this.text(this.shopLayer, `${gameData.economy.rerollCost}`, rrX + 38, btnY + btnH / 2, 11, C.textGold, [0, 0.5]);
+
+    // Buy XP button (label + cost)
+    const xpX = 312, xpW = 70;
+    const xpBtn = this.chip(this.shopLayer, xpX, btnY, xpW, btnH, { fill: C.bgXp });
+    xpBtn.eventMode = "static";
+    xpBtn.hitArea = new PIXI.Rectangle(xpX, btnY, xpW, btnH);
+    xpBtn.cursor = "pointer";
+    xpBtn.on("pointerdown", () => this.onBuyXp());
+    this.text(this.shopLayer, "XP", xpX + 8, btnY + btnH / 2, 11, C.textPrimary, [0, 0.5]);
+    this.glyph(this.shopLayer, "coin", xpX + 36, btnY + btnH / 2, 8, C.starGold);
+    this.text(this.shopLayer, `${gameData.economy.xpBuyCost}`, xpX + 44, btnY + btnH / 2, 11, C.textGold, [0, 0.5]);
+  }
+
+  // ─── C. TRAIT STRIP (horizontal, wraps) ──────────────────────────────────────
+
+  private renderTraitStrip(me: PlayerState): void {
     this.traitLayer.removeChildren();
+    const chips = traitStripModel(me.board, gameData.units, gameData.traits);
 
-    const units = me.board.filter((u): u is UnitInstance => u != null);
-    const traitCounts = new Map<string, number>();
-    for (const u of units) {
-      const def = gameData.units.find((d) => d.id === u.defId);
-      for (const t of def?.traits ?? []) {
-        traitCounts.set(t, (traitCounts.get(t) ?? 0) + 1);
-      }
+    const padX = 8;
+    const chipH = 18;
+    const gapX = 5;
+    const gapY = 4;
+    const maxRowW = DESIGN_W - 2 * padX;
+    let x = padX;
+    let rowY = TRAIT_STRIP_Y;
+
+    for (const c of chips) {
+      const active = c.activeBreakpoint !== null;
+      const countStr = active
+        ? `${c.count}`
+        : `${c.count}/${c.nextBreakpoint ?? c.count}`;
+      const label = `${c.name} ${countStr}`;
+      const chipW = 26 + label.length * 5.4;
+
+      if (x + chipW > padX + maxRowW) { x = padX; rowY += chipH + gapY; }
+
+      const bg = new PIXI.Graphics();
+      bg.beginFill(C.panelBg, active ? 0.95 : 0.5);
+      bg.lineStyle(1, active ? c.color : C.chipBorder, active ? 0.9 : 0.5);
+      bg.drawRoundedRect(x, rowY, chipW, chipH, 4);
+      bg.endFill();
+      bg.lineStyle(0);
+      bg.alpha = active ? 1 : 0.5;
+      this.traitLayer.addChild(bg);
+
+      // 14px rotated diamond holding the glyph
+      const cy = rowY + chipH / 2;
+      const dcx = x + 12;
+      const diamond = new PIXI.Graphics();
+      const dr = 7;
+      diamond.poly([dcx, cy - dr, dcx + dr, cy, dcx, cy + dr, dcx - dr, cy]);
+      diamond.fill({ color: active ? c.color : C.chipBorder, alpha: active ? 0.35 : 0.25 });
+      diamond.poly([dcx, cy - dr, dcx + dr, cy, dcx, cy + dr, dcx - dr, cy]);
+      diamond.stroke({ width: 1, color: active ? c.color : C.textMuted });
+      this.traitLayer.addChild(diamond);
+      this.glyph(this.traitLayer, this.traitGlyph(c.traitId), dcx, cy, 8, active ? c.color : C.textMuted);
+
+      this.text(this.traitLayer, label, x + 22, cy, 8, active ? C.textPrimary : C.textMuted, [0, 0.5]);
+
+      x += chipW + gapX;
     }
-    const knownTraits = gameData.traits.filter((t) => traitCounts.has(t.id));
+  }
 
-    const toggleW = 14;
-    const toggleH = Math.max(44, knownTraits.length * 22 + 10);
-    const panelW = this.traitPanelOpen ? 80 : 0;
-
-    const toggleBtn = new PIXI.Graphics();
-    toggleBtn.beginFill(C.bgPanel, 0.85);
-    toggleBtn.drawRoundedRect(0, 68, toggleW + panelW, toggleH, 3);
-    toggleBtn.endFill();
-    toggleBtn.eventMode = "static";
-    toggleBtn.cursor = "pointer";
-    toggleBtn.on("pointerdown", () => {
-      this.traitPanelOpen = !this.traitPanelOpen;
-      this.renderTraitPanel(me);
-    });
-    this.traitLayer.addChild(toggleBtn);
-
-    const toggleLabel = new PIXI.Text(this.traitPanelOpen ? "<" : ">", {
-      fontSize: 9, fill: C.textMuted, fontFamily: "monospace",
-    });
-    toggleLabel.anchor.set(0.5, 0.5);
-    toggleLabel.x = toggleW / 2;
-    toggleLabel.y = 68 + toggleH / 2;
-    this.traitLayer.addChild(toggleLabel);
-
-    if (!this.traitPanelOpen) return;
-
-    let rowY = 74;
-    for (const trait of knownTraits) {
-      const count = traitCounts.get(trait.id) ?? 0;
-      const nextBp = trait.breakpoints.find((bp) => bp.count > count);
-      const activeBp = [...trait.breakpoints].reverse().find((bp) => bp.count <= count);
-      const isActive = activeBp != null;
-
-      const rowBg = new PIXI.Graphics();
-      rowBg.beginFill(isActive ? C.traitActive : C.traitPending, 0.6);
-      rowBg.drawRoundedRect(toggleW + 2, rowY, panelW - 6, 18, 2);
-      rowBg.endFill();
-      this.traitLayer.addChild(rowBg);
-
-      const label = `${trait.name.slice(0, 6)} ${count}/${nextBp?.count ?? activeBp?.count ?? "?"}`;
-      const txt = new PIXI.Text(label, {
-        fontSize: 7,
-        fill: isActive ? C.textReady : C.textMuted,
-        fontFamily: "monospace",
-      });
-      txt.anchor.set(0, 0.5);
-      txt.x = toggleW + 5;
-      txt.y = rowY + 9;
-      this.traitLayer.addChild(txt);
-      rowY += 22;
-    }
+  private traitGlyph(traitId: string): GlyphKind {
+    return glyphForTraits([traitId]);
   }
 
   // ─── DRAG & DROP ─────────────────────────────────────────────────────────

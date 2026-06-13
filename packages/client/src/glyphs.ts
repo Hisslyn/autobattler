@@ -8,7 +8,9 @@ import type { Graphics } from "pixi.js";
 export type GlyphKind =
   | "sword" | "swords" | "dagger" | "axe" | "bow" | "shield" | "crosshair"
   | "flame" | "bolt" | "droplet" | "snowflake" | "leaf" | "claw"
-  | "star" | "sun" | "moon" | "spark" | "skull" | "eye" | "orb" | "heart";
+  | "star" | "sun" | "moon" | "spark" | "skull" | "eye" | "orb" | "heart"
+  // non-trait HUD icons (stage 2): not in TRAIT_GLYPH
+  | "coin" | "refresh";
 
 /** Every origin + class trait id → glyph kind. Completeness is test-enforced. */
 export const TRAIT_GLYPH: Record<string, GlyphKind> = {
@@ -224,6 +226,21 @@ export function drawGlyph(
       g.bezierCurveTo(cx - s * 1.2, cy - s * 0.2, cx - s * 0.4, cy - s, cx, cy - s * 0.3);
       g.bezierCurveTo(cx + s * 0.4, cy - s, cx + s * 1.2, cy - s * 0.2, cx, cy + s * 0.85);
       fillIt();
+      break;
+    case "coin":
+      g.circle(cx, cy, s * 0.85);
+      fillIt();
+      g.circle(cx, cy, s * 0.85);
+      g.stroke({ width: lw * 0.8, color, alpha: 0.5, cap: "round", join: "round" });
+      break;
+    case "refresh":
+      // Two-thirds arc with a small arrowhead at the open end.
+      g.arc(cx, cy, s * 0.75, -Math.PI / 2, Math.PI);
+      strokeIt();
+      g.moveTo(cx - s * 0.2, cy - s * 0.75)
+        .lineTo(cx, cy - s * 0.95)
+        .lineTo(cx + s * 0.12, cy - s * 0.55);
+      strokeIt();
       break;
     case "orb":
     default:

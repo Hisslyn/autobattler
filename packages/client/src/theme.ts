@@ -56,12 +56,18 @@ export const C = {
   tokenBg:  0x11141d,
   starGold: 0xf0a830,
 
+  // ─── Visual overhaul stage 2: in-match HUD + shop chrome ──────────────────
+  panelBg:      0x1a1e2b,
+  chipBorder:   0x2c3142,
+  xpPurple:     0x9b87f5,
+  streakOrange: 0xe2603a,
+
   // Text
-  textPrimary:  0xc0c8d8,
+  textPrimary:  0xc9cedb,
   textGold:     0xc8a030,
   textGoodHP:   0x5aaa6a,
   textBadHP:    0xaa4040,
-  textMuted:    0x606878,
+  textMuted:    0x8088a0,
   textReady:    0x5aaa5a,
   textReroll:   0xa0b0c0,
   textXp:       0x70aa70,
@@ -94,6 +100,40 @@ export const C = {
 
 export function tierColor(tier: number): number {
   return ([C.tier1, C.tier2, C.tier3, C.tier4, C.tier5] as const)[tier - 1] ?? C.tier1;
+}
+
+// Stable per-trait chip colors (stage 2). Grouped into rough visual families so
+// the trait strip keeps a consistent hue per trait across rerenders.
+export const TRAIT_COLOR: Record<string, number> = {
+  // origins
+  holy:      0xf0d878,
+  shadow:    0x8a6ad0,
+  arcane:    0xd06ad0,
+  frost:     0x5fd0e0,
+  forest:    0x5dca6a,
+  beast:     0xd08a40,
+  celestial: 0x8ab0f0,
+  dragon:    0xe2603a,
+  storm:     0xf0c84a,
+  undead:    0x7a9a7a,
+  elemental: 0x4ac0b0,
+  abyssal:   0x6a4ad0,
+  // classes
+  knight:    0x6a90c0,
+  ranger:    0x6ac06a,
+  sorcerer:  0xb06ad0,
+  assassin:  0xc04a5a,
+  warden:    0x4ab0a0,
+  berserker: 0xe07040,
+  mystic:    0x7a8ad0,
+  gunner:    0x90a0b0,
+  duelist:   0xc7cedb,
+  summoner:  0x7060c0,
+};
+
+/** Stable chip color for a trait id (family-based map); muted fallback. */
+export function traitColor(traitId: string): number {
+  return TRAIT_COLOR[traitId] ?? C.textMuted;
 }
 
 export function starColor(star: number): number {
