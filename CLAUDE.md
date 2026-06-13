@@ -26,6 +26,7 @@ packages/
   protocol/ — shared WS message types, envelope, encode/decode, validators (zero runtime deps)
   server/   — Node + ws authoritative server (matchmaker, rooms, sessions)
   client/   — Vite + TypeScript + PixiJS v8 web client
+  balance/  — headless batch sweeps over the pure sim; CLI writes the report (only I/O-permitted package)
 ```
 
 ## Commands
@@ -36,6 +37,7 @@ npm test             # typecheck (via pretest) + all tests via vitest
 npm run typecheck    # tsc --build (must exit 0; npm test runs it automatically via pretest)
 npm run dev          # start Vite dev server for the client
 npm run server       # start the authoritative WS server (default port 3001)
+npm run balance      # run the comp sweep, write balance-report.md + balance-report.json (flags: --seeds N, --out DIR)
 docker compose up -d # local postgres:16 (then export DATABASE_URL, see below)
 ```
 
@@ -52,19 +54,28 @@ Env vars (server): `PORT` (default 3001), `DATABASE_URL` (postgres; unset → in
   - Applies trait breakpoint bonuses per team at combat start
   - Applies item stat bundles per unit at combat start
   - Fixed timestep 20 ticks/s, max 1200 ticks then overtime (ramping true damage)
-  - Per-tick order: status effects → mana/cast → movement → attacks → death cleanup
-  - Targeting: nearest enemy, tiebreak lowest uid
-  - Ability: single-target magic damage at full mana
+  - Per-tick order: status effects (burn DoT + buff/shield expiry) → mana/cast → movement → attacks → death cleanup
+  - Targeting: nearest enemy, tiebreak lowest uid; start-of-combat-stealth units are untargetable until their stealth tick elapses
+  - Abilities at full mana (`UnitInstance.ability.effect`): `magic_damage` (single-target), `burn` (magic dmg + DoT), `shield` (self absorb), `buff` (self stat buff, reverted on expiry); `stealth` resolves at combat start, not on cast. Item passives reuse the same primitives: on-hit `burn`, start-of-combat `shield`. Damage routes through any shield before HP.
   - Emits ordered CombatEvent log that fully describes combat without re-running game logic: init (per-unit snapshot post star/item/trait), move (from/to), attack (dmg, crit), cast, mana/hp (absolute values, emitted only on change, hp clamped at 0), death, overtime_start, end (winnerSide, survivingUids)
   - survivingUnits in CombatResult carries tier+star for damage calculation
 
-## packages/data content (v0.1.0)
+## packages/data content (v1)
 
-- 12 units across tiers 1-3: warrior, archer, mage, paladin, rogue, cleric (t1); knight_errant, ranger, archmage (t2); templar, shadowblade, sage (t3)
-- 2 traits (knight, sorcerer) with 2/4 breakpoints, stat-buff effects
-- 3 items (iron_sword, chain_vest, mana_crystal)
-- economy.json: pool counts by tier, shop odds by level, xp thresholds, streak table, income constants, damage constants, MMR constants (mmrStart 1000, mmrK 40, mmrEloDivisor 400)
+- 50 units across tiers 1-5 (13/13/12/8/4). Each has one `origin` + 1-2 `classes` (flattened into `traits`), role-derived stats, and an `ability {name, manaCost=mana, effect}` from the engine-supported set
+- 22 traits: 12 origins + 10 classes, each tagged `kind`; breakpoints at 2/4/6 (or 2/4, or 2) derived so every top breakpoint is reachable by unit count; `knight` keeps its armor curve (+200/+500/+800)
+- 45 items: 9 stat-only components (incl. iron_sword/chain_vest/mana_crystal) + 36 completed items, one per distinct unordered component pair (`recipe: [a,b]`); a completed item is a stat bundle + at most one passive (`burn` on-hit or `shield` start-of-combat). Rules equip any item id directly; recipe combination is data-only (see design-notes.md)
+- economy.json: pool counts by tier, shop odds by level (tiers 4-5 nonzero from mid levels), xp thresholds, streak table, income constants, damage constants, MMR constants (mmrStart 1000, mmrK 40, mmrEloDivisor 400)
+- `design-notes.md`: intent + `// future:` notes for deferred behaviors the engine can't yet execute (kept out of JSON)
 - loader exports `DATA_VERSION` (recorded on every persisted match)
+
+## packages/balance internals
+
+- Headless, seeded, pure except the CLI entry (the only I/O-permitted code in the repo)
+- `runner.ts` — `runMatchup(boardA, boardB, seeds, data)`: N seeded combats → win rate, avg length, overtime rate, avg survivors
+- `compositions.ts` — representative comp archetypes as data (defId+star), `buildBoard` places them deterministically, `activeTraits` lists hit breakpoints
+- `sweep.ts` — `runSweep(data, seeds, comps?)`: round-robin every comp vs every other (both orientations) → per-comp win matrix + overall win rate, appearance-weighted per-unit win rate, per-trait win rate, avg game length, overtime rate
+- `report.ts` — pure markdown renderer; `cli.ts` (`npm run balance`) runs the sweep and writes `balance-report.md` + `balance-report.json`
 
 ## packages/rules internals
 
