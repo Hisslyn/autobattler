@@ -24,12 +24,12 @@ export const C = {
   bgContinue:  0x1a3020,
   bgMenuBtn:   0x2a2a3a,
 
-  // Tier colors — desaturated
-  tier1: 0x7a7a8a,
-  tier2: 0x3a72aa,
-  tier3: 0x5a9a3a,
-  tier4: 0x9a3a6a,
-  tier5: 0xaa8a20,
+  // Tier colors (visual overhaul stage 1)
+  tier1: 0x8b93a6,
+  tier2: 0x5dcaa5,
+  tier3: 0x378add,
+  tier4: 0x9b87f5,
+  tier5: 0xf0a830,
 
   // Star colors
   star1: 0x7a7a8a,
@@ -41,6 +41,20 @@ export const C = {
   hpFill:  0x2a7a3a,
   manaBg:  0x0a0a1a,
   manaFill: 0x2a4a88,
+
+  // ─── Visual overhaul stage 1: board + unit tokens ─────────────────────────
+  // UnitToken bars
+  hpGreen:  0x5dcaa5,
+  hpLow:    0xe24b4a,
+  manaBlue: 0x3d8af0,
+  // Hex board
+  enemyHex:    0x191d2a,
+  myHex:       0x1d2336,
+  boardBg:     0x12151f,
+  boardBorder: 0x232838,
+  // Token
+  tokenBg:  0x11141d,
+  starGold: 0xf0a830,
 
   // Text
   textPrimary:  0xc0c8d8,

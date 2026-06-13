@@ -7,7 +7,9 @@ import type { IDriver } from "../driver.js";
 import { CombatPlayer, toDisplayHex } from "../combat/player.js";
 import type { PlaybackSpeed } from "../combat/player.js";
 import { CombatView } from "../combat/view.js";
-import { C, tierColor, starColor } from "../theme.js";
+import { C, tierColor } from "../theme.js";
+import { drawUnitToken } from "../unitToken.js";
+import { onUnitArtReady } from "../sprites.js";
 import type { SettingsStore } from "../settings.js";
 import type { AudioManager } from "../audio/manager.js";
 
@@ -35,74 +37,66 @@ const SHOP_Y = BENCH_Y + BENCH_SLOT_W + 16;
 // Opponent board is mirrored on the top half
 const OPP_BOARD_OFFSET_Y = BOARD_OFFSET_Y - BOARD_ROWS * HEX_H - 12;
 
+// Board-bg panel framing both zones (visual only — geometry unchanged).
+const BOARD_PANEL_X = 8;
+const BOARD_PANEL_W = DESIGN_W - 16;
+const BOARD_PANEL_Y = 58;
+const BOARD_PANEL_H = 360;
+
 const RESOLUTION_AUTO_ADVANCE_MS = 5000;
 
-function drawHex(g: PIXI.Graphics, x: number, y: number, r: number, fill: number, alpha = 1): void {
+interface HexStyle {
+  /** Border stroke (thin tile outline / drag highlight). */
+  border?: { color: number; width: number; alpha?: number };
+}
+
+/** Flat-top hex tile centered at (x, y). */
+function drawHex(
+  g: PIXI.Graphics,
+  x: number,
+  y: number,
+  r: number,
+  fill: number,
+  alpha = 1,
+  style: HexStyle = {}
+): void {
+  if (style.border) g.lineStyle(style.border.width, style.border.color, style.border.alpha ?? 1);
   g.beginFill(fill, alpha);
   const pts: number[] = [];
   for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 3) * i - Math.PI / 6;
+    const angle = (Math.PI / 3) * i;
     pts.push(x + r * Math.cos(angle), y + r * Math.sin(angle));
   }
   g.drawPolygon(pts);
   g.endFill();
+  if (style.border) g.lineStyle(0);
 }
 
-function drawUnitCircle(
+/** Render a unit token (board/combat with bars, bench without) at (x, y). */
+function drawUnit(
   container: PIXI.Container,
   unit: UnitInstance,
   x: number,
   y: number,
-  r = 14,
-  dimmed = false
+  r = 16,
+  dimmed = false,
+  withBars = true
 ): void {
-  const g = new PIXI.Graphics();
-  g.beginFill(C.bgUnit, dimmed ? 0.5 : 1);
-  g.drawCircle(x, y, r);
-  g.endFill();
-  const ring = tierColor(unit.tier);
-  g.lineStyle(2, ring, dimmed ? 0.4 : 0.9);
-  g.drawCircle(x, y, r);
-  g.lineStyle(0);
-
-  const hpFrac = Math.max(0, unit.hp / unit.maxHp);
-  g.beginFill(C.hpBg);
-  g.drawRect(x - r, y + r + 2, r * 2, 3);
-  g.endFill();
-  g.beginFill(C.hpFill);
-  g.drawRect(x - r, y + r + 2, Math.round(r * 2 * hpFrac), 3);
-  g.endFill();
-
-  const manaFrac = unit.maxMana > 0 ? Math.max(0, unit.mana / unit.maxMana) : 0;
-  g.beginFill(C.manaBg);
-  g.drawRect(x - r, y + r + 6, r * 2, 2);
-  g.endFill();
-  g.beginFill(C.manaFill);
-  g.drawRect(x - r, y + r + 6, Math.round(r * 2 * manaFrac), 2);
-  g.endFill();
-
-  container.addChild(g);
-
-  const sc = unit.star;
-  const scColor = starColor(sc);
-  const starG = new PIXI.Graphics();
-  for (let i = 0; i < sc; i++) {
-    starG.beginFill(scColor);
-    starG.drawCircle(x - (sc - 1) * 3 + i * 6, y - r - 3, 2);
-    starG.endFill();
-  }
-  container.addChild(starG);
-
-  const def = gameData.units.find((u) => u.id === unit.defId);
-  const label = new PIXI.Text((def?.name ?? "??").slice(0, 2).toUpperCase(), {
-    fontSize: 7,
-    fill: dimmed ? C.textDimmed : C.textLabel,
-    fontFamily: "monospace",
-  });
-  label.anchor.set(0.5);
-  label.x = x;
-  label.y = y;
-  container.addChild(label);
+  const bars = withBars
+    ? {
+        hpFrac: unit.maxHp > 0 ? unit.hp / unit.maxHp : 0,
+        manaFrac: unit.maxMana > 0 ? unit.mana / unit.maxMana : 0,
+      }
+    : undefined;
+  drawUnitToken(
+    container,
+    unit.defId,
+    unit.tier,
+    unit.star,
+    x,
+    y,
+    bars ? { radius: r, dimmed, bars } : { radius: r, dimmed }
+  );
 }
 
 export class MatchScene {
@@ -138,6 +132,7 @@ export class MatchScene {
   private speedBtnLabel: PIXI.Text | null = null;
   private opts: MatchSceneOptions;
   private unsub: () => void = () => {};
+  private unsubArt: () => void = () => {};
 
   constructor(app: PIXI.Application, driver: IDriver, opts: MatchSceneOptions) {
     this.container = new PIXI.Container();
@@ -186,6 +181,13 @@ export class MatchScene {
         if (e.phase === "RESOLUTION") this.onResolutionPhase();
       }
       if (e.type === "match_over") this.onMatchOver(e.placements, e.mmr);
+    });
+
+    // A drop-in PNG finishing its lazy load: repaint the static planning board
+    // so the glyph swaps to the sprite (combat repaints every tick already).
+    this.unsubArt = onUnitArtReady(() => {
+      const s = this.driver.getState();
+      if (s.phase === "PLANNING") this.render(s);
     });
 
     this.render(driver.getState());
@@ -273,27 +275,46 @@ export class MatchScene {
 
   // ─── BOARD ───────────────────────────────────────────────────────────────
 
+  /** Board-bg panel behind the hex tiles (shared by planning + combat). */
+  private drawBoardPanel(layer: PIXI.Container): void {
+    const panel = new PIXI.Graphics();
+    panel.beginFill(C.boardBg, 0.92);
+    panel.lineStyle(1, C.boardBorder, 0.9);
+    panel.drawRoundedRect(BOARD_PANEL_X, BOARD_PANEL_Y, BOARD_PANEL_W, BOARD_PANEL_H, 10);
+    panel.endFill();
+    panel.lineStyle(0);
+    layer.addChild(panel);
+  }
+
   private renderBoard(me: PlayerState): void {
     this.boardLayer.removeChildren();
+    this.drawBoardPanel(this.boardLayer);
 
-    // Opponent area placeholder (top 4 rows)
+    // Enemy zone (top 4 rows) — darker tint, untargetable during planning
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
         const { x, y } = hexToPixel(q, r, BOARD_OFFSET_X, OPP_BOARD_OFFSET_Y);
         const g = new PIXI.Graphics();
-        drawHex(g, x, y, HEX_R - 2, C.bgBoardOpp, 0.4);
+        drawHex(g, x, y, HEX_R - 2, C.enemyHex, 1, {
+          border: { color: C.boardBorder, width: 1, alpha: 0.8 },
+        });
         this.boardLayer.addChild(g);
       }
     }
 
-    // Player board (bottom 4 rows)
+    // Player zone (bottom 4 rows) — lighter tint; valid drop hexes glow while dragging
+    const dragging = this.isDragging;
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
         const slotIdx = r * BOARD_COLS + q;
         const { x, y } = hexToPixel(q, r, BOARD_OFFSET_X, BOARD_OFFSET_Y);
         const isSelected = this.selectedBoardIdx === slotIdx && me.board[slotIdx] != null;
         const g = new PIXI.Graphics();
-        drawHex(g, x, y, HEX_R - 2, isSelected ? C.bgBoardSel : C.bgBoard, 0.7);
+        drawHex(g, x, y, HEX_R - 2, isSelected ? C.bgBoardSel : C.myHex, 1, {
+          border: dragging
+            ? { color: C.textMuted, width: 2, alpha: 0.75 }
+            : { color: C.boardBorder, width: 1, alpha: 0.8 },
+        });
         g.eventMode = "static";
         g.cursor = "pointer";
         g.on("pointerdown", () => this.onHexPointerDown(slotIdx, me, x, y));
@@ -313,7 +334,7 @@ export class MatchScene {
       uc.eventMode = "static";
       uc.cursor = "grab";
       uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBoard(idx, unit, e));
-      drawUnitCircle(uc, unit, x, y, 14, this.selectedBenchIdx !== null || (this.selectedBoardIdx !== null && this.selectedBoardIdx !== idx));
+      drawUnit(uc, unit, x, y, 16, this.selectedBenchIdx !== null || (this.selectedBoardIdx !== null && this.selectedBoardIdx !== idx));
       this.boardLayer.addChild(uc);
     }
   }
@@ -341,7 +362,7 @@ export class MatchScene {
         uc.eventMode = "static";
         uc.cursor = "grab";
         uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBench(i, unit, e));
-        drawUnitCircle(uc, unit, x, BENCH_Y, 12);
+        drawUnit(uc, unit, x, BENCH_Y, 12, false, false);
         this.benchLayer.addChild(uc);
       }
     }
@@ -575,7 +596,7 @@ export class MatchScene {
     }
     const c = new PIXI.Container();
     c.zIndex = 999;
-    drawUnitCircle(c, unit, 0, 0, 14);
+    drawUnit(c, unit, 0, 0, 16);
     c.x = gx;
     c.y = gy;
     this.container.addChild(c);
@@ -780,7 +801,7 @@ export class MatchScene {
       const r = Math.floor(idx / BOARD_COLS);
       const { x, y } = hexToPixel(q, r, boardOffX, boardOffY);
       const uc = new PIXI.Container();
-      drawUnitCircle(uc, unit, x, y, 13);
+      drawUnit(uc, unit, x, y, 14);
       this.scoutLayer.addChild(uc);
     }
 
@@ -858,6 +879,9 @@ export class MatchScene {
     const me = state.players[this.driver.seatIndex];
     if (!me) return;
 
+    // Board-bg panel first so banners/tiles/tokens layer on top of it.
+    this.drawBoardPanel(this.combatLayer);
+
     const pairing = this.driver.getMyPairing();
     const isGhost = pairing?.isGhost ?? false;
     const opponentId = pairing ? pairing.opponentId : null;
@@ -885,12 +909,16 @@ export class MatchScene {
       for (let q = 0; q < BOARD_COLS; q++) {
         const opp = hexToPixel(q, r, BOARD_OFFSET_X, OPP_BOARD_OFFSET_Y);
         const og = new PIXI.Graphics();
-        drawHex(og, opp.x, opp.y, HEX_R - 2, C.bgBoardOpp, 0.5);
+        drawHex(og, opp.x, opp.y, HEX_R - 2, C.enemyHex, 1, {
+          border: { color: C.boardBorder, width: 1, alpha: 0.8 },
+        });
         this.combatLayer.addChild(og);
 
         const own = hexToPixel(q, r, BOARD_OFFSET_X, BOARD_OFFSET_Y);
         const g = new PIXI.Graphics();
-        drawHex(g, own.x, own.y, HEX_R - 2, C.bgBoard, 0.5);
+        drawHex(g, own.x, own.y, HEX_R - 2, C.myHex, 1, {
+          border: { color: C.boardBorder, width: 1, alpha: 0.8 },
+        });
         this.combatLayer.addChild(g);
       }
     }
@@ -908,7 +936,7 @@ export class MatchScene {
         const r = Math.floor(idx / BOARD_COLS);
         const { x, y } = hexToPixel(q, r, BOARD_OFFSET_X, BOARD_OFFSET_Y);
         const uc = new PIXI.Container();
-        drawUnitCircle(uc, unit, x, y);
+        drawUnit(uc, unit, x, y);
         this.combatLayer.addChild(uc);
       }
       this.driver.combatPlaybackDone();
@@ -1192,6 +1220,7 @@ export class MatchScene {
     this.teardownPlayback();
     this.clearResolutionTimer();
     this.unsub();
+    this.unsubArt();
     if (this.container.parent) this.container.parent.removeChild(this.container);
     this.container.destroy({ children: true });
   }

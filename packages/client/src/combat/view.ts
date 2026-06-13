@@ -4,7 +4,8 @@ import * as PIXI from "pixi.js";
 import { gameData } from "@autobattler/data";
 import type { HexCoord } from "@autobattler/sim/src/hex.js";
 import type { CombatFx, PlaybackFrame, UnitFrame } from "./player.js";
-import { C, tierColor, starColor } from "../theme.js";
+import { C } from "../theme.js";
+import { drawUnitToken } from "../unitToken.js";
 
 export type HexToPixel = (hex: HexCoord) => { x: number; y: number };
 
@@ -103,49 +104,14 @@ export class CombatView {
   }
 
   private drawUnit(u: UnitFrame, x: number, y: number): void {
-    const def = gameData.units.find((d) => d.id === u.defId);
-    const g = new PIXI.Graphics();
-    g.beginFill(C.bgUnit);
-    g.drawCircle(x, y, UNIT_R);
-    g.endFill();
-    g.lineStyle(2, tierColor(def?.tier ?? 1), 0.9);
-    g.drawCircle(x, y, UNIT_R);
-    g.lineStyle(0);
-
-    const hpFrac = u.maxHp > 0 ? Math.max(0, u.hp / u.maxHp) : 0;
-    g.beginFill(C.hpBg);
-    g.drawRect(x - UNIT_R, y + UNIT_R + 2, UNIT_R * 2, 3);
-    g.endFill();
-    g.beginFill(C.hpFill);
-    g.drawRect(x - UNIT_R, y + UNIT_R + 2, Math.round(UNIT_R * 2 * hpFrac), 3);
-    g.endFill();
-
-    const manaFrac = u.maxMana > 0 ? Math.max(0, u.mana / u.maxMana) : 0;
-    g.beginFill(C.manaBg);
-    g.drawRect(x - UNIT_R, y + UNIT_R + 6, UNIT_R * 2, 2);
-    g.endFill();
-    g.beginFill(C.manaFill);
-    g.drawRect(x - UNIT_R, y + UNIT_R + 6, Math.round(UNIT_R * 2 * manaFrac), 2);
-    g.endFill();
-    this.unitLayer.addChild(g);
-
-    const starG = new PIXI.Graphics();
-    for (let i = 0; i < u.star; i++) {
-      starG.beginFill(starColor(u.star));
-      starG.drawCircle(x - (u.star - 1) * 3 + i * 6, y - UNIT_R - 3, 2);
-      starG.endFill();
-    }
-    this.unitLayer.addChild(starG);
-
-    const label = new PIXI.Text((def?.name ?? "??").slice(0, 2).toUpperCase(), {
-      fontSize: 7,
-      fill: C.textLabel,
-      fontFamily: "monospace",
+    const tier = gameData.units.find((d) => d.id === u.defId)?.tier ?? 1;
+    drawUnitToken(this.unitLayer, u.defId, tier, u.star, x, y, {
+      radius: UNIT_R,
+      bars: {
+        hpFrac: u.maxHp > 0 ? u.hp / u.maxHp : 0,
+        manaFrac: u.maxMana > 0 ? u.mana / u.maxMana : 0,
+      },
     });
-    label.anchor.set(0.5);
-    label.x = x;
-    label.y = y;
-    this.unitLayer.addChild(label);
   }
 
   private spawnFx(fx: CombatFx, pixels: Map<number, { x: number; y: number }>): void {
