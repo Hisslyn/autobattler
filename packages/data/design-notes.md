@@ -39,3 +39,6 @@ left out of v1 content so the engine stays within its spec'd behavior set:
 - // future: mana-burn and ability-silence
 - // future: recipe combination at equip time (2 components → completed item);
   rules currently equip any item id directly, recipes are data-only for now
+- // future: full scripted tutorial match (a guided first game with forced
+  moves). Phase 9 ships only dismissable, once-shown coachmarks on the first
+  Practice match (client `onboarding.ts`); a scripted tutorial is out of scope.

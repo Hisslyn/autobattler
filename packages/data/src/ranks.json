@@ -1,0 +1,10 @@
+{
+  "bands": [
+    { "id": "bronze",   "name": "Bronze",   "minMmr": 0 },
+    { "id": "silver",   "name": "Silver",   "minMmr": 1000 },
+    { "id": "gold",     "name": "Gold",     "minMmr": 1200 },
+    { "id": "platinum", "name": "Platinum", "minMmr": 1400 },
+    { "id": "diamond",  "name": "Diamond",  "minMmr": 1600 },
+    { "id": "master",   "name": "Master",   "minMmr": 1800 }
+  ]
+}

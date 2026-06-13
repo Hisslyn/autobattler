@@ -8,6 +8,15 @@ import { CombatPlayer, toDisplayHex } from "../combat/player.js";
 import type { PlaybackSpeed } from "../combat/player.js";
 import { CombatView } from "../combat/view.js";
 import { C, tierColor, starColor } from "../theme.js";
+import type { SettingsStore } from "../settings.js";
+import type { AudioManager } from "../audio/manager.js";
+
+export interface MatchSceneOptions {
+  settings: SettingsStore;
+  audio: AudioManager;
+  /** Called to leave the match and return to the menu (pause panel or match-over). */
+  onLeave: () => void;
+}
 import {
   HEX_R, HEX_W, HEX_H, BOARD_COLS, BOARD_ROWS, BOARD_SLOTS,
   hexToPixel, hexFromPointer,
@@ -127,11 +136,15 @@ export class MatchScene {
   } | null = null;
   private playbackSpeed: PlaybackSpeed = 1;
   private speedBtnLabel: PIXI.Text | null = null;
+  private opts: MatchSceneOptions;
+  private unsub: () => void = () => {};
 
-  constructor(app: PIXI.Application, driver: IDriver) {
+  constructor(app: PIXI.Application, driver: IDriver, opts: MatchSceneOptions) {
     this.container = new PIXI.Container();
     this.app = app;
     this.driver = driver;
+    this.opts = opts;
+    this.playbackSpeed = opts.settings.get().defaultSpeed;
 
     this.hudLayer = new PIXI.Container();
     this.boardLayer = new PIXI.Container();
@@ -165,7 +178,7 @@ export class MatchScene {
     this.container.addChild(dragCatcher);
     this.dragCatcher = dragCatcher;
 
-    driver.on((e) => {
+    this.unsub = driver.on((e) => {
       if (e.type === "state") this.render(e.state);
       if (e.type === "phase_change") {
         if (e.phase === "PLANNING") this.onPlanningStart();
@@ -620,7 +633,8 @@ export class MatchScene {
       } else if (py >= BENCH_Y - 20 && py <= BENCH_Y + 20 && px >= DESIGN_W - 48) {
         // Dropped on sell zone
         const result = this.driver.playerCommand({ type: "SELL", unitUid: this.dragUnit.uid });
-        if (!result.ok) this.showToast(result.error);
+        if (result.ok) this.opts.audio.play("sell");
+        else this.showToast(result.error);
       }
       // else: dropped nowhere valid — unit stays put (no-op)
     }
@@ -699,24 +713,33 @@ export class MatchScene {
     }
     if (uid != null) {
       const result = this.driver.playerCommand({ type: "SELL", unitUid: uid });
-      if (!result.ok) this.showToast(result.error);
+      if (result.ok) this.opts.audio.play("sell");
+      else this.showToast(result.error);
     }
     this.render(this.driver.getState());
   }
 
   private onShopBuy(idx: number): void {
     const result = this.driver.playerCommand({ type: "BUY", shopSlotIndex: idx });
-    if (!result.ok) this.showToast(result.error);
+    if (result.ok) this.opts.audio.play("buy");
+    else this.showToast(result.error);
   }
 
   private onReroll(): void {
     const result = this.driver.playerCommand({ type: "REROLL" });
-    if (!result.ok) this.showToast(result.error);
+    if (result.ok) this.opts.audio.play("reroll");
+    else this.showToast(result.error);
   }
 
   private onBuyXp(): void {
+    const before = this.driver.getState().players[this.driver.seatIndex]?.level ?? 0;
     const result = this.driver.playerCommand({ type: "BUY_XP" });
-    if (!result.ok) this.showToast(result.error);
+    if (result.ok) {
+      const after = this.driver.getState().players[this.driver.seatIndex]?.level ?? before;
+      this.opts.audio.play(after > before ? "levelUp" : "buy");
+    } else {
+      this.showToast(result.error);
+    }
   }
 
   // ─── SCOUTING ─────────────────────────────────────────────────────────────
@@ -914,15 +937,17 @@ export class MatchScene {
 
     const player = new CombatPlayer(events, gameData.gameplay.ticksPerSec);
     player.setSpeed(this.playbackSpeed);
+    const reducedMotion = this.opts.settings.get().reducedMotion;
     const view = new CombatView(toPixel, {
       x: DESIGN_W / 2,
       y: BOARD_OFFSET_Y - BOARD_ROWS * HEX_H + 10,
-    });
+    }, { reducedMotion });
     this.combatLayer.addChild(view.container);
 
     const tickerFn = (ticker: PIXI.Ticker): void => {
       const frame = player.advance(ticker.deltaMS);
       view.renderFrame(frame, ticker.deltaMS);
+      this.opts.audio.handleCombatFx(frame.fx);
       if (frame.done) this.finishPlayback();
     };
     this.app.ticker.add(tickerFn);
@@ -1144,11 +1169,37 @@ export class MatchScene {
       pText.y = 220 + i * 18;
       this.combatLayer.addChild(pText);
     }
+
+    const menuBtn = new PIXI.Graphics();
+    menuBtn.beginFill(C.bgContinue, 0.95);
+    menuBtn.drawRoundedRect(DESIGN_W / 2 - 70, 520, 140, 38, 6);
+    menuBtn.endFill();
+    menuBtn.eventMode = "static";
+    menuBtn.hitArea = new PIXI.Rectangle(DESIGN_W / 2 - 70, 520, 140, 38);
+    menuBtn.cursor = "pointer";
+    menuBtn.on("pointerdown", () => this.opts.onLeave());
+    this.combatLayer.addChild(menuBtn);
+    const menuTxt = new PIXI.Text("Main Menu", { fontSize: 13, fill: C.textReady, fontFamily: "monospace" });
+    menuTxt.anchor.set(0.5, 0.5);
+    menuTxt.x = DESIGN_W / 2;
+    menuTxt.y = 539;
+    menuTxt.eventMode = "none";
+    this.combatLayer.addChild(menuTxt);
+  }
+
+  /** Tear down the scene: stop playback/timers, unsubscribe, drop the container. */
+  destroy(): void {
+    this.teardownPlayback();
+    this.clearResolutionTimer();
+    this.unsub();
+    if (this.container.parent) this.container.parent.removeChild(this.container);
+    this.container.destroy({ children: true });
   }
 
   // ─── TOAST ───────────────────────────────────────────────────────────────
 
   private showToast(msg: string): void {
+    this.opts.audio.play("error");
     this.toastLayer.removeChildren();
     const bg = new PIXI.Graphics();
     bg.beginFill(C.bgToast, 0.92);

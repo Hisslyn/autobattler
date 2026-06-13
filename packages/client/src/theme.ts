@@ -85,3 +85,37 @@ export function tierColor(tier: number): number {
 export function starColor(star: number): number {
   return ([C.star1, C.star2, C.star3] as const)[star - 1] ?? C.star1;
 }
+
+// ─── CSS bridge ──────────────────────────────────────────────────────────────
+// theme.ts is the single palette source: the same numeric colors the Pixi layer
+// uses are exported to the DOM as CSS custom properties, so menus and canvas
+// never drift. DOM/CSS must reference these via cssVar(key), never hex literals.
+
+/** `0x0d0d14` → `#0d0d14`. */
+export function hexToCss(n: number): string {
+  return `#${(n >>> 0).toString(16).padStart(6, "0").slice(-6)}`;
+}
+
+/** camelCase key → kebab-case CSS variable name, e.g. `bgPage` → `--bg-page`. */
+function cssVarName(key: string): string {
+  return `--${key.replace(/[A-Z0-9]/g, (m) => `-${m.toLowerCase()}`)}`;
+}
+
+/** Reference a theme color from DOM/CSS as a CSS variable, e.g. cssVar("bgPage"). */
+export function cssVar(key: keyof typeof C): string {
+  return `var(${cssVarName(key)})`;
+}
+
+/** `:root { --bg-page: #0d0d14; ... }` body text, generated from C. */
+export function themeCssVars(): string {
+  return (Object.keys(C) as Array<keyof typeof C>)
+    .map((k) => `  ${cssVarName(k)}: ${hexToCss(C[k])};`)
+    .join("\n");
+}
+
+/** Apply every theme color as a CSS custom property on the given element (default :root). */
+export function applyThemeVars(root: HTMLElement = document.documentElement): void {
+  for (const k of Object.keys(C) as Array<keyof typeof C>) {
+    root.style.setProperty(cssVarName(k), hexToCss(C[k]));
+  }
+}

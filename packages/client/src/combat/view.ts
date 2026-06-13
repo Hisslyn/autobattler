@@ -33,14 +33,18 @@ export class CombatView {
   private readonly bannerX: number;
   private readonly bannerY: number;
 
+  private readonly reducedMotion: boolean;
+
   constructor(
     private toPixel: HexToPixel,
-    bannerPos: { x: number; y: number }
+    bannerPos: { x: number; y: number },
+    opts: { reducedMotion?: boolean } = {}
   ) {
     this.container.addChild(this.unitLayer);
     this.container.addChild(this.fxLayer);
     this.bannerX = bannerPos.x;
     this.bannerY = bannerPos.y;
+    this.reducedMotion = opts.reducedMotion ?? false;
   }
 
   renderFrame(frame: PlaybackFrame, dtMs: number): void {
@@ -52,7 +56,9 @@ export class CombatView {
       if (u.alive) this.drawUnit(u, p.x, p.y);
     }
 
-    for (const fx of frame.fx) this.spawnFx(fx, pixels);
+    // Reduced motion: skip non-essential combat tweens (flashes, pulses,
+    // floaters, fades); units + hp/mana still render from the frame.
+    if (!this.reducedMotion) for (const fx of frame.fx) this.spawnFx(fx, pixels);
 
     for (const t of this.transients) {
       t.ageMs += dtMs;

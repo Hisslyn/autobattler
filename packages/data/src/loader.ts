@@ -3,6 +3,7 @@ import rawTraits from "./traits.json" with { type: "json" };
 import rawItems from "./items.json" with { type: "json" };
 import rawEconomy from "./economy.json" with { type: "json" };
 import rawGameplay from "./gameplay.json" with { type: "json" };
+import rawRanks from "./ranks.json" with { type: "json" };
 
 export type AbilityEffectData =
   | { kind: "magic_damage" }
@@ -120,6 +121,13 @@ export interface GameplayData {
   aiTraitOverlapWeight: number;
 }
 
+/** A rank band; the player's rank is the highest band whose minMmr <= their MMR. */
+export interface RankBand {
+  id: string;
+  name: string;
+  minMmr: number;
+}
+
 export interface GameData {
   units: UnitDataDef[];
   traits: TraitDataDef[];
@@ -129,6 +137,23 @@ export interface GameData {
 }
 
 export const DATA_VERSION = "0.1.0";
+
+/** Rank bands ordered by ascending minMmr (single source of rank thresholds). */
+export const RANK_BANDS: RankBand[] = (rawRanks as { bands: RankBand[] }).bands;
+
+/**
+ * Pure: maps an MMR to its rank band. Boundaries are inclusive on minMmr —
+ * a player exactly at a band's minMmr is in that (higher) band. MMR below the
+ * lowest band's minMmr clamps to the lowest band.
+ */
+export function mmrToRank(mmr: number): RankBand {
+  let band = RANK_BANDS[0]!;
+  for (const b of RANK_BANDS) {
+    if (mmr >= b.minMmr) band = b;
+    else break;
+  }
+  return band;
+}
 
 export const gameData: GameData = {
   units: rawUnits as UnitDataDef[],

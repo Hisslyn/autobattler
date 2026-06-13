@@ -236,6 +236,14 @@ export class NetDriver implements IDriver {
     return Math.max(0, this._phaseEndsAt - (Date.now() + this._clockOffset));
   }
 
+  dispose(): void {
+    // Leaving an online match disconnects; the server marks the seat AFK and the
+    // match continues without us (effectively forfeiting to last place). No
+    // SURRENDER message exists in the protocol, so disconnect is the leave path.
+    this.listeners = [];
+    this.net.stop();
+  }
+
   private _buildStateFromSnapshot(snap: { round: number; phase: string; me: MatchState["players"][0]; players: MatchState["players"]; lastPairings: [number, number][] }): MatchState {
     const players = snap.players.map((pub, i) => {
       if (i === this.mySeat) return snap.me;

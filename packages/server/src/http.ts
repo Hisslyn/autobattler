@@ -10,9 +10,22 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
   });
   res.end(JSON.stringify(body));
+}
+
+const NAME_MIN = 2;
+const NAME_MAX = 16;
+const NAME_PATTERN = /^[A-Za-z0-9 _-]+$/;
+
+/** Returns the trimmed name if valid, else null (length 2-16, allowed charset). */
+export function validateName(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const name = raw.trim();
+  if (name.length < NAME_MIN || name.length > NAME_MAX) return null;
+  if (!NAME_PATTERN.test(name)) return null;
+  return name;
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -38,7 +51,7 @@ function bearerToken(req: IncomingMessage): string | null {
 
 /**
  * Minimal HTTP API sharing the WS port: POST /auth/guest, GET /leaderboard,
- * GET /profile, GET /history. Returns true if the request was handled.
+ * GET /profile, GET /history, PATCH /profile. Returns true if the request was handled.
  */
 export function createHttpHandler(repo: Repository) {
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
@@ -77,6 +90,30 @@ export function createHttpHandler(repo: Repository) {
       if (req.method === "GET" && url.pathname === "/leaderboard") {
         const n = Math.min(LEADERBOARD_MAX, Math.max(1, Number(url.searchParams.get("n") ?? 50) || 50));
         sendJson(res, 200, { leaderboard: await repo.leaderboard(n) });
+        return;
+      }
+
+      if (req.method === "PATCH" && url.pathname === "/profile") {
+        const token = bearerToken(req);
+        const account = token ? await repo.findByToken(token) : null;
+        if (!account) {
+          sendJson(res, 401, { error: "UNAUTHENTICATED" });
+          return;
+        }
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(await readBody(req));
+        } catch {
+          sendJson(res, 400, { error: "invalid JSON body" });
+          return;
+        }
+        const name = validateName((parsed as Record<string, unknown>)["name"]);
+        if (name === null) {
+          sendJson(res, 400, { error: "INVALID_NAME" });
+          return;
+        }
+        await repo.updateProfile(account.accountId, { name });
+        sendJson(res, 200, { profile: await repo.getProfile(account.accountId) });
         return;
       }
 

@@ -30,6 +30,8 @@ export interface IDriver {
   advanceFromResolution(): void;
   /** Returns ms remaining in current planning phase, or 0 if not applicable. */
   getPlanningTimeLeft(): number;
+  /** Tear down timers/sockets when leaving a match. */
+  dispose(): void;
 }
 
 const HUMAN_PLAYER_ID = 0;
@@ -189,5 +191,13 @@ export class LocalDriver implements IDriver {
     advancePhase(this.state, gameData);
     this.startPlanning();
     this.emit({ type: "state", state: this.state });
+  }
+
+  dispose(): void {
+    if (this.planningTimerId !== null) clearTimeout(this.planningTimerId);
+    if (this.resolutionTimerId !== null) clearTimeout(this.resolutionTimerId);
+    if (this.playbackCapTimerId !== null) clearTimeout(this.playbackCapTimerId);
+    this.planningTimerId = this.resolutionTimerId = this.playbackCapTimerId = null;
+    this.listeners = [];
   }
 }
