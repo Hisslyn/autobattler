@@ -56,7 +56,7 @@ export class UiApp {
     parent.appendChild(this.menuRoot);
     parent.appendChild(this.matchOverlay);
     this.render();
-    void this.opts.audio.setMusic("menuTheme");
+    void this.opts.audio.setMusicState("menu");
   }
 
   // ─── Navigation ──────────────────────────────────────────────────────────
@@ -303,6 +303,7 @@ export class UiApp {
       slider("Master", "masterVolume"),
       slider("SFX", "sfxVolume"),
       slider("Music", "musicVolume"),
+      this.toggleRow("Music", () => s.get().musicEnabled, (on) => s.update({ musicEnabled: on }), this.opts.audio),
       this.toggleRow("Mute", () => s.get().muted, (on) => s.update({ muted: on }), this.opts.audio),
     ]);
   }
@@ -368,7 +369,7 @@ export class UiApp {
     this.matchOverlay.classList.remove("hidden");
     clear(this.matchOverlay);
     this.matchOverlay.appendChild(button("☰", () => this.openPausePanel(), "match-pause-btn"));
-    void this.opts.audio.setMusic("matchTheme");
+    void this.opts.audio.setMusicState("planning");
   }
 
   /** Return from a match to the main menu. */
@@ -379,7 +380,7 @@ export class UiApp {
     this.menuRoot.classList.remove("hidden");
     this.stack = ["main"];
     this.render();
-    void this.opts.audio.setMusic("menuTheme");
+    void this.opts.audio.setMusicState("menu");
   }
 
   private openPausePanel(): void {

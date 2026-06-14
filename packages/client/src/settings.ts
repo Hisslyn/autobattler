@@ -10,6 +10,7 @@ export interface Settings {
   sfxVolume: number; // 0..1
   musicVolume: number; // 0..1
   muted: boolean;
+  musicEnabled: boolean; // explicit music on/off, independent of volume
   defaultSpeed: PlaybackSpeedPref;
   reducedMotion: boolean;
 }
@@ -19,6 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sfxVolume: 0.8,
   musicVolume: 0.5,
   muted: false,
+  musicEnabled: true,
   defaultSpeed: 1,
   reducedMotion: false,
 };
@@ -45,6 +47,7 @@ export function loadSettings(storage: StorageLike): Settings {
     sfxVolume: clamp01(raw.sfxVolume, DEFAULT_SETTINGS.sfxVolume),
     musicVolume: clamp01(raw.musicVolume, DEFAULT_SETTINGS.musicVolume),
     muted: typeof raw.muted === "boolean" ? raw.muted : DEFAULT_SETTINGS.muted,
+    musicEnabled: typeof raw.musicEnabled === "boolean" ? raw.musicEnabled : DEFAULT_SETTINGS.musicEnabled,
     defaultSpeed: raw.defaultSpeed === 2 ? 2 : 1,
     reducedMotion: typeof raw.reducedMotion === "boolean" ? raw.reducedMotion : DEFAULT_SETTINGS.reducedMotion,
   };

@@ -15,6 +15,7 @@ import { traitStripModel, xpProgress } from "../hudModel.js";
 import { onUnitArtReady } from "../sprites.js";
 import type { SettingsStore } from "../settings.js";
 import type { AudioManager } from "../audio/manager.js";
+import { phaseToMusicState } from "../audio/director.js";
 
 export interface MatchSceneOptions {
   settings: SettingsStore;
@@ -138,6 +139,8 @@ export class MatchScene {
 
   private dragCatcher!: PIXI.Graphics;
   private resolutionAutoTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Gold at the last planning start, to voice income gain (no game logic). */
+  private prevGold = 0;
 
   private playback: {
     player: CombatPlayer;
@@ -817,7 +820,7 @@ export class MatchScene {
     // Derive a merge/star-up purely from the planning state change (no game logic).
     const up = this.findStarUp(before);
     if (up) {
-      this.opts.audio.play("levelUp");
+      this.opts.audio.play("starUp");
       this.spawnPlanningPop(up.x, up.y, C.fxStarUp, { star: true });
     } else {
       this.opts.audio.play("buy");
@@ -1001,11 +1004,21 @@ export class MatchScene {
     this.clearResolutionTimer();
     this.combatLayer.removeChildren();
     this.closeScout();
-    this.render(this.driver.getState());
+    const state = this.driver.getState();
+    void this.opts.audio.setMusicState(phaseToMusicState("PLANNING"));
+    // Round-start cue + income coins (income lands entering planning).
+    this.opts.audio.play("roundStart");
+    const me = state.players[this.driver.seatIndex];
+    if (me) {
+      if (state.round > 1 && me.gold > this.prevGold) this.opts.audio.play("goldGain", 0.18);
+      this.prevGold = me.gold;
+    }
+    this.render(state);
   }
 
   private onCombatPhase(): void {
     const state = this.driver.getState();
+    void this.opts.audio.setMusicState(phaseToMusicState("COMBAT"));
     this.renderCombat(state);
   }
 
@@ -1215,6 +1228,11 @@ export class MatchScene {
     box.eventMode = "none";
     this.combatLayer.addChild(box);
 
+    // Outcome cue: a player elimination overrides the round win/loss sting.
+    if (!me.alive) this.opts.audio.play("elimination");
+    else if (won) this.opts.audio.play("roundWin");
+    else if (!drew) this.opts.audio.play("roundLoss");
+
     const resultStr = drew ? "Draw" : won ? "Victory" : "Defeat";
     const resultColor = drew ? C.textGold : won ? C.textGoodHP : C.textBadHP;
     const title = new PIXI.Text(`Round ${state.round} — ${resultStr}`, {
@@ -1288,6 +1306,9 @@ export class MatchScene {
   private onMatchOver(placements: number[], mmr?: Record<number, { before: number; after: number }>): void {
     this.teardownPlayback();
     this.clearResolutionTimer();
+    void this.opts.audio.setMusicState("results");
+    const mine = placements[this.driver.seatIndex];
+    this.opts.audio.play(mine !== undefined && mine <= 4 ? "roundWin" : "roundLoss");
     this.combatLayer.removeChildren();
     const bg = new PIXI.Graphics();
     bg.beginFill(C.bgOverlay, 0.88);

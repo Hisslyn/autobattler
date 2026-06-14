@@ -22,6 +22,7 @@ describe("settings persistence", () => {
       sfxVolume: 0.1,
       musicVolume: 0.9,
       muted: true,
+      musicEnabled: false,
       defaultSpeed: 2,
       reducedMotion: true,
     };
