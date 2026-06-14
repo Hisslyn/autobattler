@@ -116,6 +116,16 @@ export const C = {
   fxOvertimeEdge:  0xcc4040,  // board edge/tint cue during overtime
   fxStarUp:        0xf0d878,  // merge / star-up flourish
 
+  // ─── Inspect / trait-detail panels + sell control (stage 5: in-match UX) ──
+  bgInspect:     0x141a26,  // inspect/trait panel surface
+  bgInspectRow:  0x1c2230,  // inner stat/breakpoint row
+  bgScrim:       0x000000,  // dim scrim behind a panel
+  bgSellChip:    0x2a1010,  // sell affordance chip fill
+  bgSellArmed:   0x4a1414,  // sell zone highlighted while a unit is dragged
+  benchEmpty:    0x10151f,  // empty bench slot fill
+  benchEmptyRim: 0x232a3a,  // empty bench slot outline
+  benchOccupied: 0x1b2333,  // occupied bench slot fill
+
   // Trait tracker
   traitActive:  0x3a6a3a,
   traitPending: 0x1e2830,

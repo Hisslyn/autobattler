@@ -5,7 +5,10 @@ import {
   phaseToMusicState, stateToMood, resolveMusicSource, musicFilePaths, sfxFilePaths,
   crossfadeGains, nextUnlockState, becameUnlocked, type MusicState,
 } from "../src/audio/director.js";
-import { midiToFreq, degreeToMidi, dueSteps, MOODS } from "../src/audio/music.js";
+import {
+  midiToFreq, degreeToMidi, dueSteps, MOODS, PROGRESSIONS, MIX,
+  triad, progressionFor, generateMotif, varyMotif, voiceLead, type MusicMood,
+} from "../src/audio/music.js";
 import type { AbilityFxKind } from "../src/combat/player.js";
 
 describe("audio bus gain math", () => {
@@ -154,5 +157,122 @@ describe("generative music helpers", () => {
     expect(MOODS.planning.bpm).toBeGreaterThan(MOODS.menu.bpm);
     expect(MOODS.menu.percGain).toBe(0);
     expect(MOODS.combat.percGain).toBeGreaterThan(0);
+  });
+});
+
+describe("chord progressions per state", () => {
+  const moods: MusicMood[] = ["menu", "planning", "combat"];
+
+  it("stacks a diatonic triad (root, third, fifth) from a root degree", () => {
+    expect(triad(0)).toEqual([0, 2, 4]);
+    expect(triad(5)).toEqual([5, 7, 9]);
+  });
+
+  it("gives each state a distinct moving progression of expected roots", () => {
+    expect(PROGRESSIONS.menu).toEqual([0, 5, 2, 6]); // i VI III VII
+    expect(PROGRESSIONS.planning).toEqual([0, 3, 5, 4]); // i iv VI V
+    expect(PROGRESSIONS.combat).toEqual([0, 6, 5, 4]); // i VII VI v
+    // moving, not a static single chord
+    for (const m of moods) expect(new Set(PROGRESSIONS[m]).size).toBeGreaterThan(1);
+  });
+
+  it("each progression is 4 bars (divides evenly into the loop) and resolves home", () => {
+    for (const m of moods) {
+      const roots = PROGRESSIONS[m];
+      expect(roots.length).toBe(4);
+      expect(roots[0]).toBe(0); // starts on the tonic so the loop seam resolves
+    }
+  });
+
+  it("progressionFor builds the bar-by-bar triads from the roots", () => {
+    expect(progressionFor("menu")).toEqual([
+      [0, 2, 4], [5, 7, 9], [2, 4, 6], [6, 8, 10],
+    ]);
+    for (const m of moods) {
+      const prog = progressionFor(m);
+      expect(prog.length).toBe(MOODS[m].progression.length);
+      prog.forEach((chord, i) => expect(chord).toEqual(MOODS[m].progression[i]));
+    }
+  });
+});
+
+describe("seeded melodic motif", () => {
+  it("is deterministic for a given seed (same seed → same notes)", () => {
+    expect(generateMotif(0x4d, 8)).toEqual(generateMotif(0x4d, 8));
+    expect(generateMotif(123, 12)).toEqual(generateMotif(123, 12));
+  });
+
+  it("yields a different phrase for a different seed", () => {
+    expect(generateMotif(1, 8)).not.toEqual(generateMotif(2, 8));
+  });
+
+  it("has the requested length and only step/skip degrees or rests", () => {
+    const motif = generateMotif(0x9c, 8);
+    expect(motif.length).toBe(8);
+    for (const n of motif) {
+      if (n === null) continue;
+      expect(Number.isInteger(n)).toBe(true);
+      expect(n).toBeGreaterThanOrEqual(-6);
+      expect(n).toBeLessThanOrEqual(10);
+    }
+    // a motif is more than rests
+    expect(motif.filter((n) => n !== null).length).toBeGreaterThan(0);
+  });
+
+  it("varies deterministically per loop pass (same pass → same variation)", () => {
+    const motif = generateMotif(0x4d, 8);
+    expect(varyMotif(motif, 3)).toEqual(varyMotif(motif, 3));
+    expect(varyMotif(motif, 1)).not.toEqual(varyMotif(motif, 2));
+  });
+
+  it("states the theme plainly on pass 0 and keeps the same length", () => {
+    const motif = generateMotif(0x4d, 8);
+    expect(varyMotif(motif, 0)).toEqual(motif);
+    expect(varyMotif(motif, 0)).not.toBe(motif); // a copy, not the same ref
+    for (const p of [0, 1, 5, 12]) expect(varyMotif(motif, p).length).toBe(motif.length);
+  });
+});
+
+describe("voice-leading", () => {
+  const scale = [0, 2, 3, 5, 7, 8, 10];
+
+  it("returns the plain voicing when there is no previous chord", () => {
+    expect(voiceLead([], [0, 2, 4], 57, scale)).toEqual([57, 60, 64]);
+  });
+
+  it("moves to the nearest octave of each tone (small total motion, no big leaps)", () => {
+    const prev = voiceLead([], [0, 2, 4], 57, scale); // A C E
+    const next = voiceLead(prev, [5, 0, 2], 57, scale); // F-rooted chord
+    // every voiced note stays close to some previous note (stepwise/shared)
+    for (const n of next) {
+      const nearest = Math.min(...prev.map((p) => Math.abs(p - n)));
+      expect(nearest).toBeLessThanOrEqual(7);
+    }
+    expect([...next]).toEqual([...next].sort((a, b) => a - b));
+  });
+});
+
+describe("mixing gain table", () => {
+  const moods: MusicMood[] = ["menu", "planning", "combat"];
+
+  it("keeps every layer gain in (0,1] (perc may be 0 when silenced)", () => {
+    for (const m of moods) {
+      const mix = MIX[m];
+      for (const [layer, g] of Object.entries(mix)) {
+        if (layer === "perc" && g === 0) continue;
+        expect(g).toBeGreaterThan(0);
+        expect(g).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("seats the lead above the pad and never lets percussion dominate", () => {
+    for (const m of moods) {
+      const mix = MIX[m];
+      expect(mix.lead).toBeGreaterThan(mix.pad);
+      expect(mix.perc).toBeLessThan(mix.lead);
+      expect(mix.perc).toBeLessThanOrEqual(mix.pad);
+    }
+    expect(MIX.menu.perc).toBe(0); // menu has no percussion layer
   });
 });

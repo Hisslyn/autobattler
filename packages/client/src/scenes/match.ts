@@ -12,7 +12,13 @@ import { drawUnitToken } from "../unitToken.js";
 import { drawGlyph, glyphForTraits } from "../glyphs.js";
 import type { GlyphKind } from "../glyphs.js";
 import { traitStripModel, xpProgress } from "../hudModel.js";
+import { inspectModel } from "../inspectModel.js";
+import { traitDetailModel } from "../traitDetailModel.js";
+import { sellValue } from "../sellValue.js";
+import { renderUnitInspect, renderTraitDetail } from "../inspectPanel.js";
 import { onUnitArtReady } from "../sprites.js";
+import { Z_COMBAT_HEADER, Z_RESOLUTION_BUTTON, Z_RESOLUTION_CONTROL } from "../combatLayout.js";
+import { benchGeom, benchSlotAtX } from "../benchLayout.js";
 import type { SettingsStore } from "../settings.js";
 import type { AudioManager } from "../audio/manager.js";
 import { phaseToMusicState } from "../audio/director.js";
@@ -41,7 +47,6 @@ const TRAIT_STRIP_Y = 426;   // trait strip (just below the board panel)
 const HUD_ROW_Y = 476;       // level / gold / streak / reroll / buy-xp row
 const HUD_ROW_H = 38;
 
-const BENCH_SLOT_W = 38;
 const BENCH_Y = 532;
 const SHOP_Y = 574;
 const SHOP_CARD_W = 71;
@@ -59,7 +64,9 @@ const BOARD_PANEL_W = DESIGN_W - 16;
 const BOARD_PANEL_Y = 58;
 const BOARD_PANEL_H = 360;
 
-const RESOLUTION_AUTO_ADVANCE_MS = 5000;
+// Match the driver/server resolution window (data-driven) so the visible
+// countdown can never drift from the real auto-advance.
+const RESOLUTION_AUTO_ADVANCE_MS = gameData.economy.resolutionSeconds * 1000;
 
 interface HexStyle {
   /** Border stroke (thin tile outline / drag highlight). */
@@ -127,6 +134,8 @@ export class MatchScene {
   private combatLayer: PIXI.Container;
   private traitLayer: PIXI.Container;
   private scoutLayer: PIXI.Container;
+  /** Inspect / trait-detail panels (topmost, modal). */
+  private inspectLayer: PIXI.Container;
   /** Planning-phase juice (star-up flourish, buy/sell pops); not cleared by render(). */
   private planningFxLayer: PIXI.Container;
 
@@ -139,6 +148,11 @@ export class MatchScene {
 
   private dragCatcher!: PIXI.Graphics;
   private resolutionAutoTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Drives the visible Continue countdown without a per-second re-render of the box. */
+  private resolutionCountdownFn: ((t: PIXI.Ticker) => void) | null = null;
+  /** Long-press timer for opening the inspect panel; cleared if a drag/tap wins. */
+  private pressTimer: ReturnType<typeof setTimeout> | null = null;
+  private pressStart: { x: number; y: number } | null = null;
   /** Gold at the last planning start, to voice income gain (no game logic). */
   private prevGold = 0;
 
@@ -170,6 +184,7 @@ export class MatchScene {
     this.scoutLayer = new PIXI.Container();
     this.toastLayer = new PIXI.Container();
     this.planningFxLayer = new PIXI.Container();
+    this.inspectLayer = new PIXI.Container();
 
     this.container.addChild(this.hudLayer);
     this.container.addChild(this.boardLayer);
@@ -180,6 +195,7 @@ export class MatchScene {
     this.container.addChild(this.combatLayer);
     this.container.addChild(this.scoutLayer);
     this.container.addChild(this.toastLayer);
+    this.container.addChild(this.inspectLayer);
 
     // Invisible full-screen drag target for pointer-up — only active while dragging
     const dragCatcher = new PIXI.Graphics();
@@ -409,53 +425,103 @@ export class MatchScene {
       uc.eventMode = "static";
       uc.cursor = "grab";
       uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBoard(idx, unit, e));
+      uc.on("pointerup", () => this.clearPress());
+      uc.on("pointerupoutside", () => this.clearPress());
       drawUnit(uc, unit, x, y, 16, this.selectedBenchIdx !== null || (this.selectedBoardIdx !== null && this.selectedBoardIdx !== idx));
       this.boardLayer.addChild(uc);
     }
   }
 
+  /** Geometry for the 9 bench slots and the sell control beside them (pure). */
+  private benchGeom() {
+    return benchGeom(DESIGN_W, BENCH_Y);
+  }
+
   private renderBench(me: PlayerState): void {
     this.benchLayer.removeChildren();
-    const startX = (DESIGN_W - 9 * BENCH_SLOT_W) / 2 + BENCH_SLOT_W / 2;
+    const { slotH, sellW, slotW, startCx, sellX, top } = this.benchGeom();
 
     for (let i = 0; i < 9; i++) {
-      const x = startX + i * BENCH_SLOT_W;
-      const isSelected = this.selectedBenchIdx === i && me.bench[i] != null;
+      const cx = startCx + i * slotW;
+      const unit = me.bench[i];
+      const isSelected = this.selectedBenchIdx === i && unit != null;
+      const occupied = unit != null;
+
       const g = new PIXI.Graphics();
-      g.beginFill(isSelected ? C.bgBenchSel : C.bgBench, 0.7);
-      g.drawRoundedRect(x - 16, BENCH_Y - 16, 32, 32, 3);
+      // Clear occupied-vs-empty distinction: filled+rimmed when occupied,
+      // dashed-feel hollow when empty; selection gets the blue highlight.
+      g.beginFill(
+        isSelected ? C.bgBenchSel : occupied ? C.benchOccupied : C.benchEmpty,
+        occupied ? 0.95 : 0.6
+      );
+      g.lineStyle(1, isSelected ? C.tier3 : occupied ? C.chipBorder : C.benchEmptyRim, occupied ? 0.9 : 0.5);
+      g.drawRoundedRect(cx - slotW / 2 + 1, top, slotW - 2, slotH, 4);
       g.endFill();
+      g.lineStyle(0);
+      // Forgiving hit area covers the whole slot cell.
       g.eventMode = "static";
       g.cursor = "pointer";
+      g.hitArea = new PIXI.Rectangle(cx - slotW / 2, top, slotW, slotH);
       g.on("pointerdown", () => this.onBenchSlotClick(i, me));
       this.benchLayer.addChild(g);
 
-      const unit = me.bench[i];
       if (unit) {
         if (this.dragUnit?.uid === unit.uid) continue;
         const uc = new PIXI.Container();
         uc.eventMode = "static";
         uc.cursor = "grab";
+        // Generous hit rect so a thumb anywhere on the slot grabs the unit.
+        uc.hitArea = new PIXI.Rectangle(cx - slotW / 2, top, slotW, slotH);
         uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBench(i, unit, e));
-        drawUnit(uc, unit, x, BENCH_Y, 12, false, false);
+        uc.on("pointerup", () => this.clearPress());
+        uc.on("pointerupoutside", () => this.clearPress());
+        drawUnit(uc, unit, cx, BENCH_Y, 13, false, false);
         this.benchLayer.addChild(uc);
       }
     }
 
-    // Sell zone
-    const sellG = new PIXI.Graphics();
-    sellG.beginFill(C.bgSellZone, 0.7);
-    sellG.drawRoundedRect(DESIGN_W - 44, BENCH_Y - 16, 40, 32, 3);
-    sellG.endFill();
-    sellG.eventMode = "static";
-    sellG.cursor = "pointer";
-    sellG.on("pointerdown", () => this.onSellZoneClick(me));
-    this.benchLayer.addChild(sellG);
-    const sellLabel = new PIXI.Text("SELL", { fontSize: 8, fill: C.textSell, fontFamily: "monospace" });
-    sellLabel.anchor.set(0.5);
-    sellLabel.x = DESIGN_W - 24;
-    sellLabel.y = BENCH_Y;
-    this.benchLayer.addChild(sellLabel);
+    this.renderSellControl(me, sellX, top, sellW, slotH);
+  }
+
+  /**
+   * Sell affordance beside the bench. When a unit is selected (tap) or being
+   * dragged, it lights up and shows the exact gold refund (reusing the rules
+   * sell formula); tapping it sells the selected unit. Always shows "Sell" as a
+   * discoverable drop-target hint otherwise.
+   */
+  private renderSellControl(me: PlayerState, x: number, top: number, w: number, h: number): void {
+    const selected = this.selectedUnit(me);
+    const armed = selected != null || this.isDragging;
+    const refund = selected ? sellValue(selected, gameData) : null;
+
+    const g = new PIXI.Graphics();
+    g.beginFill(armed ? C.bgSellArmed : C.bgSellChip, armed ? 0.95 : 0.7);
+    g.lineStyle(1, C.textSell, armed ? 0.95 : 0.5);
+    g.drawRoundedRect(x, top, w, h, 4);
+    g.endFill();
+    g.lineStyle(0);
+    g.eventMode = "static";
+    g.cursor = "pointer";
+    g.hitArea = new PIXI.Rectangle(x, top, w, h);
+    g.on("pointerdown", () => this.onSellZoneClick(me));
+    this.benchLayer.addChild(g);
+
+    const cx = x + w / 2;
+    if (refund != null) {
+      // Refund amount front-and-center with the gold coin glyph.
+      this.glyph(this.benchLayer, "coin", cx - 8, BENCH_Y - 4, 9, C.starGold);
+      this.text(this.benchLayer, `${refund}`, cx + 3, BENCH_Y - 4, 11, C.textGold, [0.5, 0.5]);
+      this.text(this.benchLayer, "Sell", cx, BENCH_Y + 8, 7, C.textSell, [0.5, 0.5]);
+    } else {
+      this.text(this.benchLayer, "Sell", cx, BENCH_Y, 9, C.textSell, [0.5, 0.5]);
+    }
+  }
+
+  /** Currently selected bench/board unit, if any. */
+  private selectedUnit(me: PlayerState): UnitInstance | null {
+    if (this.selectedBenchIdx !== null) return me.bench[this.selectedBenchIdx] ?? null;
+    if (this.selectedBoardIdx !== null) return me.board[this.selectedBoardIdx] ?? null;
+    return null;
   }
 
   private renderShop(state: MatchState, me: PlayerState): void {
@@ -493,7 +559,14 @@ export class MatchScene {
       card.hitArea = new PIXI.Rectangle(x, SHOP_Y, SHOP_CARD_W, SHOP_CARD_H);
       card.cursor = "pointer";
       const ci = i;
-      card.on("pointerdown", () => this.onShopBuy(ci));
+      // Tap to buy; long-press to inspect the offered unit (no live instance).
+      card.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.armInspect(slot.defId, null, e));
+      card.on("pointerup", () => {
+        if (this.pressTimer === null) return; // long-press already opened inspect
+        this.clearPress();
+        this.onShopBuy(ci);
+      });
+      card.on("pointerupoutside", () => this.clearPress());
 
       // portrait disc (token glyph/art, no bars); non-interactive so taps reach the card
       const tokenC = new PIXI.Container();
@@ -615,6 +688,12 @@ export class MatchScene {
       bg.endFill();
       bg.lineStyle(0);
       bg.alpha = active ? 1 : 0.5;
+      bg.eventMode = "static";
+      bg.cursor = "pointer";
+      bg.hitArea = new PIXI.Rectangle(x, rowY, chipW, chipH);
+      const tid = c.traitId;
+      const tcount = c.count;
+      bg.on("pointertap", () => this.openTraitDetail(tid, tcount));
       this.traitLayer.addChild(bg);
 
       // 14px rotated diamond holding the glyph
@@ -642,22 +721,26 @@ export class MatchScene {
   // ─── DRAG & DROP ─────────────────────────────────────────────────────────
 
   private startDragBoard(idx: number, unit: UnitInstance, e: PIXI.FederatedPointerEvent): void {
+    if (this.inspectOpen) return;
     this.selectedBenchIdx = null;
     this.selectedBoardIdx = null;
     this.isDragging = true;
     this.dragCatcher.eventMode = "static";
     this.dragUnit = { uid: unit.uid, fromBench: false, fromIdx: idx };
+    this.armInspect(unit.defId, unit, e); // long-press still opens inspect
     this.createDragSprite(unit, e.globalX, e.globalY);
     this.renderBoard(this.driver.getState().players[this.driver.seatIndex]!);
     this.renderBench(this.driver.getState().players[this.driver.seatIndex]!);
   }
 
   private startDragBench(idx: number, unit: UnitInstance, e: PIXI.FederatedPointerEvent): void {
+    if (this.inspectOpen) return;
     this.selectedBenchIdx = null;
     this.selectedBoardIdx = null;
     this.isDragging = true;
     this.dragCatcher.eventMode = "static";
     this.dragUnit = { uid: unit.uid, fromBench: true, fromIdx: idx };
+    this.armInspect(unit.defId, unit, e); // long-press still opens inspect
     this.createDragSprite(unit, e.globalX, e.globalY);
     this.renderBoard(this.driver.getState().players[this.driver.seatIndex]!);
     this.renderBench(this.driver.getState().players[this.driver.seatIndex]!);
@@ -679,11 +762,18 @@ export class MatchScene {
 
   private onDragMove(e: PIXI.FederatedPointerEvent): void {
     if (!this.isDragging || !this.dragSprite) return;
+    // Movement beyond a small threshold cancels the long-press (it's a drag).
+    if (this.pressStart) {
+      const dx = e.globalX - this.pressStart.x;
+      const dy = e.globalY - this.pressStart.y;
+      if (dx * dx + dy * dy > 36) this.clearPress();
+    }
     this.dragSprite.x = e.globalX;
     this.dragSprite.y = e.globalY;
   }
 
   private onDragEnd(e: PIXI.FederatedPointerEvent): void {
+    this.clearPress();
     if (!this.isDragging || !this.dragUnit) return;
 
     const px = e.globalX;
@@ -712,22 +802,26 @@ export class MatchScene {
       });
       if (!result.ok) this.showToast(result.error);
     } else {
-      // Check if dropped on bench area
-      const startX = (DESIGN_W - 9 * BENCH_SLOT_W) / 2;
-      if (py >= BENCH_Y - 20 && py <= BENCH_Y + 20 && px >= startX && px < startX + 9 * BENCH_SLOT_W) {
-        const benchIdx = Math.floor((px - startX) / BENCH_SLOT_W);
-        const clampedIdx = Math.max(0, Math.min(8, benchIdx));
+      // Check if dropped on bench / sell area (forgiving vertical band)
+      const geom = this.benchGeom();
+      const { sellX, sellW } = geom;
+      const inBenchRow = py >= BENCH_Y - 24 && py <= BENCH_Y + 24;
+      const benchIdx = inBenchRow ? benchSlotAtX(px, geom) : null;
+      if (benchIdx !== null) {
         const result = this.driver.playerCommand({
           type: "MOVE",
           unitUid: this.dragUnit.uid,
           toBench: true,
-          toIndex: clampedIdx,
+          toIndex: benchIdx,
         });
         if (!result.ok) this.showToast(result.error);
-      } else if (py >= BENCH_Y - 20 && py <= BENCH_Y + 20 && px >= DESIGN_W - 48) {
-        // Dropped on sell zone
+      } else if (inBenchRow && px >= sellX - 6 && px <= sellX + sellW + 6) {
+        // Dropped on sell zone — spawn the refund pop at the zone
+        const dragged = me.bench.concat(me.board.filter((u): u is UnitInstance => u != null))
+          .find((u) => u.uid === this.dragUnit!.uid) ?? null;
+        const refund = dragged ? sellValue(dragged, gameData) : 0;
         const result = this.driver.playerCommand({ type: "SELL", unitUid: this.dragUnit.uid });
-        if (result.ok) { this.opts.audio.play("sell"); this.spawnPlanningPop(DESIGN_W - 24, BENCH_Y, C.textSell); }
+        if (result.ok) { this.opts.audio.play("sell"); this.spawnSellPop(sellX + sellW / 2, BENCH_Y, refund); }
         else this.showToast(result.error);
       }
       // else: dropped nowhere valid — unit stays put (no-op)
@@ -797,20 +891,45 @@ export class MatchScene {
 
   private onSellZoneClick(me: PlayerState): void {
     if (this.isDragging) return;
-    let uid: number | null = null;
-    if (this.selectedBenchIdx !== null) {
-      uid = me.bench[this.selectedBenchIdx]?.uid ?? null;
-      this.selectedBenchIdx = null;
-    } else if (this.selectedBoardIdx !== null) {
-      uid = me.board[this.selectedBoardIdx]?.uid ?? null;
-      this.selectedBoardIdx = null;
-    }
-    if (uid != null) {
-      const result = this.driver.playerCommand({ type: "SELL", unitUid: uid });
-      if (result.ok) { this.opts.audio.play("sell"); this.spawnPlanningPop(DESIGN_W - 24, BENCH_Y, C.textSell); }
-      else this.showToast(result.error);
+    const sel = this.selectedUnit(me);
+    this.selectedBenchIdx = null;
+    this.selectedBoardIdx = null;
+    if (sel) {
+      const refund = sellValue(sel, gameData);
+      const result = this.driver.playerCommand({ type: "SELL", unitUid: sel.uid });
+      if (result.ok) {
+        this.opts.audio.play("sell");
+        const { sellX, sellW } = this.benchGeom();
+        this.spawnSellPop(sellX + sellW / 2, BENCH_Y, refund);
+      } else {
+        this.showToast(result.error);
+      }
     }
     this.render(this.driver.getState());
+  }
+
+  /** Sell feedback: a "+N" gold floater rising from the sell zone. */
+  private spawnSellPop(x: number, y: number, refund: number): void {
+    this.spawnPlanningPop(x, y, C.textSell);
+    if (this.opts.settings.get().reducedMotion) return;
+    const node = new PIXI.Container();
+    node.position.set(x, y - 18);
+    this.glyph(node, "coin", -8, 0, 9, C.starGold);
+    this.text(node, `+${refund}`, 3, 0, 11, C.textGold, [0, 0.5]);
+    this.planningFxLayer.addChild(node);
+    let age = 0;
+    const ttl = 620;
+    const fn = (ticker: PIXI.Ticker): void => {
+      age += ticker.deltaMS;
+      node.y -= ticker.deltaMS * 0.02;
+      node.alpha = Math.max(0, 1 - age / ttl);
+      if (age >= ttl) {
+        this.app.ticker.remove(fn);
+        this.planningFxLayer.removeChild(node);
+        node.destroy({ children: true });
+      }
+    };
+    this.app.ticker.add(fn);
   }
 
   private onShopBuy(idx: number): void {
@@ -850,11 +969,11 @@ export class MatchScene {
         return { x, y };
       }
     }
-    const startX = (DESIGN_W - 9 * BENCH_SLOT_W) / 2 + BENCH_SLOT_W / 2;
+    const { slotW, startCx } = this.benchGeom();
     for (let i = 0; i < me.bench.length; i++) {
       const u = me.bench[i]!;
       if (u.star >= 2 && (before.get(u.uid) ?? 0) < u.star) {
-        return { x: startX + i * BENCH_SLOT_W, y: BENCH_Y };
+        return { x: startCx + i * slotW, y: BENCH_Y };
       }
     }
     return null;
@@ -997,13 +1116,67 @@ export class MatchScene {
     this.scoutLayer.removeChildren();
   }
 
+  // ─── INSPECT (unit + trait detail panels) ────────────────────────────────
+
+  /** Long-press affordance: open the unit-inspect panel after a hold. */
+  private armInspect(defId: string, unit: UnitInstance | null, e: PIXI.FederatedPointerEvent): void {
+    this.clearPress();
+    this.pressStart = { x: e.globalX, y: e.globalY };
+    this.pressTimer = setTimeout(() => {
+      this.pressTimer = null;
+      this.openUnitInspect(defId, unit);
+    }, 360);
+  }
+
+  /** Cancel a pending long-press (a drag started or the press lifted/moved). */
+  private clearPress(): void {
+    if (this.pressTimer !== null) { clearTimeout(this.pressTimer); this.pressTimer = null; }
+    this.pressStart = null;
+  }
+
+  /** If the long-press fired, the tap action should be suppressed. */
+  private get inspectOpen(): boolean {
+    return this.inspectLayer.children.length > 0;
+  }
+
+  private openUnitInspect(defId: string, unit: UnitInstance | null): void {
+    const m = inspectModel(defId, unit, gameData);
+    if (!m) return;
+    this.abortDrag(); // a long-press supersedes any in-progress drag
+    this.opts.audio.play("tap");
+    renderUnitInspect(this.inspectLayer, m, () => this.closeInspect());
+  }
+
+  /** Cancel an in-progress drag without issuing a move (long-press took over). */
+  private abortDrag(): void {
+    if (!this.isDragging) return;
+    if (this.dragSprite) { this.container.removeChild(this.dragSprite); this.dragSprite = null; }
+    this.isDragging = false;
+    this.dragCatcher.eventMode = "none";
+    this.dragUnit = null;
+    this.render(this.driver.getState());
+  }
+
+  private openTraitDetail(traitId: string, count: number): void {
+    const m = traitDetailModel(traitId, count, gameData);
+    if (!m) return;
+    this.opts.audio.play("tap");
+    renderTraitDetail(this.inspectLayer, m, () => this.closeInspect());
+  }
+
+  private closeInspect(): void {
+    this.inspectLayer.removeChildren();
+  }
+
   // ─── PHASE TRANSITIONS ───────────────────────────────────────────────────
 
   private onPlanningStart(): void {
     this.teardownPlayback();
     this.clearResolutionTimer();
+    this.clearPress();
     this.combatLayer.removeChildren();
     this.closeScout();
+    this.closeInspect();
     const state = this.driver.getState();
     void this.opts.audio.setMusicState(phaseToMusicState("PLANNING"));
     // Round-start cue + income coins (income lands entering planning).
@@ -1024,6 +1197,9 @@ export class MatchScene {
 
   private renderCombat(state: MatchState): void {
     this.teardownPlayback();
+    this.clearPress();
+    this.closeScout();
+    this.closeInspect();
     this.combatLayer.removeChildren();
     // Hide planning UI
     this.boardLayer.removeChildren();
@@ -1051,13 +1227,8 @@ export class MatchScene {
       opponentName = "Bye (PvE)";
     }
 
-    const banner = new PIXI.Text(`vs ${opponentName}`, {
-      fontSize: 12, fill: C.textBanner, fontFamily: "monospace",
-    });
-    banner.anchor.set(0.5, 0.5);
-    banner.x = DESIGN_W / 2;
-    banner.y = BOARD_OFFSET_Y - BOARD_ROWS * HEX_H / 2 - 6;
-    this.combatLayer.addChild(banner);
+    // Combat header is rendered AFTER the tiles (see below) with an explicit
+    // zIndex so it never bleeds behind the board.
 
     // Full combat field: opponent half (top) + own half (bottom)
     for (let r = 0; r < BOARD_ROWS; r++) {
@@ -1097,13 +1268,19 @@ export class MatchScene {
       this.driver.combatPlaybackDone();
     }
 
-    const combatLabel = new PIXI.Text("COMBAT", {
-      fontSize: 14, fill: C.textCombat, fontFamily: "monospace",
+    // Single combat header, placed in the clear band just below the board panel
+    // (outside both hex zones) and given a high zIndex so the sortable
+    // combatLayer always draws it above the tiles/tokens — never behind them.
+    const headerY = BOARD_PANEL_Y + BOARD_PANEL_H + 12;
+    const header = new PIXI.Text(`COMBAT  ·  vs ${opponentName}`, {
+      fontSize: 13, fill: C.textCombat, fontFamily: "monospace",
     });
-    combatLabel.anchor.set(0.5, 0.5);
-    combatLabel.x = DESIGN_W / 2;
-    combatLabel.y = BOARD_OFFSET_Y - BOARD_ROWS * HEX_H - 6;
-    this.combatLayer.addChild(combatLabel);
+    header.anchor.set(0.5, 0.5);
+    header.x = DESIGN_W / 2;
+    header.y = headerY;
+    header.zIndex = Z_COMBAT_HEADER;
+    header.eventMode = "none";
+    this.combatLayer.addChild(header);
   }
 
   // ─── COMBAT PLAYBACK ─────────────────────────────────────────────────────
@@ -1262,33 +1439,72 @@ export class MatchScene {
     hpText.y = 268;
     this.combatLayer.addChild(hpText);
 
-    // Continue button — must be interactive and above all overlays
+    // Continue button — wide, thumb-reachable, interactive, above all overlays.
+    const btnW = 200, btnH = 44, btnX = DESIGN_W / 2 - btnW / 2, btnY = 326;
     const continueBtn = new PIXI.Graphics();
     continueBtn.beginFill(C.bgContinue, 0.95);
-    continueBtn.drawRoundedRect(DESIGN_W / 2 - 55, 330, 110, 36, 6);
+    continueBtn.lineStyle(1.5, C.hpGreen, 0.8);
+    continueBtn.drawRoundedRect(btnX, btnY, btnW, btnH, 8);
     continueBtn.endFill();
+    continueBtn.lineStyle(0);
     continueBtn.eventMode = "static";
-    continueBtn.hitArea = new PIXI.Rectangle(DESIGN_W / 2 - 55, 330, 110, 36);
+    continueBtn.hitArea = new PIXI.Rectangle(btnX, btnY, btnW, btnH);
     continueBtn.cursor = "pointer";
-    continueBtn.zIndex = 10;
+    continueBtn.zIndex = Z_RESOLUTION_BUTTON;
     continueBtn.on("pointerdown", () => this.advanceFromResolution());
     this.combatLayer.addChild(continueBtn);
 
     const continueText = new PIXI.Text("Continue", {
-      fontSize: 12, fill: C.textReady, fontFamily: "monospace",
+      fontSize: 14, fill: C.textReady, fontFamily: "monospace",
     });
     continueText.anchor.set(0.5, 0.5);
     continueText.x = DESIGN_W / 2;
-    continueText.y = 348;
+    continueText.y = btnY + btnH / 2;
     continueText.eventMode = "none";
+    continueText.zIndex = Z_RESOLUTION_CONTROL + 1;
     this.combatLayer.addChild(continueText);
 
-    // Auto-advance fallback
+    // Visible auto-advance countdown: a thin draining bar across the button base
+    // + a seconds label, so the wait never feels stuck. Driven by the ticker
+    // (reduced-motion still updates the second count, just no smooth drain).
+    const countLabel = new PIXI.Text("", {
+      fontSize: 10, fill: C.textMuted, fontFamily: "monospace",
+    });
+    countLabel.anchor.set(0.5, 0);
+    countLabel.x = DESIGN_W / 2;
+    countLabel.y = btnY + btnH + 8;
+    countLabel.eventMode = "none";
+    countLabel.zIndex = Z_RESOLUTION_CONTROL + 1;
+    this.combatLayer.addChild(countLabel);
+
+    const barW = btnW - 16;
+    const barX = DESIGN_W / 2 - barW / 2;
+    const barY = btnY + btnH - 6;
+    const drain = new PIXI.Graphics();
+    drain.zIndex = Z_RESOLUTION_CONTROL + 1;
+    drain.eventMode = "none";
+    this.combatLayer.addChild(drain);
+    this.combatLayer.sortChildren();
+
+    // Auto-advance fallback (the canonical timer) + a synced visible countdown.
     this.clearResolutionTimer();
-    this.resolutionAutoTimer = setTimeout(
-      () => this.advanceFromResolution(),
-      RESOLUTION_AUTO_ADVANCE_MS
-    );
+    const total = RESOLUTION_AUTO_ADVANCE_MS;
+    let remaining = total;
+    this.resolutionAutoTimer = setTimeout(() => this.advanceFromResolution(), total);
+    const reduced = this.opts.settings.get().reducedMotion;
+    const tick = (ticker: PIXI.Ticker): void => {
+      remaining = Math.max(0, remaining - ticker.deltaMS);
+      const frac = remaining / total;
+      countLabel.text = `Auto in ${Math.ceil(remaining / 1000)}s`;
+      drain.clear();
+      drain.rect(barX, barY, Math.round(barW * frac), 2).fill({ color: C.hpGreen, alpha: 0.7 });
+    };
+    if (reduced) {
+      countLabel.text = `Auto in ${Math.ceil(total / 1000)}s`;
+    }
+    tick(this.app.ticker); // paint immediately so it's never blank
+    this.resolutionCountdownFn = tick;
+    this.app.ticker.add(tick);
   }
 
   private advanceFromResolution(): void {
@@ -1301,11 +1517,16 @@ export class MatchScene {
       clearTimeout(this.resolutionAutoTimer);
       this.resolutionAutoTimer = null;
     }
+    if (this.resolutionCountdownFn !== null) {
+      this.app.ticker.remove(this.resolutionCountdownFn);
+      this.resolutionCountdownFn = null;
+    }
   }
 
   private onMatchOver(placements: number[], mmr?: Record<number, { before: number; after: number }>): void {
     this.teardownPlayback();
     this.clearResolutionTimer();
+    this.closeInspect();
     void this.opts.audio.setMusicState("results");
     const mine = placements[this.driver.seatIndex];
     this.opts.audio.play(mine !== undefined && mine <= 4 ? "roundWin" : "roundLoss");
@@ -1382,6 +1603,7 @@ export class MatchScene {
   destroy(): void {
     this.teardownPlayback();
     this.clearResolutionTimer();
+    this.clearPress();
     this.unsub();
     this.unsubArt();
     if (this.container.parent) this.container.parent.removeChild(this.container);
