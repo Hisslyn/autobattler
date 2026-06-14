@@ -1,4 +1,5 @@
 import type { GameData } from "@autobattler/data";
+import { recipeResult } from "@autobattler/data";
 import type { MatchState } from "./state.js";
 import type { UnitInstance } from "@autobattler/sim/src/types.js";
 import type { Prng } from "@autobattler/sim/src/prng.js";
@@ -6,13 +7,18 @@ import { returnToPool } from "./pool.js";
 import { rollShop } from "./shop.js";
 import { levelForXp } from "./economy.js";
 
+/** Max items (components or completed) a single unit may hold. */
+export const MAX_ITEMS_PER_UNIT = 3; // magic-ok: slot-cap union bound, not tuning
+
 export type Command =
   | { type: "BUY"; shopSlotIndex: number }
   | { type: "SELL"; unitUid: number }
   | { type: "REROLL" }
   | { type: "BUY_XP" }
   | { type: "MOVE"; unitUid: number; toBench: boolean; toIndex: number }
-  | { type: "EQUIP"; unitUid: number; itemId: string };
+  | { type: "EQUIP"; unitUid: number; itemId: string }
+  | { type: "UNEQUIP"; unitUid: number; itemId: string }
+  | { type: "COMBINE_ITEMS"; itemIdA: string; itemIdB: string };
 
 export type CommandError =
   | "INSUFFICIENT_GOLD"
@@ -21,10 +27,15 @@ export type CommandError =
   | "EMPTY_SLOT"
   | "UNIT_NOT_FOUND"
   | "ITEM_NOT_FOUND"
+  | "ITEM_SLOTS_FULL"
+  | "NO_RECIPE"
   | "INVALID_POSITION"
   | "PHASE_INVALID";
 
 export type CommandResult = { ok: true } | { ok: false; error: CommandError };
+
+/** Pure recipe resolver re-exported for rules consumers (data is the source). */
+export { recipeResult } from "@autobattler/data";
 
 function countBoardUnits(board: (UnitInstance | null)[]): number {
   return board.reduce((n, u) => n + (u ? 1 : 0), 0);
@@ -290,8 +301,53 @@ export function applyCommand(
       const equipUnit = found.onBench ? player.bench[found.idx]! : player.board[found.idx]!;
       if (!equipUnit) return { ok: false, error: "UNIT_NOT_FOUND" };
 
+      // Auto-combine: if the unit already holds a component that completes a
+      // recipe with the incoming one, fuse in place (net slots unchanged).
+      const matchSlot = equipUnit.items.findIndex(
+        (held) => recipeResult(held, cmd.itemId, data.items) !== null
+      );
+      if (matchSlot >= 0) {
+        const combined = recipeResult(equipUnit.items[matchSlot]!, cmd.itemId, data.items)!;
+        equipUnit.items[matchSlot] = combined;
+        player.items.splice(itemIdx, 1);
+        return { ok: true };
+      }
+
+      if (equipUnit.items.length >= MAX_ITEMS_PER_UNIT) {
+        return { ok: false, error: "ITEM_SLOTS_FULL" };
+      }
       player.items.splice(itemIdx, 1);
       equipUnit.items.push(cmd.itemId);
+      return { ok: true };
+    }
+
+    case "UNEQUIP": {
+      const found = findUnitAnywhere(state, playerId, cmd.unitUid);
+      if (!found) return { ok: false, error: "UNIT_NOT_FOUND" };
+      const unequipUnit = found.onBench ? player.bench[found.idx]! : player.board[found.idx]!;
+      if (!unequipUnit) return { ok: false, error: "UNIT_NOT_FOUND" };
+      const slot = unequipUnit.items.indexOf(cmd.itemId);
+      if (slot < 0) return { ok: false, error: "ITEM_NOT_FOUND" };
+
+      unequipUnit.items.splice(slot, 1);
+      player.items.push(cmd.itemId);
+      return { ok: true };
+    }
+
+    case "COMBINE_ITEMS": {
+      const idxA = player.items.indexOf(cmd.itemIdA);
+      if (idxA < 0) return { ok: false, error: "ITEM_NOT_FOUND" };
+      // Second match must be a distinct inventory entry from the first.
+      const idxB = player.items.findIndex((id, i) => i !== idxA && id === cmd.itemIdB);
+      if (idxB < 0) return { ok: false, error: "ITEM_NOT_FOUND" };
+      const combined = recipeResult(cmd.itemIdA, cmd.itemIdB, data.items);
+      if (!combined) return { ok: false, error: "NO_RECIPE" };
+
+      // Remove both loose components (highest index first), add the result.
+      const [hi, lo] = idxA > idxB ? [idxA, idxB] : [idxB, idxA];
+      player.items.splice(hi, 1);
+      player.items.splice(lo, 1);
+      player.items.push(combined);
       return { ok: true };
     }
   }

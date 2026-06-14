@@ -4,6 +4,8 @@ import rawItems from "./items.json" with { type: "json" };
 import rawEconomy from "./economy.json" with { type: "json" };
 import rawGameplay from "./gameplay.json" with { type: "json" };
 import rawRanks from "./ranks.json" with { type: "json" };
+import rawMobs from "./mobs.json" with { type: "json" };
+import rawLoot from "./loot.json" with { type: "json" };
 
 export type AbilityEffectData =
   | { kind: "magic_damage" }
@@ -86,6 +88,8 @@ export interface EconomyData {
   interestCap: number;
   interestPer: number;
   baseIncome: number;
+  /** Flat gold awarded to every alive player at the end of a PvE round. */
+  pveBaseGold: number;
   streakTable: StreakEntry[];
   damageBase: number;
   damageRoundDivisor: number;
@@ -121,6 +125,64 @@ export interface GameplayData {
   aiTraitOverlapWeight: number;
 }
 
+/** A PvE creep definition. Mobs reuse the combat UnitInstance shape but are
+ *  never drawn from the unit pool and never count toward player traits. */
+export interface MobDataDef {
+  id: string;
+  name: string;
+  tier: number;
+  isMob: true;
+  hp: number;
+  ad: number;
+  as: number;
+  armor: number;
+  mr: number;
+  range: number;
+  mana: number;
+  manaStart: number;
+  abilityDamage: number;
+  traits: string[];
+  ability?: AbilityDataDef;
+}
+
+/** One creep placed on a PvE stage board (board-slot index + star scaling). */
+export interface MobPlacement {
+  mobId: string;
+  slot: number;
+  star: 1 | 2 | 3;
+}
+
+/** A PvE stage: the creep board fought on a designated PvE round. */
+export interface MobStageDef {
+  round: number;
+  name: string;
+  units: MobPlacement[];
+}
+
+export interface MobsData {
+  mobs: MobDataDef[];
+  stages: MobStageDef[];
+}
+
+export type LootRarity = "common" | "uncommon" | "rare" | "legendary";
+
+/** One weighted entry in a rarity's loot table. */
+export type LootEntry =
+  | { kind: "gold"; amount: number; weight: number }
+  | { kind: "component"; id: string; weight: number }
+  | { kind: "item"; id: string; weight: number };
+
+/** How many orbs of each rarity drop on a given PvE round. */
+export interface RoundDrop {
+  rarity: LootRarity;
+  count: number;
+}
+
+export interface LootData {
+  tables: Record<LootRarity, LootEntry[]>;
+  roundDrops: Record<string, RoundDrop[]>;
+}
+
 /** A rank band; the player's rank is the highest band whose minMmr <= their MMR. */
 export interface RankBand {
   id: string;
@@ -134,9 +196,29 @@ export interface GameData {
   items: ItemDataDef[];
   economy: EconomyData;
   gameplay: GameplayData;
+  mobs: MobsData;
+  loot: LootData;
 }
 
 export const DATA_VERSION = "0.1.0";
+
+/**
+ * Pure recipe lookup: the completed item built from an unordered pair of
+ * component ids, or null if no recipe combines them. Recipes in items.json
+ * are unordered, so this matches either component order.
+ */
+export function recipeResult(
+  aId: string,
+  bId: string,
+  items: ItemDataDef[] = gameData.items
+): string | null {
+  for (const item of items) {
+    if (!item.recipe) continue;
+    const [x, y] = item.recipe;
+    if ((x === aId && y === bId) || (x === bId && y === aId)) return item.id;
+  }
+  return null;
+}
 
 /** Rank bands ordered by ascending minMmr (single source of rank thresholds). */
 export const RANK_BANDS: RankBand[] = (rawRanks as { bands: RankBand[] }).bands;
@@ -161,4 +243,6 @@ export const gameData: GameData = {
   items: rawItems as ItemDataDef[],
   economy: rawEconomy as EconomyData,
   gameplay: rawGameplay as GameplayData,
+  mobs: rawMobs as MobsData,
+  loot: rawLoot as LootData,
 };

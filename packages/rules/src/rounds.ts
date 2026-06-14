@@ -1,14 +1,58 @@
-import type { GameData } from "@autobattler/data";
+import type { GameData, MobStageDef } from "@autobattler/data";
 import type { MatchState, PlayerState } from "./state.js";
 import type { UnitInstance, BoardState, CombatResult } from "@autobattler/sim/src/types.js";
+import type { Prng } from "@autobattler/sim/src/prng.js";
 import { simulateCombat } from "@autobattler/sim";
 import { COLS, ROWS } from "@autobattler/sim/src/hex.js";
 import { mulberry32 } from "@autobattler/sim/src/prng.js";
 import { calcIncome } from "./economy.js";
 import { returnUnitsToPool, returnToPool } from "./pool.js";
+import { generateLoot, applyLootOrb } from "./loot.js";
 
 export function isPveRound(round: number, data: GameData): boolean {
   return data.gameplay.pveRounds.includes(round);
+}
+
+/** The PvE stage fought on a given round, if any. */
+export function pveStageForRound(round: number, data: GameData): MobStageDef | null {
+  return data.mobs.stages.find((s) => s.round === round) ?? null;
+}
+
+/**
+ * Builds a PvE stage's creep board (side 1). Mobs reuse UnitInstance but are
+ * never drawn from the unit pool and carry no traits, so they never affect
+ * the player's trait counts. Uids come from the match's uid namespace.
+ */
+export function buildMobBoard(state: MatchState, stage: MobStageDef, data: GameData): BoardState {
+  const slots: (UnitInstance | null)[] = new Array(data.gameplay.boardSlots).fill(null);
+  for (const placement of stage.units) {
+    const mob = data.mobs.mobs.find((m) => m.id === placement.mobId);
+    if (!mob) continue;
+    const unit: UnitInstance = {
+      uid: state.nextUid++,
+      defId: mob.id,
+      tier: mob.tier,
+      star: placement.star,
+      team: 1,
+      pos: { q: 0, r: 0 },
+      hp: mob.hp,
+      maxHp: mob.hp,
+      ad: mob.ad,
+      as: mob.as,
+      armor: mob.armor,
+      mr: mob.mr,
+      range: mob.range,
+      mana: mob.manaStart,
+      maxMana: mob.mana,
+      abilityDamage: mob.abilityDamage,
+      attackCooldown: 0,
+      statusEffects: [],
+      items: [],
+      ...(mob.ability ? { ability: mob.ability } : {}),
+    };
+    if (placement.slot >= 0 && placement.slot < slots.length) slots[placement.slot] = unit;
+  }
+  return boardToCombatState(slots, 1);
 }
 
 /**
@@ -203,6 +247,39 @@ function calcPlayerDamage(
   return econ.damageBase + Math.floor(round / econ.damageRoundDivisor) + unitDamage;
 }
 
+/**
+ * PvE round: every alive player fights the round's creep board (built once and
+ * shared). Combat is deterministic per player from the round seed; PvE never
+ * damages player HP or changes streaks. At round end each player gets flat
+ * pveBaseGold plus seeded loot orbs resolved deterministically from loot.json.
+ */
+export function runPveRound(state: MatchState, prng: Prng, data: GameData): void {
+  state.lastPairings = [];
+  state.lastCombatResults = new Map();
+  state.lastOpponentBoards = new Map();
+
+  const roundSeed = prng();
+  const lootSeed = prng();
+  state.lastRoundSeed = roundSeed;
+
+  const stage = pveStageForRound(state.round, data);
+  const mobBoard: BoardState = stage ? buildMobBoard(state, stage, data) : { units: [] };
+  const mobSnapshot: (UnitInstance | null)[] = mobBoard.units.map((u) => ({ ...u }));
+
+  for (const player of state.players.filter((p) => p.alive)) {
+    const boardA = boardToCombatState(player.board, 0);
+    const result = simulateCombat(boardA, mobBoard, derivePairingSeed(roundSeed, player.id), data);
+    state.lastCombatResults.set(player.id, result);
+    state.lastOpponentBoards.set(player.id, mobSnapshot);
+
+    player.gold += data.economy.pveBaseGold;
+    const lootPrng = mulberry32(derivePairingSeed(lootSeed, player.id));
+    for (const orb of generateLoot(state.round, lootPrng, data)) {
+      applyLootOrb(player, orb);
+    }
+  }
+}
+
 export function runCombatPhase(
   state: MatchState,
   data: GameData
@@ -211,16 +288,7 @@ export function runCombatPhase(
   state.prngState = prng();
 
   if (isPveRound(state.round, data)) {
-    state.lastPairings = [];
-    state.lastRoundSeed = 0;
-    state.lastCombatResults = new Map();
-    state.lastOpponentBoards = new Map();
-    // PvE: give item component drops, no HP damage
-    for (const player of state.players.filter((p) => p.alive)) {
-      if (data.items.length > 0) {
-        player.items.push(data.items[prng() % data.items.length]!.id);
-      }
-    }
+    runPveRound(state, prng, data);
     return;
   }
 

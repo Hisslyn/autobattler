@@ -10,7 +10,8 @@
 - All tuning numbers (unit stats, trait effects, item stats, economy) live in `packages/data`; content lives entirely in data (no content logic in code)
 - `packages/balance` is the ONLY package permitted I/O (its CLI writes the report files); `sim`/`rules` stay pure
 - Every change must keep determinism tests green (`npm test`)
-- Pool conservation: total unit copies across pool + all player benches/boards is constant
+- Pool conservation: total unit copies across pool + all player benches/boards is constant. PvE mobs are NOT drawn from the unit pool and items are NOT pooled (neither affects conservation)
+- PvE loot is seeded-deterministic: orbs and their contents derive entirely from the match prng + loot.json (same seed + config → identical orbs/rewards); the future client only animates the reveal
 - Command legality is enforced server-side in `packages/rules`; invalid commands return typed errors, never throw
 - Server result is canon; client sim is presentation only (reconcile with COMBAT_RESULT, log mismatches)
 - Combat playback = pure reducer over the event log; the Pixi layer renders reducer output only (never MatchState, never re-runs game logic)
@@ -55,6 +56,7 @@ Env vars (server): `PORT` (default 3001), `DATABASE_URL` (postgres; unset → in
   - Applies item stat bundles per unit at combat start
   - Fixed timestep 20 ticks/s, max 1200 ticks then overtime (ramping true damage)
   - Per-tick order: status effects (burn DoT + buff/shield expiry) → mana/cast → movement → attacks → death cleanup
+  - PvE mobs reuse `UnitInstance`/the engine unchanged (no new behaviors beyond the supported set): a player board (side 0) fights a mob board (side 1). Mob defIds are absent from `data.units`, so `applyTraits` never counts them — mobs never contribute to (or receive) player trait bonuses
   - Targeting: nearest enemy, tiebreak lowest uid; start-of-combat-stealth units are untargetable until their stealth tick elapses
   - Abilities at full mana (`UnitInstance.ability.effect`): `magic_damage` (single-target), `burn` (magic dmg + DoT), `shield` (self absorb), `buff` (self stat buff, reverted on expiry); `stealth` resolves at combat start, not on cast. Item passives reuse the same primitives: on-hit `burn`, start-of-combat `shield`. Damage routes through any shield before HP.
   - Emits ordered CombatEvent log that fully describes combat without re-running game logic: init (per-unit snapshot post star/item/trait), move (from/to), attack (dmg, crit), cast, mana/hp (absolute values, emitted only on change, hp clamped at 0), death, overtime_start, end (winnerSide, survivingUids)
@@ -65,7 +67,10 @@ Env vars (server): `PORT` (default 3001), `DATABASE_URL` (postgres; unset → in
 - 50 units across tiers 1-5 (13/13/12/8/4). Each has one `origin` + 1-2 `classes` (flattened into `traits`), role-derived stats, and an `ability {name, manaCost=mana, effect}` from the engine-supported set
 - 22 traits: 12 origins + 10 classes, each tagged `kind`; breakpoints at 2/4/6 (or 2/4, or 2) derived so every top breakpoint is reachable by unit count; `knight` keeps its armor curve (+200/+500/+800)
 - 45 items: 9 stat-only components (incl. iron_sword/chain_vest/mana_crystal) + 36 completed items, one per distinct unordered component pair (`recipe: [a,b]`); a completed item is a stat bundle + at most one passive (`burn` on-hit or `shield` start-of-combat). Rules equip any item id directly; recipe combination is data-only (see design-notes.md)
-- economy.json: pool counts by tier, shop odds by level (tiers 4-5 nonzero from mid levels), xp thresholds, streak table, income constants, damage constants, MMR constants (mmrStart 1000, mmrK 40, mmrEloDivisor 400)
+- economy.json: pool counts by tier, shop odds by level (tiers 4-5 nonzero from mid levels), xp thresholds, streak table, income constants, `pveBaseGold` (5, flat gold every alive player gets on a PvE round), damage constants, MMR constants (mmrStart 1000, mmrK 40, mmrEloDivisor 400)
+- mobs.json: PvE creep defs (`{id,name,tier,isMob,stats,traits:[],optional ability}` — abilities limited to the engine-supported set) + per-PvE-round stage layouts (`stages[].units` = `{mobId, slot, star}` placed on the enemy half, scaled by which mobs + star). Loader exports `MobsData` on `gameData.mobs`; mobs are never pooled
+- loot.json: rarity tables (common/uncommon/rare/legendary), each a weighted list of `{kind:"gold",amount}` / `{kind:"component",id}` / `{kind:"item",id}` entries, plus `roundDrops` (per PvE round → list of `{rarity,count}` orbs). Loader exports `LootData` on `gameData.loot`. Loot is never pooled and is seeded-deterministic
+- loader also exports pure `recipeResult(aId, bId, items?)` → completed-item id for an unordered component pair, else null (the recipe lookup; reuses the 36 existing recipes)
 - `ranks.json`: ordered rank bands (Bronze/Silver/Gold/Platinum/Diamond/Master) by ascending `minMmr`; loader exports `RANK_BANDS` + pure `mmrToRank(mmr)` (highest band whose minMmr ≤ mmr, boundaries inclusive on min)
 - `design-notes.md`: intent + `// future:` notes for deferred behaviors the engine can't yet execute (kept out of JSON)
 - loader exports `DATA_VERSION` (recorded on every persisted match)
@@ -80,12 +85,13 @@ Env vars (server): `PORT` (default 3001), `DATABASE_URL` (postgres; unset → in
 
 ## packages/rules internals
 
-- `state.ts` — MatchState, PlayerState, ShopSlot, Phase
+- `state.ts` — MatchState, PlayerState (`items: string[]` = the unequipped item inventory: loose components + completed items), ShopSlot, Phase
 - `pool.ts` — pool counts by tier (29/22/18/12/10), draw/return without replacement
 - `shop.ts` — roll 5 slots using shopOdds table; reroll returns current shop to pool
 - `economy.ts` — calcIncome (base 5 + interest + streak), levelForXp
-- `commands.ts` — applyCommand: BUY, SELL, REROLL, BUY_XP, MOVE, EQUIP; validates legality, returns CommandResult (never throws); auto-merge 3 copies → 2-star, cascade 3x 2-star → 3-star
-- `rounds.ts` — buildPairings (avoids repeat opponents, ghost on odd count), runCombatPhase, distributeIncome
+- `commands.ts` — applyCommand: BUY, SELL, REROLL, BUY_XP, MOVE, EQUIP, UNEQUIP, COMBINE_ITEMS; validates legality, returns CommandResult (never throws); auto-merge 3 copies → 2-star, cascade 3x 2-star → 3-star. Item system: max 3 items/unit (`MAX_ITEMS_PER_UNIT`); EQUIP moves an inventory item onto a unit (cap-checked) but **auto-combines in place** if the unit already holds a component that completes a recipe with it (net slots unchanged, so it's allowed even at the cap); UNEQUIP returns a unit item to inventory; COMBINE_ITEMS fuses two loose inventory components into the completed item. Typed errors `ITEM_SLOTS_FULL`/`NO_RECIPE`/`ITEM_NOT_FOUND`. Re-exports the pure `recipeResult` from data
+- `loot.ts` — pure seeded loot: `generateLoot(round, prng, data)` builds the round's orbs from `loot.roundDrops` and weighted-resolves each from its rarity table (`LootOrb {rarity, reward}`); `applyLootOrb(player, orb)` folds gold into gold and item/component ids into the inventory
+- `rounds.ts` — buildPairings (avoids repeat opponents, ghost on odd count), runCombatPhase, distributeIncome; `runPveRound` (on `pveRounds`): builds the stage's mob board once (`buildMobBoard`/`pveStageForRound`, uids from the match namespace, not pooled), runs each alive player's board vs the shared mob board via the sim (deterministic per-player seed from the round seed), deals NO player HP damage / no streak change, then awards `pveBaseGold` + seeded loot (gold→gold, items→inventory). Keeps `lastPairings = []` (no PvP pairing) while storing per-player `lastCombatResults`/`lastOpponentBoards` (the mob board)
 - `match.ts` — createMatch(seed, data), advancePhase, runMatchToEnd
 - `ai.ts` — applyAiCommands(state, playerId, prng, data): seeded bot policy for planning phase
 

@@ -19,6 +19,7 @@
   "interestCap": 5,
   "interestPer": 10,
   "baseIncome": 5,
+  "pveBaseGold": 5,
   "streakTable": [
     { "min": 0, "max": 1, "bonus": 0 },
     { "min": 2, "max": 2, "bonus": 1 },
