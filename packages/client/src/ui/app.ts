@@ -3,6 +3,8 @@
 // panel and coachmark trigger. Holds no authoritative game state; gameplay runs
 // in the Pixi match scene driven by IDriver.
 import { mmrToRank } from "@autobattler/data";
+import { cssVar, rankCssVar, traitColorCss } from "../theme.js";
+import type { RankBand } from "@autobattler/data";
 import type { SettingsStore, Settings } from "../settings.js";
 import type { AudioManager } from "../audio/manager.js";
 import type { AuthState, MatchHistoryEntry } from "../auth.js";
@@ -97,9 +99,9 @@ export class UiApp {
 
   private mainMenu(): HTMLElement {
     return el("div", { class: "ui-screen" }, [
-      el("div", { class: "ui-title", text: "AUTOBATTLER" }),
+      el("div", { class: "ui-title ui-wordmark", text: "AUTOBATTLER" }),
       el("div", { class: "ui-subtitle", text: this.auth ? `Signed in as ${this.auth.profile.name}` : "Offline — Practice only" }),
-      button("Play", () => this.navigate("play"), "ui-btn"),
+      button("Play", () => this.navigate("play"), "ui-btn ui-btn-primary"),
       button("Profile", () => this.navigate("profile"), "ui-btn"),
       button("Leaderboard", () => this.navigate("leaderboard"), "ui-btn"),
       button("How to Play", () => this.navigate("howto"), "ui-btn"),
@@ -107,19 +109,59 @@ export class UiApp {
     ]);
   }
 
+  /** Title + subtitle tap-card (Play submenu). */
+  private playCard(title: string, desc: string, onClick: () => void, disabled = false): HTMLButtonElement {
+    const b = button("", onClick, "ui-btn ui-playcard");
+    b.appendChild(el("span", { class: "pc-title", text: title }));
+    b.appendChild(el("span", { class: "pc-desc", text: desc }));
+    b.disabled = disabled;
+    return b;
+  }
+
   private playMenu(): HTMLElement {
-    const practice = button("Practice (local AI)", () => this.opts.onStartMatch("local"), "ui-btn");
-    const online = button("Online (localhost)", () => this.opts.onStartMatch("online"), "ui-btn");
-    if (!this.auth) {
-      online.disabled = true;
-      online.title = "Server unreachable";
-    }
+    const practice = this.playCard("Practice", "Play offline against AI bots.", () => this.opts.onStartMatch("local"));
+    const online = this.playCard("Online", "Ranked lobby on the server.", () => this.opts.onStartMatch("online"), !this.auth);
+    if (!this.auth) online.title = "Server unreachable";
     return this.wrap([
       el("div", { class: "ui-title", text: "Play" }),
       practice,
       online,
       this.auth ? null : el("div", { class: "ui-muted", text: "Online requires a reachable server." }),
     ]);
+  }
+
+  /** Rank pill colored from the rank-band data (shared with the canvas palette). */
+  private rankBadge(rank: RankBand): HTMLElement {
+    const badge = el("span", { class: "ui-rank-badge", text: rank.name });
+    badge.style.setProperty("--rank", rankCssVar(rank.id));
+    return badge;
+  }
+
+  /** Diamond chip (rotated square) tinted to `colorCss` — mirrors canvas chips. */
+  private diamond(colorCss: string): HTMLElement {
+    const d = el("div", { class: "ui-diamond" });
+    d.style.setProperty("--dia", colorCss);
+    return d;
+  }
+
+  /** Per-page visual motif reusing the canvas diamond + tier-color language. */
+  private howToMotif(title: string): HTMLElement | null {
+    if (title === "Combat & Traits") {
+      const traits: [string, string][] = [
+        ["holy", "Holy"], ["frost", "Frost"], ["dragon", "Dragon"], ["knight", "Knight"], ["ranger", "Ranger"],
+      ];
+      return el("div", { class: "ui-trait-legend" }, traits.map(([id, name]) => {
+        const chip = el("div", { class: "ui-trait-chip" }, [this.diamond(traitColorCss(id)), el("span", { text: name })]);
+        chip.style.setProperty("--dia", traitColorCss(id));
+        return chip;
+      }));
+    }
+    if (title === "Leveling & Shop Odds") {
+      return el("div", { class: "ui-tier-legend" }, [1, 2, 3, 4, 5].map((t) =>
+        el("div", { class: "ui-tier-chip" }, [this.diamond(cssVar(`tier${t}` as Parameters<typeof cssVar>[0])), el("span", { text: `Tier ${t}` })])
+      ));
+    }
+    return null;
   }
 
   private profileScreen(): HTMLElement {
@@ -142,7 +184,7 @@ export class UiApp {
         const rank = mmrToRank(profile.mmr);
         body.appendChild(el("div", { class: "ui-row" }, [
           el("div", { text: profile.name }),
-          el("div", { class: "ui-rank ui-pos-good", text: rank.name }),
+          this.rankBadge(rank),
         ]));
         body.appendChild(el("div", { class: "ui-bigmmr", text: `${profile.mmr} MMR` }));
 
@@ -164,7 +206,7 @@ export class UiApp {
     for (const h of history) if (h.placement >= 1 && h.placement <= 8) counts[h.placement - 1]!++;
     const max = Math.max(1, ...counts);
     return el("div", { class: "ui-dist" }, counts.map((c, i) =>
-      el("div", { class: "ui-dist-col" }, [
+      el("div", { class: `ui-dist-col${i < 4 ? " top" : ""}` }, [
         el("div", { class: "ui-val", text: c > 0 ? String(c) : "" }),
         (() => { const bar = el("div", { class: "ui-dist-bar" }); bar.style.height = `${Math.round((c / max) * 100)}%`; return bar; })(),
         el("div", { class: "ui-dist-label", text: `${i + 1}` }),
@@ -195,11 +237,12 @@ export class UiApp {
         clear(list);
         if (rows.length === 0) { list.appendChild(el("div", { class: "ui-muted", text: "No players yet." })); return; }
         rows.forEach((p, i) => {
-          list.appendChild(el("div", { class: "ui-list-row" }, [
+          const me = this.auth?.accountId === p.accountId;
+          list.appendChild(el("div", { class: `ui-list-row${me ? " me" : ""}` }, [
             el("div", { class: "pos", text: `${i + 1}` }),
             el("div", { class: "name", text: p.name }),
-            el("div", { class: "ui-rank", text: mmrToRank(p.mmr).name }),
-            el("div", { class: "ui-val", text: `${p.mmr}` }),
+            this.rankBadge(mmrToRank(p.mmr)),
+            el("div", { class: "ui-mmr-col", text: `${p.mmr}` }),
           ]));
         });
       })
@@ -219,6 +262,8 @@ export class UiApp {
       clear(body);
       body.appendChild(el("h3", { text: p.title }));
       for (const para of p.paragraphs) body.appendChild(el("p", { text: para }));
+      const motif = this.howToMotif(p.title);
+      if (motif) body.appendChild(motif);
       clear(nav);
       const prev = button("‹ Prev", () => { if (page > 0) { page--; renderPage(); } }, "ui-btn-back");
       const next = button("Next ›", () => { if (page < HELP_PAGES.length - 1) { page++; renderPage(); } }, "ui-btn-back");

@@ -62,6 +62,19 @@ export const C = {
   xpPurple:     0x9b87f5,
   streakOrange: 0xe2603a,
 
+  // ─── Visual overhaul stage 4: DOM meta screens ───────────────────────────
+  // Surface + accent tokens used by the themed menus (panel surfaces reuse
+  // panelBg/chipBorder above; these add the bits the DOM needs on top).
+  bgPanelRaise: 0x222838,  // raised inner surface (rows, inputs)
+  accentGold:   0xf0c84a,  // shared gold accent (buttons, wordmark, cost/gold)
+  // Rank badge colors — one per ranks.json band (reuse RANK_BANDS data)
+  rankBronze:   0xb87a4a,
+  rankSilver:   0xaab4c4,
+  rankGold:     0xf0c84a,
+  rankPlatinum: 0x5fd0c0,
+  rankDiamond:  0x6fb0f0,
+  rankMaster:   0xe0668a,
+
   // Text
   textPrimary:  0xc9cedb,
   textGold:     0xc8a030,
@@ -151,6 +164,27 @@ export function traitColor(traitId: string): number {
   return TRAIT_COLOR[traitId] ?? C.textMuted;
 }
 
+/** Same trait color as the canvas, as a CSS color string for the DOM motifs. */
+export function traitColorCss(traitId: string): string {
+  return hexToCss(traitColor(traitId));
+}
+
+// Rank band id → theme color key (ranks.json bands; used by Profile/Leaderboard
+// badges so the DOM and the rank-band data never diverge).
+export const RANK_COLOR: Record<string, keyof typeof C> = {
+  bronze:   "rankBronze",
+  silver:   "rankSilver",
+  gold:     "rankGold",
+  platinum: "rankPlatinum",
+  diamond:  "rankDiamond",
+  master:   "rankMaster",
+};
+
+/** Numeric badge color for a rank band id (muted fallback). */
+export function rankColor(rankId: string): number {
+  return C[RANK_COLOR[rankId] ?? "textMuted"];
+}
+
 export function starColor(star: number): number {
   return ([C.star1, C.star2, C.star3] as const)[star - 1] ?? C.star1;
 }
@@ -173,6 +207,11 @@ function cssVarName(key: string): string {
 /** Reference a theme color from DOM/CSS as a CSS variable, e.g. cssVar("bgPage"). */
 export function cssVar(key: keyof typeof C): string {
   return `var(${cssVarName(key)})`;
+}
+
+/** CSS-var reference for a rank band id's badge color (DOM rank badges). */
+export function rankCssVar(rankId: string): string {
+  return cssVar(RANK_COLOR[rankId] ?? "textMuted");
 }
 
 /** `:root { --bg-page: #0d0d14; ... }` body text, generated from C. */
