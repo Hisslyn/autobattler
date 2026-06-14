@@ -257,6 +257,7 @@ export function runPveRound(state: MatchState, prng: Prng, data: GameData): void
   state.lastPairings = [];
   state.lastCombatResults = new Map();
   state.lastOpponentBoards = new Map();
+  state.lastLootOrbs = new Map();
 
   const roundSeed = prng();
   const lootSeed = prng();
@@ -274,9 +275,13 @@ export function runPveRound(state: MatchState, prng: Prng, data: GameData): void
 
     player.gold += data.economy.pveBaseGold;
     const lootPrng = mulberry32(derivePairingSeed(lootSeed, player.id));
-    for (const orb of generateLoot(state.round, lootPrng, data)) {
+    const orbs = generateLoot(state.round, lootPrng, data);
+    for (const orb of orbs) {
       applyLootOrb(player, orb);
     }
+    // Record the already-decided orbs so the canonical client can animate the
+    // reveal deterministically (it never re-derives loot itself).
+    state.lastLootOrbs.set(player.id, orbs);
   }
 }
 
@@ -300,6 +305,7 @@ export function runCombatPhase(
   state.lastRoundSeed = roundSeed;
   state.lastCombatResults = new Map();
   state.lastOpponentBoards = new Map();
+  state.lastLootOrbs = new Map();
 
   for (let pairingIndex = 0; pairingIndex < pairings.length; pairingIndex++) {
     const [aId, bId] = pairings[pairingIndex]!;

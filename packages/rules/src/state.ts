@@ -1,4 +1,5 @@
 import type { UnitInstance, BoardState, CombatResult } from "@autobattler/sim/src/types.js";
+import type { LootOrb } from "./loot.js";
 
 export interface ShopSlot {
   defId: string;
@@ -37,4 +38,5 @@ export interface MatchState {
   lastRoundSeed: number; // drawn from the match stream before the round's combats
   lastCombatResults: Map<number, CombatResult>; // keyed by player id (both sides of each pairing)
   lastOpponentBoards: Map<number, (UnitInstance | null)[]>; // keyed by player id → opponent's board at combat start
+  lastLootOrbs: Map<number, LootOrb[]>; // keyed by player id → orbs awarded this round (PvE; empty otherwise) — already-decided, the client only animates the reveal
 }

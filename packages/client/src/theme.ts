@@ -126,6 +126,25 @@ export const C = {
   benchEmptyRim: 0x232a3a,  // empty bench slot outline
   benchOccupied: 0x1b2333,  // occupied bench slot fill
 
+  // ─── Phase 10b: items, loot orbs, PvE rounds ─────────────────────────────
+  // Item inventory chips: components read distinct from completed items.
+  itemComponent:   0x2a3242,  // loose-component slot fill (cooler, plainer)
+  itemCompleted:   0x33304a,  // completed-item slot fill (richer)
+  itemBorder:      0x3a4255,  // item chip outline
+  itemCombineOk:   0x5dca6a,  // valid combine-preview highlight (recipe found)
+  itemCombineNo:   0xc04a5a,  // invalid combine affordance (no recipe)
+  itemSlotPip:     0x2a3142,  // empty equipped-item slot pip on a token
+  // Loot orb rarity colors (loot.json rarities) — distinct hue per tier.
+  lootCommon:      0x9aa4b4,
+  lootUncommon:    0x5dca8a,
+  lootRare:        0x4f8fe0,
+  lootLegendary:   0xf0a830,
+  lootOrbCore:     0xf4ecd0,  // bright orb core before it cracks open
+  // PvE / mob presentation: neutral monster tint distinct from player tiers.
+  mobTint:         0x7a5a4a,  // mob token ring (neutral monster brown-grey)
+  mobZone:         0x1f1714,  // PvE creep board zone fill (warm-dark)
+  pveLabel:        0xd0a060,  // "Creeps" stage label accent
+
   // Trait tracker
   traitActive:  0x3a6a3a,
   traitPending: 0x1e2830,
@@ -197,6 +216,19 @@ export function rankColor(rankId: string): number {
 
 export function starColor(star: number): number {
   return ([C.star1, C.star2, C.star3] as const)[star - 1] ?? C.star1;
+}
+
+// Loot rarity id (loot.json: common/uncommon/rare/legendary) → orb color.
+export const RARITY_COLOR: Record<string, keyof typeof C> = {
+  common:    "lootCommon",
+  uncommon:  "lootUncommon",
+  rare:      "lootRare",
+  legendary: "lootLegendary",
+};
+
+/** Numeric orb color for a loot rarity id (muted fallback). */
+export function rarityColor(rarity: string): number {
+  return C[RARITY_COLOR[rarity] ?? "textMuted"];
 }
 
 // ─── CSS bridge ──────────────────────────────────────────────────────────────

@@ -5,6 +5,8 @@
 import type { UnitInstance } from "@autobattler/sim/src/types.js";
 import type { GameData, UnitDataDef, AbilityEffectData } from "@autobattler/data";
 import { formatStat, formatStatDelta } from "./statFormat.js";
+import { itemModel } from "./itemModel.js";
+import type { ItemModel } from "./itemModel.js";
 
 export interface InspectStat {
   label: string;
@@ -30,6 +32,8 @@ export interface InspectModel {
   ability: { name: string; manaCost: number; description: string };
   /** Glanceable stat rows in display order. */
   stats: InspectStat[];
+  /** Items the unit currently holds (empty for a shop preview / no items). */
+  items: ItemModel[];
 }
 
 /** One-line, human-readable description of an ability effect. */
@@ -103,5 +107,8 @@ export function inspectModel(
       description: abilityDescription(def.ability.name, def.ability.effect, def.abilityDamage),
     },
     stats,
+    items: (instance?.items ?? [])
+      .map((id) => itemModel(id, data))
+      .filter((m): m is ItemModel => m !== null),
   };
 }

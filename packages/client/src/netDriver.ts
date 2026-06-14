@@ -1,9 +1,10 @@
 import { gameData } from "@autobattler/data";
 import type { MatchState } from "@autobattler/rules/src/state.js";
+import type { LootOrb } from "@autobattler/rules/src/loot.js";
 import type { UnitInstance, CombatResult } from "@autobattler/sim/src/types.js";
 import { simulateCombat } from "@autobattler/sim";
 import { applyCommand } from "@autobattler/rules/src/commands.js";
-import { derivePairingSeed, boardToCombatState, ghostToCombatState } from "@autobattler/rules/src/rounds.js";
+import { derivePairingSeed, boardToCombatState, ghostToCombatState, isPveRound, pveStageForRound } from "@autobattler/rules/src/rounds.js";
 import { NetClient } from "./net.js";
 import type { IDriver, DriverEvent, Outcome } from "./driver.js";
 
@@ -185,6 +186,7 @@ export class NetDriver implements IDriver {
         lastRoundSeed: 0,
         lastCombatResults: new Map(),
         lastOpponentBoards: new Map(),
+        lastLootOrbs: new Map(),
       };
     }
     return this._state;
@@ -221,6 +223,21 @@ export class NetDriver implements IDriver {
     if (!result || !this._myPairing) return null;
     if (result.winner === "draw") return "draw";
     return result.winner === this._myPairing.side ? "win" : "loss";
+  }
+
+  isPveRound(): boolean {
+    return this._state ? isPveRound(this._state.round, gameData) : false;
+  }
+
+  getPveStageName(): string | null {
+    if (!this._state || !this.isPveRound()) return null;
+    return pveStageForRound(this._state.round, gameData)?.name ?? null;
+  }
+
+  getMyLootOrbs(): LootOrb[] {
+    // Online PvE loot is not carried by the protocol today; LocalDriver (Practice)
+    // is where loot orbs animate. Empty here is a clean no-op reveal.
+    return this._state?.lastLootOrbs.get(this.mySeat) ?? [];
   }
 
   combatPlaybackDone(): void {
@@ -270,6 +287,7 @@ export class NetDriver implements IDriver {
       lastRoundSeed: 0,
       lastCombatResults: new Map(),
       lastOpponentBoards: new Map(),
+      lastLootOrbs: new Map(),
     };
   }
 

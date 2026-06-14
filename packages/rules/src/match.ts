@@ -43,6 +43,7 @@ export function createMatch(seed: number, data: GameData): MatchState {
     lastRoundSeed: 0,
     lastCombatResults: new Map(),
     lastOpponentBoards: new Map(),
+    lastLootOrbs: new Map(),
   };
 
   // Roll initial shops

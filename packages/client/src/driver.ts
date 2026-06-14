@@ -1,10 +1,11 @@
 import { gameData } from "@autobattler/data";
 import type { MatchState } from "@autobattler/rules/src/state.js";
 import type { UnitInstance, CombatResult } from "@autobattler/sim/src/types.js";
+import type { LootOrb } from "@autobattler/rules/src/loot.js";
 import { createMatch, advancePhase, isMatchOver } from "@autobattler/rules";
 import { applyCommand } from "@autobattler/rules/src/commands.js";
 import { applyAiCommands } from "@autobattler/rules/src/ai.js";
-import { getPairingFor } from "@autobattler/rules/src/rounds.js";
+import { getPairingFor, isPveRound, pveStageForRound } from "@autobattler/rules/src/rounds.js";
 import { mulberry32 } from "@autobattler/sim/src/prng.js";
 
 export type Outcome = "win" | "loss" | "draw";
@@ -21,6 +22,12 @@ export interface IDriver {
   getMyCombatResult(): CombatResult | null;
   /** Win/loss/draw normalized to this driver's seat. */
   getMyOutcome(): Outcome | null;
+  /** True when the current round is a PvE creep round (not PvP / not a bye). */
+  isPveRound(): boolean;
+  /** The PvE stage's display name for the current round, or null if not PvE. */
+  getPveStageName(): string | null;
+  /** Loot orbs this seat earned this round (already decided by rules); empty when none. */
+  getMyLootOrbs(): LootOrb[];
   /**
    * Scene → driver: combat playback finished (or was skipped). LocalDriver
    * holds the RESOLUTION phase until this is called (capped); NetDriver is
@@ -84,15 +91,37 @@ export class LocalDriver implements IDriver {
   }
 
   getMyOpponentBoard(): (UnitInstance | null)[] | null {
+    // PvE rounds carry no pairing; the mob board is keyed by player id directly.
+    if (this.isPveRound()) return this.state.lastOpponentBoards.get(HUMAN_PLAYER_ID) ?? null;
     return getPairingFor(this.state, HUMAN_PLAYER_ID)?.opponentBoard ?? null;
   }
 
   getMyCombatResult(): CombatResult | null {
+    if (this.isPveRound()) return this.state.lastCombatResults.get(HUMAN_PLAYER_ID) ?? null;
     return getPairingFor(this.state, HUMAN_PLAYER_ID)?.result ?? null;
   }
 
   getMyOutcome(): Outcome | null {
+    if (this.isPveRound()) {
+      // PvE never damages HP; outcome is purely informational (side 0 = player).
+      const r = this.state.lastCombatResults.get(HUMAN_PLAYER_ID);
+      if (!r) return null;
+      return r.winner === "draw" ? "draw" : r.winner === 0 ? "win" : "loss";
+    }
     return getPairingFor(this.state, HUMAN_PLAYER_ID)?.outcome ?? null;
+  }
+
+  isPveRound(): boolean {
+    return isPveRound(this.state.round, gameData);
+  }
+
+  getPveStageName(): string | null {
+    if (!this.isPveRound()) return null;
+    return pveStageForRound(this.state.round, gameData)?.name ?? null;
+  }
+
+  getMyLootOrbs(): LootOrb[] {
+    return this.state.lastLootOrbs.get(HUMAN_PLAYER_ID) ?? [];
   }
 
   getPlanningTimeLeft(): number {

@@ -16,7 +16,12 @@ import type { TraitChip } from "../hudModel.js";
 import { inspectModel } from "../inspectModel.js";
 import { traitDetailModel } from "../traitDetailModel.js";
 import { sellValue } from "../sellValue.js";
-import { renderUnitInspect, renderTraitDetail } from "../inspectPanel.js";
+import { renderUnitInspect, renderTraitDetail, renderItemDetail } from "../inspectPanel.js";
+import { inventoryModel, itemModel } from "../itemModel.js";
+import type { InventoryEntry } from "../itemModel.js";
+import { combinePreview } from "../combinePreview.js";
+import { lootRevealModel } from "../lootReveal.js";
+import type { RevealStep } from "../lootReveal.js";
 import { onUnitArtReady } from "../sprites.js";
 import { Z_COMBAT_HEADER, Z_RESOLUTION_BUTTON, Z_RESOLUTION_CONTROL } from "../combatLayout.js";
 import { benchGeom, benchSlotAtX } from "../benchLayout.js";
@@ -55,6 +60,13 @@ const SHOP_CARD_H = 84;
 const SHOP_GAP = 4;
 const SHOP_START_X = 9;
 const READY_Y = SHOP_Y + SHOP_CARD_H + 10;
+
+// Item inventory bar (phase 10b): loose components + completed items, below the
+// Ready button. Drag an item onto a unit (EQUIP) or onto another item (COMBINE).
+const ITEM_BAR_Y = READY_Y + 40;
+const ITEM_SLOT = 30;          // item chip size
+const ITEM_GAP = 5;
+const ITEM_BAR_X = SHOP_START_X;
 
 // Opponent board is mirrored on the top half
 const OPP_BOARD_OFFSET_Y = BOARD_OFFSET_Y - BOARD_ROWS * HEX_H - 12;
@@ -112,15 +124,15 @@ function drawUnit(
         manaFrac: unit.maxMana > 0 ? unit.mana / unit.maxMana : 0,
       }
     : undefined;
-  drawUnitToken(
-    container,
-    unit.defId,
-    unit.tier,
-    unit.star,
-    x,
-    y,
-    bars ? { radius: r, dimmed, bars } : { radius: r, dimmed }
-  );
+  // Equipped-item dots (component vs completed tint) — display only.
+  const items =
+    unit.items.length > 0
+      ? unit.items.map((id) => ({ component: gameData.items.find((d) => d.id === id)?.component === true }))
+      : undefined;
+  const opts: import("../unitToken.js").UnitTokenOpts = { radius: r, dimmed };
+  if (bars) opts.bars = bars;
+  if (items) opts.items = items;
+  drawUnitToken(container, unit.defId, unit.tier, unit.star, x, y, opts);
 }
 
 export class MatchScene {
@@ -135,6 +147,10 @@ export class MatchScene {
   private combatLayer: PIXI.Container;
   private traitLayer: PIXI.Container;
   private scoutLayer: PIXI.Container;
+  /** Item inventory bar (loose components + completed items). */
+  private itemLayer: PIXI.Container;
+  /** Loot-orb reveal overlay (PvE resolution). */
+  private lootLayer: PIXI.Container;
   /** Inspect / trait-detail panels (topmost, modal). */
   private inspectLayer: PIXI.Container;
   /** Planning-phase juice (star-up flourish, buy/sell pops); not cleared by render(). */
@@ -146,6 +162,15 @@ export class MatchScene {
   private dragUnit: { uid: number; fromBench: boolean; fromIdx: number } | null = null;
   private dragSprite: PIXI.Container | null = null;
   private scoutTargetId: number | null = null;
+  /** Active item drag (inventory chip → unit EQUIP or item COMBINE). */
+  private dragItem: { id: string; index: number } | null = null;
+  /** True once an item drag has moved past the tap threshold (vs a tap). */
+  private itemDragMoved = false;
+  /** Loot reveal in progress (PvE resolution). */
+  private lootRevealActive = false;
+  /** Active loot-reveal ticker fns + timers, for clean teardown. */
+  private lootTickers: Array<(t: PIXI.Ticker) => void> = [];
+  private lootTimers: Array<ReturnType<typeof setTimeout>> = [];
 
   private dragCatcher!: PIXI.Graphics;
   private resolutionAutoTimer: ReturnType<typeof setTimeout> | null = null;
@@ -189,14 +214,18 @@ export class MatchScene {
     this.toastLayer = new PIXI.Container();
     this.planningFxLayer = new PIXI.Container();
     this.inspectLayer = new PIXI.Container();
+    this.itemLayer = new PIXI.Container();
+    this.lootLayer = new PIXI.Container();
 
     this.container.addChild(this.hudLayer);
     this.container.addChild(this.boardLayer);
     this.container.addChild(this.benchLayer);
     this.container.addChild(this.shopLayer);
+    this.container.addChild(this.itemLayer);
     this.container.addChild(this.traitLayer);
     this.container.addChild(this.planningFxLayer);
     this.container.addChild(this.combatLayer);
+    this.container.addChild(this.lootLayer);
     this.container.addChild(this.scoutLayer);
     this.container.addChild(this.toastLayer);
     this.container.addChild(this.inspectLayer);
@@ -244,6 +273,9 @@ export class MatchScene {
       this.renderBench(me);
       this.renderTraitStrip(me);
       this.renderShop(state, me);
+      this.renderItemBar(me);
+    } else {
+      this.itemLayer.removeChildren();
     }
   }
 
@@ -571,6 +603,266 @@ export class MatchScene {
     return null;
   }
 
+  // ─── ITEM INVENTORY BAR (phase 10b) ──────────────────────────────────────
+
+  /**
+   * Item inventory bar: one chip per loose component / completed item. Drag a
+   * chip onto a board/bench unit to EQUIP, or onto another item to COMBINE
+   * (preview shown on drag-over); tap to open its info panel. Components read
+   * distinct from completed items (tint + glyph).
+   */
+  private renderItemBar(me: PlayerState): void {
+    this.itemLayer.removeChildren();
+    const inv = inventoryModel(me.items, gameData);
+
+    // Inventory label (bag glyph) so the bar reads as your item stash.
+    this.glyph(this.itemLayer, "bag", ITEM_BAR_X + 7, ITEM_BAR_Y + ITEM_SLOT / 2, 13, C.textMuted);
+    if (inv.length === 0) {
+      this.text(this.itemLayer, "No items", ITEM_BAR_X + 20, ITEM_BAR_Y + ITEM_SLOT / 2, 9, C.textDimmed, [0, 0.5]);
+      return;
+    }
+
+    // Offset the chips past the bag glyph.
+    const startX = ITEM_BAR_X + 18;
+    for (let i = 0; i < inv.length; i++) {
+      const entry = inv[i]!;
+      if (this.dragItem?.index === i) continue; // being dragged
+      const cx = startX + ITEM_SLOT / 2 + i * (ITEM_SLOT + ITEM_GAP);
+      this.drawItemChip(this.itemLayer, entry, cx, ITEM_BAR_Y + ITEM_SLOT / 2, ITEM_SLOT, () =>
+        this.openItemDetail(entry.id)
+      , (e) => this.startDragItem(entry, e));
+    }
+  }
+
+  /** Draw one item chip centered at (cx, cy); wires tap (info) + drag start. */
+  private drawItemChip(
+    layer: PIXI.Container,
+    entry: { id: string; name: string; component: boolean; color: number },
+    cx: number,
+    cy: number,
+    size: number,
+    onTap: () => void,
+    onDragStart?: (e: PIXI.FederatedPointerEvent) => void
+  ): void {
+    const half = size / 2;
+    const g = new PIXI.Graphics();
+    g.beginFill(entry.color, 0.95);
+    g.lineStyle(1.5, C.itemBorder, 0.95);
+    g.drawRoundedRect(cx - half, cy - half, size, size, 6);
+    g.endFill();
+    g.lineStyle(0);
+    // Only the inventory chips are interactive; the floating drag sprite (no
+    // onDragStart) is display-only so it never captures the pointer.
+    if (onDragStart) {
+      g.eventMode = "static";
+      g.cursor = "grab";
+      g.hitArea = new PIXI.Rectangle(cx - half, cy - half, size, size);
+      // pointerdown starts a drag immediately (so a clear drag works) and arms a
+      // long-press → info panel; a quick tap (no move) opens info, resolved by
+      // onDragEnd which reliably owns the pointerup (mirrors the unit-token idiom).
+      g.on("pointerdown", (e: PIXI.FederatedPointerEvent) => {
+        this.armItemTap(onTap, e);
+        onDragStart(e);
+      });
+    } else {
+      g.eventMode = "none";
+    }
+    layer.addChild(g);
+
+    const ig = new PIXI.Graphics();
+    drawGlyph(ig, entry.component ? "component" : "gem", cx, cy, size * 0.7, C.accentGold);
+    ig.eventMode = "none";
+    layer.addChild(ig);
+  }
+
+  /** Long-press an item chip → open its info panel (tap fires the drag instead). */
+  private armItemTap(onTap: () => void, e: PIXI.FederatedPointerEvent): void {
+    this.clearPress();
+    this.pressStart = { x: e.globalX, y: e.globalY };
+    this.pressTimer = setTimeout(() => {
+      this.pressTimer = null;
+      this.abortItemDrag();
+      onTap();
+    }, 360);
+  }
+
+  private startDragItem(entry: InventoryEntry, e: PIXI.FederatedPointerEvent): void {
+    if (this.inspectOpen) return;
+    this.dragItem = { id: entry.id, index: entry.index };
+    this.itemDragMoved = false;
+    this.isDragging = true;
+    this.dragCatcher.eventMode = "static";
+    // Floating drag sprite (item chip).
+    if (this.dragSprite) this.container.removeChild(this.dragSprite);
+    const c = new PIXI.Container();
+    c.zIndex = 999; // magic-ok: drag sprite stays on top
+    this.drawItemChip(c, entry, 0, 0, ITEM_SLOT, () => {});
+    c.eventMode = "none";
+    c.x = e.globalX; c.y = e.globalY;
+    this.container.addChild(c);
+    this.container.sortChildren();
+    this.dragSprite = c;
+    this.renderItemBar(this.driver.getState().players[this.driver.seatIndex]!);
+  }
+
+  /** Cancel an in-progress item drag without issuing a command. */
+  private abortItemDrag(): void {
+    if (!this.dragItem) return;
+    if (this.dragSprite) { this.container.removeChild(this.dragSprite); this.dragSprite = null; }
+    this.dragItem = null;
+    this.isDragging = false;
+    this.dragCatcher.eventMode = "none";
+    this.itemLayer.alpha = 1;
+    this.closeCombineHint();
+    this.render(this.driver.getState());
+  }
+
+  /** Resolve an item drag-drop: EQUIP on a unit, COMBINE on another item, else no-op. */
+  private onItemDragEnd(px: number, py: number, me: PlayerState): void {
+    const drag = this.dragItem!;
+    this.closeCombineHint();
+
+    // 1) Dropped on a board hex with a unit → EQUIP.
+    const boardSlot = hexFromPointer(px, py, BOARD_OFFSET_X, BOARD_OFFSET_Y);
+    if (boardSlot >= 0 && me.board[boardSlot]) {
+      this.tryEquip(me.board[boardSlot]!.uid);
+      return;
+    }
+    // 2) Dropped on a bench unit → EQUIP.
+    const geom = this.benchGeom();
+    if (py >= BENCH_Y - 24 && py <= BENCH_Y + 24) {
+      const benchIdx = benchSlotAtX(px, geom);
+      if (benchIdx !== null && me.bench[benchIdx]) {
+        this.tryEquip(me.bench[benchIdx]!.uid);
+        return;
+      }
+    }
+    // 3) Dropped on another inventory item → COMBINE (if a recipe exists).
+    const inv = inventoryModel(me.items, gameData);
+    const overIdx = this.itemSlotAtBar(px, py, inv.length);
+    if (overIdx !== null && overIdx !== drag.index) {
+      const other = me.items[overIdx]!;
+      const preview = combinePreview(drag.id, drag.index, other, overIdx, gameData);
+      if (preview.ok) {
+        const result = this.driver.playerCommand({ type: "COMBINE_ITEMS", itemIdA: drag.id, itemIdB: other });
+        if (result.ok) {
+          this.opts.audio.play("buy");
+          this.spawnPlanningPop(this.itemBarCx(overIdx, inv.length), ITEM_BAR_Y + ITEM_SLOT / 2, C.itemCombineOk);
+        } else {
+          this.showToast(result.error);
+        }
+      } else {
+        // No recipe: clear "no combine" feedback, send no command.
+        this.showToast("NO_RECIPE");
+        this.spawnPlanningPop(this.itemBarCx(overIdx, inv.length), ITEM_BAR_Y + ITEM_SLOT / 2, C.itemCombineNo);
+      }
+      return;
+    }
+    // else: dropped nowhere valid — item stays put (no-op).
+  }
+
+  private tryEquip(unitUid: number): void {
+    const drag = this.dragItem!;
+    // Snapshot the unit's slot count to detect an in-place auto-combine (rules
+    // fuse a completing component without growing the slot count).
+    const before = this.unitItemCount(unitUid);
+    const result = this.driver.playerCommand({ type: "EQUIP", unitUid, itemId: drag.id });
+    if (!result.ok) { this.showToast(result.error); return; }
+    const after = this.unitItemCount(unitUid);
+    const combined = after <= before; // net slots unchanged → an auto-combine
+    this.opts.audio.play(combined ? "starUp" : "buy");
+    const pos = this.unitPixel(unitUid);
+    if (pos) this.spawnPlanningPop(pos.x, pos.y, combined ? C.itemCombineOk : C.starGold);
+  }
+
+  /** Current equipped-item count for a unit on my board/bench (0 if not found). */
+  private unitItemCount(uid: number): number {
+    const me = this.driver.getState().players[this.driver.seatIndex];
+    if (!me) return 0;
+    const u = me.board.find((x) => x?.uid === uid) ?? me.bench.find((x) => x.uid === uid);
+    return u?.items.length ?? 0;
+  }
+
+  /** Pixel center of a unit on my board/bench, or null. */
+  private unitPixel(uid: number): { x: number; y: number } | null {
+    const me = this.driver.getState().players[this.driver.seatIndex];
+    if (!me) return null;
+    const bIdx = me.board.findIndex((x) => x?.uid === uid);
+    if (bIdx >= 0) {
+      return hexToPixel(bIdx % BOARD_COLS, Math.floor(bIdx / BOARD_COLS), BOARD_OFFSET_X, BOARD_OFFSET_Y);
+    }
+    const benchIdx = me.bench.findIndex((x) => x.uid === uid);
+    if (benchIdx >= 0) {
+      const { slotW, startCx } = this.benchGeom();
+      return { x: startCx + benchIdx * slotW, y: BENCH_Y };
+    }
+    return null;
+  }
+
+  /** x-center of inventory chip `i` (accounts for the bag-glyph offset). */
+  private itemBarCx(i: number, _count: number): number {
+    const startX = ITEM_BAR_X + 18;
+    return startX + ITEM_SLOT / 2 + i * (ITEM_SLOT + ITEM_GAP);
+  }
+
+  /** Inventory slot under a pixel within the (offset) item bar, or null. */
+  private itemSlotAtBar(px: number, py: number, count: number): number | null {
+    if (py < ITEM_BAR_Y - 6 || py > ITEM_BAR_Y + ITEM_SLOT + 6) return null;
+    for (let i = 0; i < count; i++) {
+      const cx = this.itemBarCx(i, count);
+      if (px >= cx - ITEM_SLOT / 2 - ITEM_GAP / 2 && px <= cx + ITEM_SLOT / 2 + ITEM_GAP / 2) return i;
+    }
+    return null;
+  }
+
+  /** Live combine-preview hint shown while dragging one item over another. */
+  private combineHint: PIXI.Container | null = null;
+  private updateCombineHint(px: number, py: number, me: PlayerState): void {
+    if (!this.dragItem) return;
+    const inv = inventoryModel(me.items, gameData);
+    const overIdx = this.itemSlotAtBar(px, py, inv.length);
+    this.closeCombineHint();
+    if (overIdx === null || overIdx === this.dragItem.index) return;
+    const other = me.items[overIdx]!;
+    const preview = combinePreview(this.dragItem.id, this.dragItem.index, other, overIdx, gameData);
+    const cx = this.itemBarCx(overIdx, inv.length);
+    const hint = new PIXI.Container();
+    if (preview.ok) {
+      // "→ Result name" chip above the target.
+      const w = 18 + preview.result.name.length * 5.0 + 14;
+      const hx = Math.max(6, Math.min(DESIGN_W - w - 6, cx - w / 2));
+      const bg = new PIXI.Graphics();
+      bg.beginFill(C.panelBg, 0.97);
+      bg.lineStyle(1.5, C.itemCombineOk, 0.95);
+      bg.drawRoundedRect(hx, ITEM_BAR_Y - 26, w, 20, 5);
+      bg.endFill();
+      bg.lineStyle(0);
+      hint.addChild(bg);
+      const g = new PIXI.Graphics();
+      drawGlyph(g, "gem", hx + 11, ITEM_BAR_Y - 16, 11, C.itemCombineOk);
+      hint.addChild(g);
+      this.text(hint, preview.result.name, hx + 20, ITEM_BAR_Y - 16, 8, C.textPrimary, [0, 0.5]);
+    } else {
+      const ring = new PIXI.Graphics();
+      ring.circle(cx, ITEM_BAR_Y + ITEM_SLOT / 2, ITEM_SLOT / 2 + 3).stroke({ width: 2, color: C.itemCombineNo, alpha: 0.9 });
+      hint.addChild(ring);
+    }
+    hint.eventMode = "none";
+    this.lootLayer.addChild(hint); // reuse the top overlay layer for the hint
+    this.combineHint = hint;
+  }
+
+  private closeCombineHint(): void {
+    if (this.combineHint) { this.lootLayer.removeChild(this.combineHint); this.combineHint.destroy({ children: true }); this.combineHint = null; }
+  }
+
+  private openItemDetail(itemId: string): void {
+    const m = itemModel(itemId, gameData);
+    if (!m) return;
+    this.opts.audio.play("tap");
+    renderItemDetail(this.inspectLayer, m, () => this.closeInspect());
+  }
+
   private renderShop(state: MatchState, me: PlayerState): void {
     this.shopLayer.removeChildren();
     this.renderControls(me);
@@ -834,11 +1126,23 @@ export class MatchScene {
     }
     this.dragSprite.x = e.globalX;
     this.dragSprite.y = e.globalY;
+    // Item drag: live combine-preview hint over inventory targets.
+    if (this.dragItem) {
+      if (this.pressStart) {
+        const dx = e.globalX - this.pressStart.x;
+        const dy = e.globalY - this.pressStart.y;
+        if (dx * dx + dy * dy > 36) { this.itemDragMoved = true; this.clearPress(); } // magic-ok: 6px tap slop
+      } else {
+        this.itemDragMoved = true;
+      }
+      const me = this.driver.getState().players[this.driver.seatIndex];
+      if (me) this.updateCombineHint(e.globalX, e.globalY, me);
+    }
   }
 
   private onDragEnd(e: PIXI.FederatedPointerEvent): void {
     this.clearPress();
-    if (!this.isDragging || !this.dragUnit) return;
+    if (!this.isDragging) return;
 
     const px = e.globalX;
     const py = e.globalY;
@@ -853,6 +1157,29 @@ export class MatchScene {
 
     const state = this.driver.getState();
     const me = state.players[this.driver.seatIndex];
+
+    // Item drag resolves to EQUIP / COMBINE / no-op — or, if it never moved,
+    // a tap that opens the item's info panel.
+    if (this.dragItem) {
+      const tapped = this.pressTimer !== null && !this.itemDragMoved;
+      this.clearPress();
+      const id = this.dragItem.id;
+      if (tapped) {
+        this.dragItem = null;
+        this.itemLayer.alpha = 1;
+        this.closeCombineHint();
+        this.render(this.driver.getState());
+        this.openItemDetail(id);
+        return;
+      }
+      if (me) this.onItemDragEnd(px, py, me);
+      this.dragItem = null;
+      this.itemLayer.alpha = 1;
+      this.render(this.driver.getState());
+      return;
+    }
+
+    if (!this.dragUnit) return;
     if (!me) { this.dragUnit = null; return; }
 
     // Check if dropped on board area
@@ -1232,6 +1559,7 @@ export class MatchScene {
   private onPlanningStart(): void {
     this.teardownPlayback();
     this.clearResolutionTimer();
+    this.clearLootReveal();
     this.clearPress();
     this.combatLayer.removeChildren();
     this.closeScout();
@@ -1265,6 +1593,10 @@ export class MatchScene {
     this.benchLayer.removeChildren();
     this.shopLayer.removeChildren();
     this.traitLayer.removeChildren();
+    this.itemLayer.removeChildren();
+    this.closeCombineHint();
+    this.clearLootReveal();
+    this.dragItem = null;
 
     const me = state.players[this.driver.seatIndex];
     if (!me) return;
@@ -1275,10 +1607,14 @@ export class MatchScene {
     const pairing = this.driver.getMyPairing();
     const isGhost = pairing?.isGhost ?? false;
     const opponentId = pairing ? pairing.opponentId : null;
+    const isPve = this.driver.isPveRound();
+    const pveStage = this.driver.getPveStageName();
 
-    // "vs" banner
+    // "vs" banner / PvE label
     let opponentName = "Ghost";
-    if (opponentId !== null && !isGhost && opponentId >= 0) {
+    if (isPve) {
+      opponentName = `${pveStage ?? "Creeps"} · Creeps`;
+    } else if (opponentId !== null && !isGhost && opponentId >= 0) {
       opponentName = `Player ${opponentId + 1}`;
     } else if (isGhost) {
       opponentName = "Ghost (eliminated)";
@@ -1289,12 +1625,14 @@ export class MatchScene {
     // Combat header is rendered AFTER the tiles (see below) with an explicit
     // zIndex so it never bleeds behind the board.
 
-    // Full combat field: opponent half (top) + own half (bottom)
+    // Full combat field: opponent half (top) + own half (bottom). PvE rounds
+    // tint the enemy zone with the warm mobZone so a creep round reads as PvE.
+    const enemyZone = isPve ? C.mobZone : C.enemyHex;
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
         const opp = hexToPixel(q, r, BOARD_OFFSET_X, OPP_BOARD_OFFSET_Y);
         const og = new PIXI.Graphics();
-        drawHex(og, opp.x, opp.y, HEX_R - 2, C.enemyHex, 1, {
+        drawHex(og, opp.x, opp.y, HEX_R - 2, enemyZone, 1, {
           border: { color: C.boardBorder, width: 1, alpha: 0.8 },
         });
         this.combatLayer.addChild(og);
@@ -1310,7 +1648,8 @@ export class MatchScene {
 
     const result = this.driver.getMyCombatResult();
     if (result && result.events.length > 0) {
-      this.startPlayback(result.events, pairing?.side ?? 0);
+      // PvE: my board is side 0 (the mob board is side 1) — same playback path.
+      this.startPlayback(result.events, isPve ? 0 : pairing?.side ?? 0);
       this.renderPlaybackControls();
     } else {
       // No event log (PvE/bye round): static own board, release the driver
@@ -1331,8 +1670,9 @@ export class MatchScene {
     // (outside both hex zones) and given a high zIndex so the sortable
     // combatLayer always draws it above the tiles/tokens — never behind them.
     const headerY = BOARD_PANEL_Y + BOARD_PANEL_H + 12;
-    const header = new PIXI.Text(`COMBAT  ·  vs ${opponentName}`, {
-      fontSize: 13, fill: C.textCombat, fontFamily: "monospace",
+    const headerText = isPve ? `PvE  ·  ${opponentName}` : `COMBAT  ·  vs ${opponentName}`;
+    const header = new PIXI.Text(headerText, {
+      fontSize: 13, fill: isPve ? C.pveLabel : C.textCombat, fontFamily: "monospace",
     });
     header.anchor.set(0.5, 0.5);
     header.x = DESIGN_W / 2;
@@ -1433,6 +1773,9 @@ export class MatchScene {
     this.teardownPlayback();
     const state = this.driver.getState();
     this.renderResolution(state);
+    // PvE rounds drop loot: animate the seeded orbs revealing their contents
+    // over the resolution panel (presentation only — rules already decided them).
+    if (this.driver.isPveRound()) this.startLootReveal();
   }
 
   private renderResolution(state: MatchState): void {
@@ -1563,7 +1906,152 @@ export class MatchScene {
     this.app.ticker.add(tick);
   }
 
+  // ─── LOOT ORB REVEAL (phase 10b) ─────────────────────────────────────────
+
+  /**
+   * Animate the round's loot orbs revealing their already-decided contents.
+   * Orbs pop in by ascending rarity (distinct color + shape), crack open, then
+   * the reward flies toward the gold counter / item bar. Reduced-motion shows an
+   * instant summary chip instead. Purely presentational — no game logic.
+   */
+  private startLootReveal(): void {
+    if (this.lootRevealActive) return; // a reveal is already playing
+    this.clearLootReveal();
+    const model = lootRevealModel(this.driver.getMyLootOrbs(), gameData);
+    if (model.empty) return;
+    this.lootRevealActive = true;
+    this.opts.audio.play("goldGain", 0.1);
+
+    // Header band above the orbs.
+    const bandY = 150;
+    this.text(this.lootLayer, "LOOT", DESIGN_W / 2, bandY - 22, 12, C.accentGold, [0.5, 0.5]);
+
+    if (this.opts.settings.get().reducedMotion) {
+      // Instant summary: one compact line, no animation.
+      const parts: string[] = [];
+      if (model.totalGold > 0) parts.push(`+${model.totalGold} gold`);
+      if (model.itemCount > 0) parts.push(`${model.itemCount} item${model.itemCount > 1 ? "s" : ""}`);
+      const summary = parts.join("  ·  ") || "—";
+      const bg = new PIXI.Graphics();
+      const w = 40 + summary.length * 7;
+      bg.beginFill(C.bgInspect, 0.96);
+      bg.lineStyle(1.5, C.accentGold, 0.9);
+      bg.drawRoundedRect(DESIGN_W / 2 - w / 2, bandY - 12, w, 30, 8);
+      bg.endFill();
+      bg.lineStyle(0);
+      bg.eventMode = "none";
+      this.lootLayer.addChild(bg);
+      this.text(this.lootLayer, summary, DESIGN_W / 2, bandY + 3, 11, C.textPrimary, [0.5, 0.5]);
+      this.lootRevealActive = false;
+      return;
+    }
+
+    // Lay orbs out in a centered row; reveal them one at a time on a timeline.
+    const n = model.steps.length;
+    const gap = 56;
+    const startX = DESIGN_W / 2 - ((n - 1) * gap) / 2;
+    model.steps.forEach((step, i) => {
+      const ox = startX + i * gap;
+      // Stagger the reveal so orbs cascade rather than pop all at once.
+      this.scheduleReveal(step, ox, bandY, i * 360);
+    });
+    // Mark the reveal finished once the last orb has flown out (+ a little tail).
+    const done = setTimeout(() => { this.lootRevealActive = false; }, n * 360 + 900);
+    this.lootTimers.push(done);
+  }
+
+  /** Spawn one orb that pops in, cracks open, and flies its reward out. */
+  private scheduleReveal(step: RevealStep, x: number, y: number, delayMs: number): void {
+    const orb = new PIXI.Container();
+    orb.position.set(x, y);
+    orb.scale.set(0);
+    orb.eventMode = "none";
+    this.lootLayer.addChild(orb);
+    // Orb shell: rarity-colored disc with a bright core.
+    const shell = new PIXI.Graphics();
+    shell.circle(0, 0, 18).fill({ color: step.color, alpha: 0.95 });
+    shell.circle(0, 0, 18).stroke({ width: 2, color: C.lootOrbCore, alpha: 0.6 });
+    shell.circle(0, 0, 7).fill({ color: C.lootOrbCore, alpha: 0.9 });
+    orb.addChild(shell);
+
+    const start = performance.now() + delayMs;
+    const popMs = 260, holdMs = 320, flyMs = 420;
+    let revealed = false;
+    let finished = false;
+    const finish = (): void => {
+      if (finished) return;
+      finished = true;
+      this.app.ticker.remove(fn);
+      this.lootTickers = this.lootTickers.filter((t) => t !== fn);
+      if (orb.parent) this.lootLayer.removeChild(orb);
+      orb.destroy({ children: true });
+    };
+    const fn = (ticker: PIXI.Ticker): void => {
+      void ticker;
+      if (finished) return;
+      const t = performance.now() - start;
+      if (t < 0) return;
+      if (t < popMs) {
+        // Pop in with a slight overshoot.
+        const k = t / popMs;
+        orb.scale.set(1.15 * k);
+      } else if (t < popMs + holdMs) {
+        orb.scale.set(1);
+        if (!revealed) {
+          revealed = true;
+          this.opts.audio.play("starUp", 0);
+          this.attachRevealContent(orb, step);
+        }
+      } else if (t < popMs + holdMs + flyMs) {
+        // Fly the orb toward its destination, fading + shrinking.
+        const k = (t - popMs - holdMs) / flyMs;
+        const target = step.destination === "gold"
+          ? { x: 104, y: HUD_ROW_Y + HUD_ROW_H / 2 }   // gold counter
+          : { x: ITEM_BAR_X + 30, y: ITEM_BAR_Y + ITEM_SLOT / 2 }; // item bar
+        orb.x = x + (target.x - x) * k;
+        orb.y = y + (target.y - y) * k;
+        orb.alpha = 1 - k;
+        orb.scale.set(1 - 0.4 * k);
+      } else {
+        if (step.destination === "gold") this.opts.audio.play("goldGain", 0);
+        finish();
+      }
+    };
+    this.lootTickers.push(fn);
+    this.app.ticker.add(fn);
+  }
+
+  /** Draw the revealed reward (gold value / item glyph + name) onto the orb. */
+  private attachRevealContent(orb: PIXI.Container, step: RevealStep): void {
+    const label = new PIXI.Container();
+    label.position.set(0, -30);
+    if (step.content.kind === "gold") {
+      this.glyph(label, "coin", -10, 0, 11, C.starGold);
+      this.text(label, step.content.label, 2, 0, 11, C.textGold, [0, 0.5]);
+    } else {
+      const isComponent = step.content.kind === "component";
+      this.glyph(label, isComponent ? "component" : "gem", -10, 0, 12, C.accentGold);
+      this.text(label, step.content.name, 4, 0, 8, C.textPrimary, [0, 0.5]);
+    }
+    label.eventMode = "none";
+    orb.addChild(label);
+    // Small burst ring on reveal.
+    const burst = new PIXI.Graphics();
+    burst.circle(0, 0, 20).stroke({ width: 2, color: step.color, alpha: 0.8 });
+    orb.addChild(burst);
+  }
+
+  private clearLootReveal(): void {
+    for (const fn of this.lootTickers) this.app.ticker.remove(fn);
+    this.lootTickers = [];
+    for (const t of this.lootTimers) clearTimeout(t);
+    this.lootTimers = [];
+    this.lootLayer.removeChildren();
+    this.lootRevealActive = false;
+  }
+
   private advanceFromResolution(): void {
+    this.clearLootReveal();
     this.clearResolutionTimer();
     this.driver.advanceFromResolution();
   }
@@ -1582,6 +2070,7 @@ export class MatchScene {
   private onMatchOver(placements: number[], mmr?: Record<number, { before: number; after: number }>): void {
     this.teardownPlayback();
     this.clearResolutionTimer();
+    this.clearLootReveal();
     this.closeInspect();
     void this.opts.audio.setMusicState("results");
     const seat = this.driver.seatIndex;
@@ -1684,6 +2173,7 @@ export class MatchScene {
   destroy(): void {
     this.teardownPlayback();
     this.clearResolutionTimer();
+    this.clearLootReveal();
     this.clearPress();
     this.clearToast();
     this.unsub();

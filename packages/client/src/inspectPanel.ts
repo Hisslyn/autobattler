@@ -8,6 +8,7 @@ import { drawUnitToken } from "./unitToken.js";
 import { drawGlyph, glyphForTraits } from "./glyphs.js";
 import type { InspectModel } from "./inspectModel.js";
 import type { TraitDetailModel } from "./traitDetailModel.js";
+import type { ItemModel } from "./itemModel.js";
 
 const DESIGN_W = 390;
 const DESIGN_H = 844;
@@ -93,7 +94,9 @@ export function renderUnitInspect(
 
   const w = DESIGN_W - 56;
   const x = 28;
-  const h = 340;
+  // Grow the panel when the unit carries items so the item row never collides.
+  const itemRowH = m.items.length > 0 ? 56 : 0;
+  const h = 340 + itemRowH;
   const y = (DESIGN_H - h) / 2 - 30;
   const accent = tierColor(m.tier);
   panelBox(layer, x, y, w, h, accent);
@@ -157,6 +160,93 @@ export function renderUnitInspect(
     text(layer, stat.label, rx + 8, ry + 13, 9, C.textMuted, [0, 0.5]);
     text(layer, stat.value, rx + colW - 14, ry + 13, 11, C.textPrimary, [1, 0.5]);
   });
+
+  // Equipped items row (only when the unit holds any). Each chip shows a small
+  // item glyph + name; tapping a chip opens that item's own detail panel.
+  if (m.items.length > 0) {
+    const itemsY = gridY + Math.ceil(m.stats.length / 2) * 30 + 8;
+    text(layer, "ITEMS", x + 16, itemsY, 9, C.textMuted, [0, 0]);
+    let ix = x + 14;
+    const chipY = itemsY + 14;
+    for (const item of m.items) {
+      const chipW = 18 + item.name.length * 5.0 + 12;
+      const chip = new PIXI.Graphics();
+      chip.beginFill(item.color, 0.95);
+      chip.lineStyle(1, C.itemBorder, 0.9);
+      chip.drawRoundedRect(ix, chipY, chipW, 24, 5);
+      chip.endFill();
+      chip.lineStyle(0);
+      chip.eventMode = "none";
+      layer.addChild(chip);
+      const ig = new PIXI.Graphics();
+      drawGlyph(ig, item.component ? "component" : "gem", ix + 12, chipY + 12, 11, C.accentGold);
+      ig.eventMode = "none";
+      layer.addChild(ig);
+      text(layer, item.name, ix + 22, chipY + 12, 8, C.textPrimary, [0, 0.5]);
+      ix += chipW + 6;
+    }
+  }
+}
+
+/** Render the item-detail panel (identity + stat bundle + passive line). */
+export function renderItemDetail(
+  layer: PIXI.Container,
+  m: ItemModel,
+  onClose: () => void
+): void {
+  layer.removeChildren();
+  scrim(layer, onClose);
+
+  const w = DESIGN_W - 90;
+  const x = 45;
+  const statLines = m.stats.length;
+  const passiveH = m.passive ? 44 : 0;
+  const h = 96 + statLines * 24 + passiveH + 16;
+  const y = (DESIGN_H - h) / 2 - 20;
+  const accent = m.component ? C.itemComponent : C.accentGold;
+  panelBox(layer, x, y, w, h, accent);
+  closeButton(layer, x + w - 32, y + 8, onClose);
+
+  // Header: item glyph disc + name + kind
+  const disc = new PIXI.Graphics();
+  disc.circle(x + 32, y + 34, 18).fill({ color: m.color, alpha: 0.95 });
+  disc.circle(x + 32, y + 34, 18).stroke({ width: 1.5, color: C.itemBorder });
+  disc.eventMode = "none";
+  layer.addChild(disc);
+  const g = new PIXI.Graphics();
+  drawGlyph(g, m.component ? "component" : "gem", x + 32, y + 34, 18, C.accentGold);
+  g.eventMode = "none";
+  layer.addChild(g);
+  text(layer, m.name, x + 60, y + 22, 13, C.textPrimary, [0, 0]);
+  text(layer, m.component ? "Component" : "Completed Item", x + 60, y + 42, 9, accent, [0, 0]);
+
+  // Stat bundle rows
+  let ry = y + 70;
+  for (const s of m.stats) {
+    const row = new PIXI.Graphics();
+    row.beginFill(C.bgInspectRow, 0.8);
+    row.drawRoundedRect(x + 14, ry, w - 28, 20, 5);
+    row.endFill();
+    row.eventMode = "none";
+    layer.addChild(row);
+    text(layer, s.label, x + 22, ry + 10, 9, C.textMuted, [0, 0.5]);
+    text(layer, s.value, x + w - 22, ry + 10, 11, C.textPrimary, [1, 0.5]);
+    ry += 24;
+  }
+
+  // Passive line (completed items only)
+  if (m.passive) {
+    const pb = new PIXI.Graphics();
+    pb.beginFill(C.bgInspectRow, 0.9);
+    pb.lineStyle(1, accent, 0.6);
+    pb.drawRoundedRect(x + 14, ry, w - 28, 38, 6);
+    pb.endFill();
+    pb.lineStyle(0);
+    pb.eventMode = "none";
+    layer.addChild(pb);
+    text(layer, "Passive", x + 22, ry + 8, 8, accent, [0, 0]);
+    wrapText(layer, m.passive, x + 22, ry + 20, w - 44, 9, C.textMuted);
+  }
 }
 
 /** Render the trait-detail panel (breakpoints + what each grants). */

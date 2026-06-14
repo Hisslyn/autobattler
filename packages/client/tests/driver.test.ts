@@ -135,6 +135,32 @@ describe("LocalDriver phase flow", () => {
     expect(driver.getState().phase).not.toBe("COMBAT");
   });
 
+  it("PvE round (round 1): exposes the stage, a PvE combat result, and seeded loot orbs", () => {
+    // Rounds 1/2/4 are PvE in the data. Round 1 is PvE on a fresh match.
+    expect(gameData.gameplay.pveRounds).toContain(1);
+    const driver = new LocalDriver(21);
+    driver.startPlanning();
+    expect(driver.isPveRound()).toBe(true);
+    expect(typeof driver.getPveStageName()).toBe("string");
+
+    driver.ready(); // runs the PvE round
+    expect(driver.getState().phase).toBe("RESOLUTION");
+
+    // PvE carries no pairing but still produces a combat result for playback.
+    expect(driver.getMyPairing()).toBeNull();
+    expect(driver.getMyCombatResult()).not.toBeNull();
+
+    // Loot orbs are seeded-deterministic; round 1 drops at least one orb.
+    const orbs = driver.getMyLootOrbs();
+    expect(orbs.length).toBeGreaterThan(0);
+
+    // A second same-seed run yields byte-identical orbs (determinism).
+    const d2 = new LocalDriver(21);
+    d2.startPlanning();
+    d2.ready();
+    expect(JSON.stringify(d2.getMyLootOrbs())).toBe(JSON.stringify(orbs));
+  });
+
   it("RESOLUTION is held until combatPlaybackDone; duplicate calls are no-ops", () => {
     const driver = new LocalDriver(13);
     const phases: string[] = [];

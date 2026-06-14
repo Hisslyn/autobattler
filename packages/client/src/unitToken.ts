@@ -21,6 +21,11 @@ export interface UnitTokenOpts {
    * fill up to the lagging value, animated by the combat view.
    */
   bars?: { hpFrac: number; manaFrac: number; hpChipFrac?: number };
+  /**
+   * Equipped-item dots drawn along the disc base (board/bench tokens). Each
+   * entry's `component` picks the dot tint; pass the unit's item display models.
+   */
+  items?: { component: boolean }[];
 }
 
 /** Draw a unit token centered at (x, y) into `parent`. */
@@ -35,8 +40,10 @@ export function drawUnitToken(
 ): void {
   const r = opts.radius ?? 16;
   const dim = opts.dimmed ?? false;
-  const ring = tierColor(tier);
   const def = gameData.units.find((u) => u.id === defId);
+  // A defId absent from the unit catalog is a PvE mob (mobs are never in
+  // data.units) → neutral monster ring instead of a player tier color.
+  const ring = def ? tierColor(tier) : C.mobTint;
 
   // Disc
   const disc = new PIXI.Graphics();
@@ -101,5 +108,22 @@ export function drawUnitToken(
     bars.rect(x - r, manaY, w, 2).fill({ color: C.manaBg });
     bars.rect(x - r, manaY, Math.round(w * manaFrac), 2).fill({ color: C.manaBlue });
     parent.addChild(bars);
+  }
+
+  // Equipped-item dots: small pips along the bottom-right arc of the disc so a
+  // glance shows which units are itemized (component vs completed tinted).
+  if (opts.items && opts.items.length > 0) {
+    const pip = new PIXI.Graphics();
+    const dotR = Math.max(2, r * 0.16);
+    const gap = dotR * 2.4;
+    const n = Math.min(opts.items.length, 3);
+    const baseX = x + r - dotR - 1 - (n - 1) * gap;
+    const dotY = y + r - dotR - 1;
+    for (let i = 0; i < n; i++) {
+      const it = opts.items[i]!;
+      pip.circle(baseX + i * gap, dotY, dotR).fill({ color: it.component ? C.itemComponent : C.itemCompleted, alpha: dim ? 0.5 : 1 });
+      pip.circle(baseX + i * gap, dotY, dotR).stroke({ width: 1, color: C.accentGold, alpha: dim ? 0.4 : 0.85 });
+    }
+    parent.addChild(pip);
   }
 }

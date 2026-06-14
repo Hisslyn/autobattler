@@ -10,7 +10,9 @@ export type GlyphKind =
   | "flame" | "bolt" | "droplet" | "snowflake" | "leaf" | "claw"
   | "star" | "sun" | "moon" | "spark" | "skull" | "eye" | "orb" | "heart"
   // non-trait HUD icons (stage 2): not in TRAIT_GLYPH
-  | "coin" | "refresh";
+  | "coin" | "refresh"
+  // non-trait item icons (phase 10b): not in TRAIT_GLYPH
+  | "gem" | "component" | "bag";
 
 /** Every origin + class trait id → glyph kind. Completeness is test-enforced. */
 export const TRAIT_GLYPH: Record<string, GlyphKind> = {
@@ -241,6 +243,37 @@ export function drawGlyph(
         .lineTo(cx, cy - s * 0.95)
         .lineTo(cx + s * 0.12, cy - s * 0.55);
       strokeIt();
+      break;
+    case "gem":
+      // Faceted completed-item gem: a hexagon-ish cut diamond.
+      g.poly([
+        cx, cy - s,
+        cx + s * 0.85, cy - s * 0.3,
+        cx + s * 0.55, cy + s * 0.9,
+        cx - s * 0.55, cy + s * 0.9,
+        cx - s * 0.85, cy - s * 0.3,
+      ]);
+      fillIt();
+      g.moveTo(cx, cy - s).lineTo(cx, cy + s * 0.9);
+      g.moveTo(cx - s * 0.85, cy - s * 0.3).lineTo(cx + s * 0.85, cy - s * 0.3);
+      g.stroke({ width: lw * 0.7, color, alpha: 0.4, cap: "round", join: "round" });
+      break;
+    case "component":
+      // Loose component: a simple rounded square (a "shard"/part).
+      g.roundRect(cx - s * 0.7, cy - s * 0.7, s * 1.4, s * 1.4, s * 0.3);
+      strokeIt();
+      g.moveTo(cx - s * 0.3, cy + s * 0.3).lineTo(cx + s * 0.3, cy - s * 0.3);
+      g.stroke({ width: lw * 0.7, color, alpha: 0.6, cap: "round", join: "round" });
+      break;
+    case "bag":
+      g.moveTo(cx - s * 0.7, cy - s * 0.3);
+      g.lineTo(cx - s * 0.85, cy + s * 0.8);
+      g.lineTo(cx + s * 0.85, cy + s * 0.8);
+      g.lineTo(cx + s * 0.7, cy - s * 0.3);
+      g.closePath();
+      fillIt();
+      g.arc(cx, cy - s * 0.3, s * 0.4, Math.PI, 0);
+      g.stroke({ width: lw, color, alpha: 1, cap: "round", join: "round" });
       break;
     case "orb":
     default:
