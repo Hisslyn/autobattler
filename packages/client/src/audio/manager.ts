@@ -3,11 +3,24 @@
 // pure consumer of the combat fx/effect stream (see handleCombatFx) and of UI
 // events — it never reads game logic or MatchState.
 import type { SettingsStore, Settings } from "../settings.js";
-import type { CombatFx } from "../combat/player.js";
+import type { CombatFx, AbilityFxKind } from "../combat/player.js";
 
 export type SfxName =
   | "tap" | "buy" | "sell" | "reroll" | "levelUp" | "error"
-  | "attack" | "crit" | "cast" | "death";
+  | "attack" | "crit" | "cast" | "death"
+  | "projectile" | "impact"
+  | "castMagic" | "castBurn" | "castShield" | "castBuff" | "castStealth";
+
+/** Per-ability-kind cast sound. */
+function castSfx(kind: AbilityFxKind): SfxName {
+  switch (kind) {
+    case "magic_damage": return "castMagic";
+    case "burn": return "castBurn";
+    case "shield": return "castShield";
+    case "buff": return "castBuff";
+    case "stealth": return "castStealth";
+  }
+}
 
 export type MusicSlot = "menuTheme" | "matchTheme";
 
@@ -46,6 +59,13 @@ const SFX: Record<SfxName, SfxSpec> = {
   crit:    { type: "square",   freq: 420,  sweepTo: 600, durMs: 90, peak: 0.45 },
   cast:    { type: "sine",     freq: 560,  sweepTo: 880, durMs: 160, peak: 0.4 },
   death:   { type: "sine",     freq: 180,  sweepTo: 60,  durMs: 260, peak: 0.5, noise: true },
+  projectile: { type: "triangle", freq: 680, sweepTo: 460, durMs: 110, peak: 0.28 },
+  impact:  { type: "square",   freq: 240,  sweepTo: 180, durMs: 60,  peak: 0.32, noise: true },
+  castMagic:  { type: "sine",     freq: 560, sweepTo: 900, durMs: 170, peak: 0.4 },
+  castBurn:   { type: "sawtooth", freq: 300, sweepTo: 460, durMs: 200, peak: 0.38 },
+  castShield: { type: "sine",     freq: 380, sweepTo: 540, durMs: 200, peak: 0.36 },
+  castBuff:   { type: "triangle", freq: 500, sweepTo: 760, durMs: 190, peak: 0.36 },
+  castStealth:{ type: "sine",     freq: 720, sweepTo: 360, durMs: 220, peak: 0.3 },
 };
 
 export class AudioManager {
@@ -138,18 +158,28 @@ export class AudioManager {
 
   /**
    * Consume one playback frame's combat fx stream: one sound per effect type per
-   * frame (deduped so a busy tick doesn't stack identical sounds).
+   * frame (deduped so a busy tick doesn't stack identical sounds). Tracks the new
+   * stage-3 fx kinds — projectile fire, per-kind ability casts, impacts, death —
+   * so audio stays in sync with the visuals (and survives reduced motion, where
+   * the heavy motion fx are dropped but impact/abilityHit/dissolve remain).
    */
   handleCombatFx(fx: CombatFx[]): void {
-    let attack = false, crit = false, cast = false, death = false;
+    let attack = false, crit = false, fire = false, death = false;
+    const casts = new Set<AbilityFxKind>();
     for (const f of fx) {
-      if (f.kind === "attack") (f.crit ? (crit = true) : (attack = true));
-      else if (f.kind === "cast") cast = true;
-      else if (f.kind === "death") death = true;
+      switch (f.kind) {
+        case "contact": f.crit ? (crit = true) : (attack = true); break;
+        case "impact": f.crit ? (crit = true) : (attack = true); break;
+        case "projectile": fire = true; if (f.crit) crit = true; break;
+        case "abilityHit": casts.add(f.effect); break;
+        case "dissolve": death = true; break;
+        default: break;
+      }
     }
     if (crit) this.play("crit");
-    if (attack) this.play("attack");
-    if (cast) this.play("cast");
+    if (attack) this.play("impact");
+    if (fire) this.play("projectile");
+    for (const k of casts) this.play(castSfx(k));
     if (death) this.play("death");
   }
 

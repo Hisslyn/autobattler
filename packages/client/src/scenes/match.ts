@@ -126,6 +126,8 @@ export class MatchScene {
   private combatLayer: PIXI.Container;
   private traitLayer: PIXI.Container;
   private scoutLayer: PIXI.Container;
+  /** Planning-phase juice (star-up flourish, buy/sell pops); not cleared by render(). */
+  private planningFxLayer: PIXI.Container;
 
   private selectedBenchIdx: number | null = null;
   private selectedBoardIdx: number | null = null;
@@ -164,12 +166,14 @@ export class MatchScene {
     this.combatLayer.sortableChildren = true;
     this.scoutLayer = new PIXI.Container();
     this.toastLayer = new PIXI.Container();
+    this.planningFxLayer = new PIXI.Container();
 
     this.container.addChild(this.hudLayer);
     this.container.addChild(this.boardLayer);
     this.container.addChild(this.benchLayer);
     this.container.addChild(this.shopLayer);
     this.container.addChild(this.traitLayer);
+    this.container.addChild(this.planningFxLayer);
     this.container.addChild(this.combatLayer);
     this.container.addChild(this.scoutLayer);
     this.container.addChild(this.toastLayer);
@@ -720,7 +724,7 @@ export class MatchScene {
       } else if (py >= BENCH_Y - 20 && py <= BENCH_Y + 20 && px >= DESIGN_W - 48) {
         // Dropped on sell zone
         const result = this.driver.playerCommand({ type: "SELL", unitUid: this.dragUnit.uid });
-        if (result.ok) this.opts.audio.play("sell");
+        if (result.ok) { this.opts.audio.play("sell"); this.spawnPlanningPop(DESIGN_W - 24, BENCH_Y, C.textSell); }
         else this.showToast(result.error);
       }
       // else: dropped nowhere valid — unit stays put (no-op)
@@ -800,16 +804,88 @@ export class MatchScene {
     }
     if (uid != null) {
       const result = this.driver.playerCommand({ type: "SELL", unitUid: uid });
-      if (result.ok) this.opts.audio.play("sell");
+      if (result.ok) { this.opts.audio.play("sell"); this.spawnPlanningPop(DESIGN_W - 24, BENCH_Y, C.textSell); }
       else this.showToast(result.error);
     }
     this.render(this.driver.getState());
   }
 
   private onShopBuy(idx: number): void {
+    const before = this.starSnapshot();
     const result = this.driver.playerCommand({ type: "BUY", shopSlotIndex: idx });
-    if (result.ok) this.opts.audio.play("buy");
-    else this.showToast(result.error);
+    if (!result.ok) { this.showToast(result.error); return; }
+    // Derive a merge/star-up purely from the planning state change (no game logic).
+    const up = this.findStarUp(before);
+    if (up) {
+      this.opts.audio.play("levelUp");
+      this.spawnPlanningPop(up.x, up.y, C.fxStarUp, { star: true });
+    } else {
+      this.opts.audio.play("buy");
+      const cx = SHOP_START_X + idx * (SHOP_CARD_W + SHOP_GAP) + SHOP_CARD_W / 2;
+      this.spawnPlanningPop(cx, SHOP_Y + SHOP_CARD_H / 2, C.starGold);
+    }
+  }
+
+  /** uid → star across board + bench, for detecting a merge after a command. */
+  private starSnapshot(): Map<number, number> {
+    const m = new Map<number, number>();
+    const me = this.driver.getState().players[this.driver.seatIndex];
+    if (!me) return m;
+    for (const u of me.board) if (u) m.set(u.uid, u.star);
+    for (const u of me.bench) m.set(u.uid, u.star);
+    return m;
+  }
+
+  /** First board/bench unit at ≥2 star that is new or higher than `before`, with its pixel. */
+  private findStarUp(before: Map<number, number>): { x: number; y: number } | null {
+    const me = this.driver.getState().players[this.driver.seatIndex];
+    if (!me) return null;
+    for (let idx = 0; idx < me.board.length; idx++) {
+      const u = me.board[idx];
+      if (u && u.star >= 2 && (before.get(u.uid) ?? 0) < u.star) {
+        const { x, y } = hexToPixel(idx % BOARD_COLS, Math.floor(idx / BOARD_COLS), BOARD_OFFSET_X, BOARD_OFFSET_Y);
+        return { x, y };
+      }
+    }
+    const startX = (DESIGN_W - 9 * BENCH_SLOT_W) / 2 + BENCH_SLOT_W / 2;
+    for (let i = 0; i < me.bench.length; i++) {
+      const u = me.bench[i]!;
+      if (u.star >= 2 && (before.get(u.uid) ?? 0) < u.star) {
+        return { x: startX + i * BENCH_SLOT_W, y: BENCH_Y };
+      }
+    }
+    return null;
+  }
+
+  /** Brief expanding ring (+ star pips for a star-up). Reduced-motion → no-op. */
+  private spawnPlanningPop(x: number, y: number, color: number, opts: { star?: boolean } = {}): void {
+    if (this.opts.settings.get().reducedMotion) return;
+    const node = new PIXI.Container();
+    node.position.set(x, y);
+    const ring = new PIXI.Graphics();
+    ring.circle(0, 0, opts.star ? 22 : 16).stroke({ width: opts.star ? 3 : 2, color, alpha: 0.95 });
+    node.addChild(ring);
+    if (opts.star) {
+      const pips = new PIXI.Graphics();
+      for (let i = -1; i <= 1; i++) pips.poly([i * 9, -26, i * 9 + 3, -23, i * 9, -20, i * 9 - 3, -23]);
+      pips.fill({ color });
+      node.addChild(pips);
+    }
+    this.planningFxLayer.addChild(node);
+    const ttl = opts.star ? 520 : 260;
+    let age = 0;
+    const fn = (ticker: PIXI.Ticker): void => {
+      age += ticker.deltaMS;
+      const k = age / ttl;
+      node.scale.set(1 + k * (opts.star ? 0.8 : 0.5));
+      node.alpha = Math.max(0, 1 - k);
+      if (age >= ttl) {
+        this.app.ticker.remove(fn);
+        this.planningFxLayer.removeChild(node);
+        node.destroy({ children: true });
+      }
+    };
+    this.app.ticker.add(fn);
   }
 
   private onReroll(): void {
@@ -1029,13 +1105,13 @@ export class MatchScene {
         : hexToPixel(d.q, d.r - BOARD_ROWS, BOARD_OFFSET_X, BOARD_OFFSET_Y);
     };
 
-    const player = new CombatPlayer(events, gameData.gameplay.ticksPerSec);
-    player.setSpeed(this.playbackSpeed);
     const reducedMotion = this.opts.settings.get().reducedMotion;
+    const player = new CombatPlayer(events, gameData.gameplay.ticksPerSec, gameData, { reducedMotion });
+    player.setSpeed(this.playbackSpeed);
     const view = new CombatView(toPixel, {
       x: DESIGN_W / 2,
       y: BOARD_OFFSET_Y - BOARD_ROWS * HEX_H + 10,
-    }, { reducedMotion });
+    }, { reducedMotion, edge: { w: DESIGN_W, h: DESIGN_H } });
     this.combatLayer.addChild(view.container);
 
     const tickerFn = (ticker: PIXI.Ticker): void => {

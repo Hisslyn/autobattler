@@ -88,6 +88,21 @@ export const C = {
   floatMagic:    0x9a7ade,
   textOvertime:  0xcc4040,
 
+  // ─── Visual overhaul stage 3: combat VFX + juice ──────────────────────────
+  fxProjectile:    0xe0c060,  // ranged bolt core
+  fxProjTrail:     0xa07020,  // ranged bolt trail
+  fxImpact:        0xf0e0b0,  // hit-spark
+  fxDamageChip:    0xf0f0f0,  // trailing white hp-loss chip
+  // ability visuals per effect kind
+  fxAbilityMagic:  0x9a7ade,
+  fxAbilityShield: 0x6ac0e0,
+  fxAbilityBuff:   0xf0c84a,
+  fxAbilityBurn:   0xe2603a,
+  fxAbilityStealth: 0x6a6a8a,
+  // juice
+  fxOvertimeEdge:  0xcc4040,  // board edge/tint cue during overtime
+  fxStarUp:        0xf0d878,  // merge / star-up flourish
+
   // Trait tracker
   traitActive:  0x3a6a3a,
   traitPending: 0x1e2830,

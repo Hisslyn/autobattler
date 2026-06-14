@@ -15,8 +15,12 @@ export interface UnitTokenOpts {
   /** Disc radius (default 16 for board/combat; pass ~12 for bench). */
   radius?: number;
   dimmed?: boolean;
-  /** HP/mana fill fractions (0..1); omit for bench tokens (no bars). */
-  bars?: { hpFrac: number; manaFrac: number };
+  /**
+   * HP/mana fill fractions (0..1); omit for bench tokens (no bars).
+   * `hpChipFrac` (≥ hpFrac) draws a trailing white damage-chip from the live
+   * fill up to the lagging value, animated by the combat view.
+   */
+  bars?: { hpFrac: number; manaFrac: number; hpChipFrac?: number };
 }
 
 /** Draw a unit token centered at (x, y) into `parent`. */
@@ -89,6 +93,10 @@ export function drawUnitToken(
     const manaY = hpY + 4;
     const bars = new PIXI.Graphics();
     bars.rect(x - r, hpY, w, 3).fill({ color: C.hpBg });
+    const chip = Math.max(hpFrac, Math.min(1, opts.bars.hpChipFrac ?? hpFrac));
+    if (chip > hpFrac) {
+      bars.rect(x - r + Math.round(w * hpFrac), hpY, Math.round(w * (chip - hpFrac)), 3).fill({ color: C.fxDamageChip });
+    }
     bars.rect(x - r, hpY, Math.round(w * hpFrac), 3).fill({ color: hpFrac < 0.25 ? C.hpLow : C.hpGreen });
     bars.rect(x - r, manaY, w, 2).fill({ color: C.manaBg });
     bars.rect(x - r, manaY, Math.round(w * manaFrac), 2).fill({ color: C.manaBlue });
