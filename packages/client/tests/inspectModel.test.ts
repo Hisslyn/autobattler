@@ -25,6 +25,8 @@ describe("inspectModel", () => {
     // shop preview shows base hp + start/max mana
     expect(m.stats.find((s) => s.label === "HP")!.value).toBe(`${def.hp}`);
     expect(m.stats.find((s) => s.label === "Mana")!.value).toBe(`${def.manaStart}/${def.mana}`);
+    // attack speed is fixed-point → shown to 2 decimals, never the raw value
+    expect(m.stats.find((s) => s.label === "AS")!.value).toBe((def.as / 1000).toFixed(2));
   });
 
   it("uses the live instance's current hp/mana/star when owned", () => {
@@ -50,7 +52,9 @@ describe("inspectModel", () => {
     expect(abilityDescription("x", { kind: "magic_damage" }, 100)).toMatch(/100 magic/);
     expect(abilityDescription("x", { kind: "burn", burn: 20, duration: 40 }, 80)).toMatch(/burns for 20/);
     expect(abilityDescription("x", { kind: "shield", amount: 200, duration: 60 }, 0)).toMatch(/200 shield/);
-    expect(abilityDescription("x", { kind: "buff", stat: "ad", value: 30, duration: 80 }, 0)).toMatch(/ad by 30/);
+    expect(abilityDescription("x", { kind: "buff", stat: "ad", value: 30, duration: 80 }, 0)).toMatch(/ad by \+30/);
+    // an attack-speed buff renders its delta as fixed-point, not the raw value
+    expect(abilityDescription("x", { kind: "buff", stat: "as", value: 280, duration: 80 }, 0)).toMatch(/as by \+0\.28/);
     expect(abilityDescription("x", { kind: "stealth", duration: 20 }, 0)).toMatch(/Untargetable/);
   });
 });

@@ -27,5 +27,7 @@ describe("traitDetailModel", () => {
     expect(breakpointEffect({ stat: "ad", value: 25 })).toBe("+25 AD");
     expect(breakpointEffect({ stat: "abilityDamage", value: 150 })).toBe("+150 Ability Power");
     expect(breakpointEffect({ stat: "mr", value: 600 })).toBe("+600 Magic Resist");
+    // attack-speed deltas are fixed-point (scale 1000) → +0.28, not +280
+    expect(breakpointEffect({ stat: "as", value: 280 })).toBe("+0.28 Attack Speed");
   });
 });

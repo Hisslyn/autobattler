@@ -4,6 +4,7 @@
 // one exists (board/bench show current hp/mana; shop shows base stats).
 import type { UnitInstance } from "@autobattler/sim/src/types.js";
 import type { GameData, UnitDataDef, AbilityEffectData } from "@autobattler/data";
+import { formatStat, formatStatDelta } from "./statFormat.js";
 
 export interface InspectStat {
   label: string;
@@ -45,7 +46,7 @@ export function abilityDescription(
     case "shield":
       return `Gains a ${effect.amount} shield for ${effect.duration} ticks.`;
     case "buff":
-      return `Buffs ${effect.stat} by ${effect.value} for ${effect.duration} ticks.`;
+      return `Buffs ${effect.stat} by ${formatStatDelta(effect.stat, effect.value)} for ${effect.duration} ticks.`;
     case "stealth":
       return `Untargetable for the first ${effect.duration} ticks of combat.`;
   }
@@ -77,11 +78,11 @@ export function inspectModel(
 
   const stats: InspectStat[] = [
     { label: "HP", value: hp },
-    { label: "AD", value: `${instance?.ad ?? def.ad}` },
-    { label: "AS", value: (def.as / 1000).toFixed(2) },
-    { label: "Armor", value: `${instance?.armor ?? def.armor}` },
-    { label: "MR", value: `${instance?.mr ?? def.mr}` },
-    { label: "Range", value: `${def.range}` },
+    { label: "AD", value: formatStat("ad", instance?.ad ?? def.ad) },
+    { label: "AS", value: formatStat("as", instance?.as ?? def.as) },
+    { label: "Armor", value: formatStat("armor", instance?.armor ?? def.armor) },
+    { label: "MR", value: formatStat("mr", instance?.mr ?? def.mr) },
+    { label: "Range", value: formatStat("range", instance?.range ?? def.range) },
     { label: "Mana", value: mana },
     { label: "Ability", value: `${def.ability.manaCost}` },
   ];

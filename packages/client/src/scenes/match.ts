@@ -12,6 +12,7 @@ import { drawUnitToken } from "../unitToken.js";
 import { drawGlyph, glyphForTraits } from "../glyphs.js";
 import type { GlyphKind } from "../glyphs.js";
 import { traitStripModel, xpProgress } from "../hudModel.js";
+import type { TraitChip } from "../hudModel.js";
 import { inspectModel } from "../inspectModel.js";
 import { traitDetailModel } from "../traitDetailModel.js";
 import { sellValue } from "../sellValue.js";
@@ -155,6 +156,9 @@ export class MatchScene {
   private pressStart: { x: number; y: number } | null = null;
   /** Gold at the last planning start, to voice income gain (no game logic). */
   private prevGold = 0;
+  /** Active toast bookkeeping: dedupe identical messages + manage its dismiss timer. */
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
+  private toastMsg: string | null = null;
 
   private playback: {
     player: CombatPlayer;
@@ -280,6 +284,37 @@ export class MatchScene {
     layer.addChild(g);
   }
 
+  /**
+   * Wire a tap handler with quick press feedback for perceived responsiveness.
+   * Reduced-motion (or non-Container scale targets) still get a visible pressed
+   * state via an instant alpha dip; otherwise a brief scale-down springs back.
+   * The actual action fires on pointerdown (unchanged behavior).
+   */
+  private pressFeedback(g: PIXI.Graphics, onTap: () => void): void {
+    const reduced = this.opts.settings.get().reducedMotion;
+    const press = (): void => {
+      // Instant, always-visible pressed look.
+      g.alpha = 0.7;
+      if (!reduced) {
+        // Quick scale pop about the button's own center, then spring back.
+        const b = g.getLocalBounds();
+        g.pivot.set(b.x + b.width / 2, b.y + b.height / 2);
+        g.position.set(g.pivot.x, g.pivot.y);
+        g.scale.set(0.94);
+      }
+      onTap();
+    };
+    const release = (): void => {
+      g.alpha = 1;
+      g.scale.set(1);
+    };
+    g.on("pointerdown", press);
+    g.on("pointerup", release);
+    g.on("pointerupoutside", release);
+    // Safety: if no release arrives shortly, restore (e.g. re-render swaps the node).
+    g.on("pointerdown", () => setTimeout(release, 120));
+  }
+
   // ─── HUD: status row + opponent rail ─────────────────────────────────────────
 
   private renderHud(state: MatchState, me: PlayerState): void {
@@ -327,6 +362,8 @@ export class MatchScene {
       const isSelf = i === this.driver.seatIndex;
       const elim = !p.alive;
 
+      const scoutable = !isSelf && p.alive && state.phase === "PLANNING";
+
       const avg = new PIXI.Graphics();
       avg.circle(cx, cy, av).fill({ color: C.panelBg, alpha: elim ? 0.4 : 1 });
       avg.circle(cx, cy, av).stroke({
@@ -336,7 +373,9 @@ export class MatchScene {
       });
       this.hudLayer.addChild(avg);
 
-      this.text(this.hudLayer, `${i + 1}`, cx, cy, 9, elim ? C.textMuted : C.textPrimary, [0.5, 0.5]);
+      // Seat number + level (e.g. "3·L5") so each tile shows the opponent's level.
+      this.text(this.hudLayer, `${i + 1}`, cx, cy - 2, 9, elim ? C.textMuted : C.textPrimary, [0.5, 0.5]);
+      this.text(this.hudLayer, `L${p.level}`, cx, cy + 6, 6, elim ? C.textMuted : C.textLabel, [0.5, 0.5]);
 
       // HP bar below the avatar
       const hpFrac = Math.max(0, Math.min(1, p.hp / 100));
@@ -349,8 +388,16 @@ export class MatchScene {
         .fill({ color: hpFrac < 0.25 ? C.hpLow : C.hpGreen, alpha: elim ? 0.4 : 1 });
       this.hudLayer.addChild(hb);
 
-      // Tap-to-scout: alive opponents during planning
-      if (!isSelf && p.alive && state.phase === "PLANNING") {
+      // Tap-to-scout: alive opponents during planning, with a clear visible
+      // affordance (an eye badge on the tile corner) so scouting is discoverable.
+      if (scoutable) {
+        const badge = new PIXI.Graphics();
+        badge.circle(cx + av - 1, cy - av + 1, 5).fill({ color: C.bgScout });
+        badge.circle(cx + av - 1, cy - av + 1, 5).stroke({ width: 1, color: C.tier3, alpha: 0.9 });
+        badge.eventMode = "none";
+        this.hudLayer.addChild(badge);
+        this.glyph(this.hudLayer, "eye", cx + av - 1, cy - av + 1, 6, C.tier3);
+
         const hit = new PIXI.Graphics();
         hit.beginFill(C.bgOverlay, 0.001);
         hit.drawRect(4 + i * tileW, RAIL_Y - 2, tileW, 30);
@@ -593,7 +640,7 @@ export class MatchScene {
     ready.eventMode = isPlanning ? "static" : "none";
     ready.hitArea = new PIXI.Rectangle(SHOP_START_X, READY_Y, DESIGN_W - 2 * SHOP_START_X, 34);
     ready.cursor = isPlanning ? "pointer" : "default";
-    ready.on("pointerdown", () => isPlanning && this.driver.ready());
+    if (isPlanning) this.pressFeedback(ready, () => this.driver.ready());
     this.text(
       this.shopLayer, isPlanning ? "Ready" : state.phase, DESIGN_W / 2, READY_Y + 17, 13,
       isPlanning ? C.textReady : C.textMuted, [0.5, 0.5]
@@ -640,7 +687,7 @@ export class MatchScene {
     rr.eventMode = "static";
     rr.hitArea = new PIXI.Rectangle(rrX, btnY, rrW, btnH);
     rr.cursor = "pointer";
-    rr.on("pointerdown", () => this.onReroll());
+    this.pressFeedback(rr, () => this.onReroll());
     this.glyph(this.shopLayer, "refresh", rrX + 13, btnY + btnH / 2, 13, C.textPrimary);
     this.glyph(this.shopLayer, "coin", rrX + 30, btnY + btnH / 2, 8, C.starGold);
     this.text(this.shopLayer, `${gameData.economy.rerollCost}`, rrX + 38, btnY + btnH / 2, 11, C.textGold, [0, 0.5]);
@@ -651,7 +698,7 @@ export class MatchScene {
     xpBtn.eventMode = "static";
     xpBtn.hitArea = new PIXI.Rectangle(xpX, btnY, xpW, btnH);
     xpBtn.cursor = "pointer";
-    xpBtn.on("pointerdown", () => this.onBuyXp());
+    this.pressFeedback(xpBtn, () => this.onBuyXp());
     this.text(this.shopLayer, "XP", xpX + 8, btnY + btnH / 2, 11, C.textPrimary, [0, 0.5]);
     this.glyph(this.shopLayer, "coin", xpX + 36, btnY + btnH / 2, 8, C.starGold);
     this.text(this.shopLayer, `${gameData.economy.xpBuyCost}`, xpX + 44, btnY + btnH / 2, 11, C.textGold, [0, 0.5]);
@@ -672,46 +719,63 @@ export class MatchScene {
     let rowY = TRAIT_STRIP_Y;
 
     for (const c of chips) {
-      const active = c.activeBreakpoint !== null;
-      const countStr = active
-        ? `${c.count}`
-        : `${c.count}/${c.nextBreakpoint ?? c.count}`;
-      const label = `${c.name} ${countStr}`;
-      const chipW = 26 + label.length * 5.4;
-
+      const chipW = this.traitChipWidth(c);
       if (x + chipW > padX + maxRowW) { x = padX; rowY += chipH + gapY; }
-
-      const bg = new PIXI.Graphics();
-      bg.beginFill(C.panelBg, active ? 0.95 : 0.5);
-      bg.lineStyle(1, active ? c.color : C.chipBorder, active ? 0.9 : 0.5);
-      bg.drawRoundedRect(x, rowY, chipW, chipH, 4);
-      bg.endFill();
-      bg.lineStyle(0);
-      bg.alpha = active ? 1 : 0.5;
-      bg.eventMode = "static";
-      bg.cursor = "pointer";
-      bg.hitArea = new PIXI.Rectangle(x, rowY, chipW, chipH);
-      const tid = c.traitId;
-      const tcount = c.count;
-      bg.on("pointertap", () => this.openTraitDetail(tid, tcount));
-      this.traitLayer.addChild(bg);
-
-      // 14px rotated diamond holding the glyph
-      const cy = rowY + chipH / 2;
-      const dcx = x + 12;
-      const diamond = new PIXI.Graphics();
-      const dr = 7;
-      diamond.poly([dcx, cy - dr, dcx + dr, cy, dcx, cy + dr, dcx - dr, cy]);
-      diamond.fill({ color: active ? c.color : C.chipBorder, alpha: active ? 0.35 : 0.25 });
-      diamond.poly([dcx, cy - dr, dcx + dr, cy, dcx, cy + dr, dcx - dr, cy]);
-      diamond.stroke({ width: 1, color: active ? c.color : C.textMuted });
-      this.traitLayer.addChild(diamond);
-      this.glyph(this.traitLayer, this.traitGlyph(c.traitId), dcx, cy, 8, active ? c.color : C.textMuted);
-
-      this.text(this.traitLayer, label, x + 22, cy, 8, active ? C.textPrimary : C.textMuted, [0, 0.5]);
-
+      this.drawTraitChip(this.traitLayer, c, x, rowY);
       x += chipW + gapX;
     }
+  }
+
+  /** Width of a trait chip for the given chip model (shared by strip + scout). */
+  private traitChipWidth(c: TraitChip): number {
+    const active = c.activeBreakpoint !== null;
+    const countStr = active ? `${c.count}` : `${c.count}/${c.nextBreakpoint ?? c.count}`;
+    const label = `${c.name} ${countStr}`;
+    return 26 + label.length * 5.4;
+  }
+
+  /**
+   * Draw one trait-strip chip (diamond+glyph + label, active colored / inactive
+   * dimmed) at (x, rowY); tapping opens the shared trait-detail panel. Returns
+   * its width. Shared by the HUD trait strip and the scout overlay so a scouted
+   * board's traits look identical to your own.
+   */
+  private drawTraitChip(layer: PIXI.Container, c: TraitChip, x: number, rowY: number): number {
+    const chipH = 18;
+    const active = c.activeBreakpoint !== null;
+    const countStr = active ? `${c.count}` : `${c.count}/${c.nextBreakpoint ?? c.count}`;
+    const label = `${c.name} ${countStr}`;
+    const chipW = this.traitChipWidth(c);
+
+    const bg = new PIXI.Graphics();
+    bg.beginFill(C.panelBg, active ? 0.95 : 0.5);
+    bg.lineStyle(1, active ? c.color : C.chipBorder, active ? 0.9 : 0.5);
+    bg.drawRoundedRect(x, rowY, chipW, chipH, 4);
+    bg.endFill();
+    bg.lineStyle(0);
+    bg.alpha = active ? 1 : 0.5;
+    bg.eventMode = "static";
+    bg.cursor = "pointer";
+    bg.hitArea = new PIXI.Rectangle(x, rowY, chipW, chipH);
+    const tid = c.traitId;
+    const tcount = c.count;
+    bg.on("pointertap", () => this.openTraitDetail(tid, tcount));
+    layer.addChild(bg);
+
+    // 14px rotated diamond holding the glyph
+    const cy = rowY + chipH / 2;
+    const dcx = x + 12;
+    const diamond = new PIXI.Graphics();
+    const dr = 7;
+    diamond.poly([dcx, cy - dr, dcx + dr, cy, dcx, cy + dr, dcx - dr, cy]);
+    diamond.fill({ color: active ? c.color : C.chipBorder, alpha: active ? 0.35 : 0.25 });
+    diamond.poly([dcx, cy - dr, dcx + dr, cy, dcx, cy + dr, dcx - dr, cy]);
+    diamond.stroke({ width: 1, color: active ? c.color : C.textMuted });
+    layer.addChild(diamond);
+    this.glyph(layer, this.traitGlyph(c.traitId), dcx, cy, 8, active ? c.color : C.textMuted);
+
+    this.text(layer, label, x + 22, cy, 8, active ? C.textPrimary : C.textMuted, [0, 0.5]);
+    return chipW;
   }
 
   private traitGlyph(traitId: string): GlyphKind {
@@ -1047,7 +1111,7 @@ export class MatchScene {
     overlay.eventMode = "static";
     this.scoutLayer.addChild(overlay);
 
-    const title = new PIXI.Text(`Player ${playerId + 1}  HP:${Math.max(0, target.hp)}`, {
+    const title = new PIXI.Text(`${this.seatName(state, playerId)}  HP:${Math.max(0, target.hp)}`, {
       fontSize: 12, fill: C.textBanner, fontFamily: "monospace",
     });
     title.anchor.set(0.5, 0);
@@ -1055,7 +1119,8 @@ export class MatchScene {
     title.y = 68;
     this.scoutLayer.addChild(title);
 
-    // Board units
+    // Board units — long-press any token to open the SAME unit-inspect panel as
+    // your own board, so a scouted board reads identically to your inspect view.
     const boardOffX = BOARD_OFFSET_X;
     const boardOffY = 110;
     for (let idx = 0; idx < BOARD_SLOTS; idx++) {
@@ -1065,34 +1130,28 @@ export class MatchScene {
       const r = Math.floor(idx / BOARD_COLS);
       const { x, y } = hexToPixel(q, r, boardOffX, boardOffY);
       const uc = new PIXI.Container();
+      uc.eventMode = "static";
+      uc.cursor = "pointer";
+      const u = unit;
+      uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.armInspect(u.defId, u, e));
+      uc.on("pointerup", () => this.clearPress());
+      uc.on("pointerupoutside", () => this.clearPress());
       drawUnit(uc, unit, x, y, 14);
       this.scoutLayer.addChild(uc);
     }
 
-    // Trait counts
-    const units = target.board.filter((u): u is UnitInstance => u != null);
-    const traitCounts = new Map<string, number>();
-    for (const u of units) {
-      const def = gameData.units.find((d) => d.id === u.defId);
-      for (const t of def?.traits ?? []) traitCounts.set(t, (traitCounts.get(t) ?? 0) + 1);
-    }
-    let rowY = 110 + BOARD_ROWS * HEX_H + 10;
-    for (const [traitId, count] of traitCounts) {
-      const trait = gameData.traits.find((t) => t.id === traitId);
-      if (!trait) continue;
-      const nextBp = trait.breakpoints.find((bp) => bp.count > count);
-      const activeBp = [...trait.breakpoints].reverse().find((bp) => bp.count <= count);
-      const label = `${trait.name}: ${count}/${nextBp?.count ?? activeBp?.count ?? "?"}`;
-      const txt = new PIXI.Text(label, {
-        fontSize: 9,
-        fill: activeBp ? C.textReady : C.textMuted,
-        fontFamily: "monospace",
-      });
-      txt.anchor.set(0, 0);
-      txt.x = 32;
-      txt.y = rowY;
-      this.scoutLayer.addChild(txt);
-      rowY += 14;
+    // Trait strip — same diamond+glyph chips as your own board (traitStripModel),
+    // each tappable to open the shared trait-detail panel.
+    const chips = traitStripModel(target.board, gameData.units, gameData.traits);
+    const padX = 30;
+    const rowRight = DESIGN_W - 30;
+    let cx = padX;
+    let rowY = 110 + BOARD_ROWS * HEX_H + 16;
+    for (const c of chips) {
+      const w = this.traitChipWidth(c);
+      if (cx + w > rowRight) { cx = padX; rowY += 24; }
+      this.drawTraitChip(this.scoutLayer, c, cx, rowY);
+      cx += w + 5;
     }
 
     // Close button
@@ -1345,31 +1404,28 @@ export class MatchScene {
   }
 
   private renderPlaybackControls(): void {
-    const btnY = 62;
-    const btnW = 44;
-    const btnH = 22;
+    // Sized to the 44px min touch target and styled with the shared chip set so
+    // the controls read as part of the HUD, not detached overlay buttons.
+    const btnW = 52;
+    const btnH = 44;
+    const gap = 6;
+    const btnY = 60;
     const mkBtn = (x: number, label: string, onTap: () => void): PIXI.Text => {
-      const g = new PIXI.Graphics();
-      g.beginFill(C.bgMenuBtn, 0.9);
-      g.drawRoundedRect(x, btnY, btnW, btnH, 3);
-      g.endFill();
+      const g = this.chip(this.combatLayer, x, btnY, btnW, btnH, { fill: C.bgReroll, radius: 7 });
       g.eventMode = "static";
       g.hitArea = new PIXI.Rectangle(x, btnY, btnW, btnH);
       g.cursor = "pointer";
-      g.on("pointerdown", onTap);
-      this.combatLayer.addChild(g);
-      const t = new PIXI.Text(label, {
-        fontSize: 9, fill: C.textPrimary, fontFamily: "monospace",
-      });
-      t.anchor.set(0.5, 0.5);
-      t.x = x + btnW / 2;
-      t.y = btnY + btnH / 2;
-      t.eventMode = "none";
-      this.combatLayer.addChild(t);
+      g.zIndex = Z_COMBAT_HEADER;
+      this.pressFeedback(g, onTap);
+      const t = this.text(this.combatLayer, label, x + btnW / 2, btnY + btnH / 2, 12, C.textPrimary, [0.5, 0.5]);
+      t.zIndex = Z_COMBAT_HEADER;
       return t;
     };
-    this.speedBtnLabel = mkBtn(DESIGN_W - 2 * btnW - 12, `${this.playbackSpeed}x`, () => this.toggleSpeed());
-    mkBtn(DESIGN_W - btnW - 6, "Skip", () => this.skipPlayback());
+    const skipX = DESIGN_W - btnW - 6;
+    const speedX = skipX - btnW - gap;
+    this.speedBtnLabel = mkBtn(speedX, `${this.playbackSpeed}x`, () => this.toggleSpeed());
+    mkBtn(skipX, "Skip", () => this.skipPlayback());
+    this.combatLayer.sortChildren();
   }
 
   private onResolutionPhase(): void {
@@ -1528,75 +1584,100 @@ export class MatchScene {
     this.clearResolutionTimer();
     this.closeInspect();
     void this.opts.audio.setMusicState("results");
-    const mine = placements[this.driver.seatIndex];
-    this.opts.audio.play(mine !== undefined && mine <= 4 ? "roundWin" : "roundLoss");
+    const seat = this.driver.seatIndex;
+    const mine = placements.indexOf(seat) + 1;
+    this.opts.audio.play(mine >= 1 && mine <= 4 ? "roundWin" : "roundLoss");
     this.combatLayer.removeChildren();
-    const bg = new PIXI.Graphics();
-    bg.beginFill(C.bgOverlay, 0.88);
-    bg.drawRect(20, 150, DESIGN_W - 40, 420);
-    bg.endFill();
-    bg.eventMode = "none";
-    this.combatLayer.addChild(bg);
-
-    const title = new PIXI.Text("MATCH OVER", {
-      fontSize: 18, fill: C.textGold, fontFamily: "monospace",
-    });
-    title.anchor.set(0.5, 0);
-    title.x = DESIGN_W / 2;
-    title.y = 162;
-    this.combatLayer.addChild(title);
 
     const state = this.driver.getState();
-    const seat = this.driver.seatIndex;
-    const playerPlacement = state.players[seat]?.placement ?? ((placements.indexOf(seat) + 1) || 1);
-    const placeText = new PIXI.Text(`You placed #${playerPlacement}`, {
-      fontSize: 13, fill: C.textPrimary, fontFamily: "monospace",
-    });
-    placeText.anchor.set(0.5, 0);
-    placeText.x = DESIGN_W / 2;
-    placeText.y = 192;
-    this.combatLayer.addChild(placeText);
 
+    // Dim scrim behind the themed panel (consistent with the inspect/resolution
+    // panels — full-screen scrim + a rounded bgInspect surface with an accent rim).
+    const scrim = new PIXI.Graphics();
+    scrim.beginFill(C.bgScrim, 0.72);
+    scrim.drawRect(0, 0, DESIGN_W, DESIGN_H);
+    scrim.endFill();
+    scrim.eventMode = "none";
+    this.combatLayer.addChild(scrim);
+
+    // Layout the panel from a content budget so 8 placements + the MMR line +
+    // the button never collide regardless of seat count.
+    const rowH = 22;
+    const padX = 28;
+    const panelW = DESIGN_W - 2 * padX;
+    const headerH = 78;            // title + "you placed" line
+    const rowsH = placements.length * rowH;
     const myMmr = mmr?.[seat];
+    const mmrH = myMmr ? 30 : 8;    // dedicated band for the MMR line
+    const btnH = 44;
+    const btnGap = 18;
+    const panelH = headerH + rowsH + mmrH + btnGap + btnH + 20;
+    const panelX = padX;
+    const panelY = (DESIGN_H - panelH) / 2;
+
+    const panel = new PIXI.Graphics();
+    panel.beginFill(C.bgInspect, 0.98);
+    panel.lineStyle(1.5, C.accentGold, 0.9);
+    panel.drawRoundedRect(panelX, panelY, panelW, panelH, 12);
+    panel.endFill();
+    panel.lineStyle(0);
+    panel.eventMode = "static"; // modal — swallow taps
+    this.combatLayer.addChild(panel);
+
+    const title = this.text(this.combatLayer, "MATCH OVER", DESIGN_W / 2, panelY + 14, 18, C.textGold, [0.5, 0]);
+    title.eventMode = "none";
+
+    const playerPlacement = state.players[seat]?.placement ?? (mine || 1);
+    this.text(
+      this.combatLayer, `You placed #${playerPlacement}`,
+      DESIGN_W / 2, panelY + 44, 13, C.textPrimary, [0.5, 0]
+    );
+
+    // Placement list — one row per seat, you highlighted, name where available.
+    const rowsTop = panelY + headerH;
+    for (let i = 0; i < placements.length; i++) {
+      const pid = placements[i] ?? 0;
+      const isMe = pid === seat;
+      const name = this.seatName(state, pid);
+      this.text(
+        this.combatLayer, `#${i + 1}  ${name}${isMe ? "  (You)" : ""}`,
+        DESIGN_W / 2, rowsTop + i * rowH, 11, isMe ? C.textReady : C.textMuted, [0.5, 0]
+      );
+    }
+
+    // MMR line in its own band below the list (no overlap at 8 seats).
     if (myMmr) {
       const delta = myMmr.after - myMmr.before;
-      const mmrText = new PIXI.Text(
+      this.text(
+        this.combatLayer,
         `MMR ${myMmr.after} (${delta >= 0 ? "+" : ""}${delta})`,
-        { fontSize: 12, fill: delta >= 0 ? C.textReady : C.textBadHP, fontFamily: "monospace" }
+        DESIGN_W / 2, rowsTop + rowsH + 6, 12, delta >= 0 ? C.textReady : C.textBadHP, [0.5, 0]
       );
-      mmrText.anchor.set(0.5, 0);
-      mmrText.x = DESIGN_W / 2;
-      mmrText.y = 380 + 22;
-      this.combatLayer.addChild(mmrText);
     }
 
-    for (let i = 0; i < placements.length; i++) {
-      const pid = placements[i];
-      const pText = new PIXI.Text(
-        `#${i + 1}: Player ${(pid ?? 0) + 1}${pid === 0 ? " (You)" : ""}`,
-        { fontSize: 10, fill: pid === 0 ? C.textReady : C.textMuted, fontFamily: "monospace" }
-      );
-      pText.anchor.set(0.5, 0);
-      pText.x = DESIGN_W / 2;
-      pText.y = 220 + i * 18;
-      this.combatLayer.addChild(pText);
-    }
-
+    // Main Menu button — themed, thumb-reachable, pinned to the panel base.
+    const btnW = 160;
+    const btnX = DESIGN_W / 2 - btnW / 2;
+    const btnY = panelY + panelH - btnH - 14;
     const menuBtn = new PIXI.Graphics();
     menuBtn.beginFill(C.bgContinue, 0.95);
-    menuBtn.drawRoundedRect(DESIGN_W / 2 - 70, 520, 140, 38, 6);
+    menuBtn.lineStyle(1.5, C.hpGreen, 0.8);
+    menuBtn.drawRoundedRect(btnX, btnY, btnW, btnH, 8);
     menuBtn.endFill();
+    menuBtn.lineStyle(0);
     menuBtn.eventMode = "static";
-    menuBtn.hitArea = new PIXI.Rectangle(DESIGN_W / 2 - 70, 520, 140, 38);
+    menuBtn.hitArea = new PIXI.Rectangle(btnX, btnY, btnW, btnH);
     menuBtn.cursor = "pointer";
     menuBtn.on("pointerdown", () => this.opts.onLeave());
     this.combatLayer.addChild(menuBtn);
-    const menuTxt = new PIXI.Text("Main Menu", { fontSize: 13, fill: C.textReady, fontFamily: "monospace" });
-    menuTxt.anchor.set(0.5, 0.5);
-    menuTxt.x = DESIGN_W / 2;
-    menuTxt.y = 539;
+    const menuTxt = this.text(this.combatLayer, "Main Menu", DESIGN_W / 2, btnY + btnH / 2, 14, C.textReady, [0.5, 0.5]);
     menuTxt.eventMode = "none";
-    this.combatLayer.addChild(menuTxt);
+  }
+
+  /** Display name for a seat, falling back to "Player N" when none is known. */
+  private seatName(state: MatchState, pid: number): string {
+    const p = state.players[pid] as (PlayerState & { name?: string }) | undefined;
+    return p?.name && p.name.length > 0 ? p.name : `Player ${pid + 1}`;
   }
 
   /** Tear down the scene: stop playback/timers, unsubscribe, drop the container. */
@@ -1604,6 +1685,7 @@ export class MatchScene {
     this.teardownPlayback();
     this.clearResolutionTimer();
     this.clearPress();
+    this.clearToast();
     this.unsub();
     this.unsubArt();
     if (this.container.parent) this.container.parent.removeChild(this.container);
@@ -1613,21 +1695,85 @@ export class MatchScene {
   // ─── TOAST ───────────────────────────────────────────────────────────────
 
   private showToast(msg: string): void {
+    const TTL = 1800;
+    // Dedupe rapid identical errors: refresh the existing toast's lifetime
+    // instead of re-rendering / stacking the same message.
+    if (this.toastMsg === msg && this.toastLayer.children.length > 0) {
+      if (this.toastTimer !== null) clearTimeout(this.toastTimer);
+      this.toastTimer = setTimeout(() => this.clearToast(), TTL);
+      return;
+    }
+
     this.opts.audio.play("error");
+    if (this.toastTimer !== null) clearTimeout(this.toastTimer);
     this.toastLayer.removeChildren();
+    this.toastMsg = msg;
+
+    // Flexible width: grow with the text up to a sensible cap, wrapping if longer.
+    const fontSize = 10;
+    const charW = fontSize * 0.62;
+    const padX = 12;
+    const maxTextW = DESIGN_W - 40 - 2 * padX; // cap so it never reaches the edges
+    const lines = wrapToWidth(msg, Math.floor(maxTextW / charW));
+    const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
+    const boxW = Math.min(maxTextW, longest * charW) + 2 * padX;
+    const lineH = fontSize + 4;
+    const boxH = lines.length * lineH + 14;
+    const boxX = DESIGN_W / 2 - boxW / 2;
+    const boxY = BENCH_Y - 22 - boxH;
+
     const bg = new PIXI.Graphics();
     bg.beginFill(C.bgToast, 0.92);
-    bg.drawRoundedRect(DESIGN_W / 2 - 90, BENCH_Y - 44, 180, 26, 5);
+    bg.lineStyle(1, C.textToast, 0.5);
+    bg.drawRoundedRect(boxX, boxY, boxW, boxH, 5);
     bg.endFill();
+    bg.lineStyle(0);
     bg.eventMode = "none";
     this.toastLayer.addChild(bg);
 
-    const t = new PIXI.Text(msg, { fontSize: 10, fill: C.textToast, fontFamily: "monospace" });
-    t.anchor.set(0.5, 0.5);
-    t.x = DESIGN_W / 2;
-    t.y = BENCH_Y - 31;
-    this.toastLayer.addChild(t);
+    lines.forEach((line, i) => {
+      const t = this.text(this.toastLayer, line, DESIGN_W / 2, boxY + 7 + i * lineH + lineH / 2, fontSize, C.textToast, [0.5, 0.5]);
+      t.eventMode = "none";
+    });
 
-    setTimeout(() => this.toastLayer.removeChildren(), 1800);
+    // Reduced-motion: no fade-in, render at full alpha immediately.
+    if (this.opts.settings.get().reducedMotion) {
+      this.toastLayer.alpha = 1;
+    } else {
+      this.toastLayer.alpha = 0;
+      const fadeIn = (ticker: PIXI.Ticker): void => {
+        this.toastLayer.alpha = Math.min(1, this.toastLayer.alpha + ticker.deltaMS / 150);
+        if (this.toastLayer.alpha >= 1) this.app.ticker.remove(fadeIn);
+      };
+      this.app.ticker.add(fadeIn);
+    }
+
+    this.toastTimer = setTimeout(() => this.clearToast(), TTL);
   }
+
+  private clearToast(): void {
+    if (this.toastTimer !== null) { clearTimeout(this.toastTimer); this.toastTimer = null; }
+    this.toastLayer.removeChildren();
+    this.toastLayer.alpha = 1;
+    this.toastMsg = null;
+  }
+}
+
+/** Greedy word-wrap to a max character width; returns the lines. */
+function wrapToWidth(str: string, perLine: number): string[] {
+  if (str.length <= perLine) return [str];
+  const words = str.split(" ");
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (next.length > perLine && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
 }

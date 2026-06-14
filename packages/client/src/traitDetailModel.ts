@@ -2,6 +2,7 @@
 // trait's breakpoints and the granted effect at each from traits.json, mark the
 // player's current count and which breakpoint is active.
 import type { GameData, TraitDataDef } from "@autobattler/data";
+import { formatStatDelta } from "./statFormat.js";
 
 export interface TraitDetailRow {
   count: number;
@@ -34,7 +35,7 @@ const STAT_LABEL: Record<string, string> = {
 /** Human-readable line for one breakpoint's stat effect. */
 export function breakpointEffect(effect: { stat: string; value: number }): string {
   const label = STAT_LABEL[effect.stat] ?? effect.stat;
-  return `+${effect.value} ${label}`;
+  return `${formatStatDelta(effect.stat, effect.value)} ${label}`;
 }
 
 /**
