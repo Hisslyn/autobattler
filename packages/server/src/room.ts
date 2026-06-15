@@ -1,6 +1,6 @@
 import { gameData } from "@autobattler/data";
 import { encode } from "@autobattler/protocol";
-import type { S2CMessage } from "@autobattler/protocol";
+import type { S2CMessage, MatchStats } from "@autobattler/protocol";
 import {
   createMatch,
   advancePhase,
@@ -236,7 +236,20 @@ async function finalizeMatch(room: Room): Promise<void> {
 
   const names: Record<number, string> = {};
   room.seatNames.forEach((n, i) => { names[i] = n; });
-  broadcastAll(room, { type: "MATCH_END", placements, mmr, names });
+
+  // Per-seat accumulated match stats (round W/L, total damage taken/dealt),
+  // read straight off final player state (not persisted; payload only).
+  const stats: Record<number, MatchStats> = {};
+  room.state.players.forEach((p, i) => {
+    stats[i] = {
+      roundWins: p.roundWins,
+      roundLosses: p.roundLosses,
+      totalDamageTaken: p.totalDamageTaken,
+      totalDamageDealt: p.totalDamageDealt,
+    };
+  });
+
+  broadcastAll(room, { type: "MATCH_END", placements, mmr, names, stats });
   clearRoomSeatTokens(room.id);
   rooms.delete(room.id);
 }
@@ -257,6 +270,15 @@ function startResolution(room: Room): void {
       const orbs = room.state.lastLootOrbs.get(i) ?? [];
       send(s, { type: "LOOT", round: room.state.round, orbs });
     }
+  }
+
+  // Each human gets ONLY its own round result (private, like loot) — sent before
+  // the phase change so the resolution screen can read it as it opens.
+  for (let i = 0; i < HUMAN_SEAT_COUNT; i++) {
+    const s = room.seats[i];
+    if (!s || s.afk) continue;
+    const result = room.state.lastRoundResult.get(i);
+    if (result) send(s, { type: "ROUND_RESULT", round: room.state.round, result });
   }
 
   broadcastAll(room, {

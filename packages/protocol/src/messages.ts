@@ -26,6 +26,7 @@ export type S2CType =
   | "COMBAT_START"
   | "COMBAT_RESULT"
   | "LOOT"
+  | "ROUND_RESULT"
   | "MATCH_END"
   | "ERROR"
   | "PONG";
@@ -39,6 +40,24 @@ export type LootRewardWire =
   | { kind: "component"; id: string }
   | { kind: "item"; id: string };
 export interface LootOrbWire { rarity: LootRarityWire; reward: LootRewardWire }
+
+// Per-round combat result, per seat (structurally mirrors rules' RoundResult).
+export const ROUND_RESULT_STATUSES = ["won", "lost", "bye", "pve"] as const;
+export type RoundResultStatusWire = (typeof ROUND_RESULT_STATUSES)[number];
+export interface RoundResultWire {
+  status: RoundResultStatusWire;
+  damageTaken: number;
+  damageDealt: number;
+}
+
+// Per-seat accumulated match stats (structurally mirrors rules' PlayerState
+// accumulators); carried on MATCH_END next to placements/mmr/names.
+export interface MatchStats {
+  roundWins: number;
+  roundLosses: number;
+  totalDamageTaken: number;
+  totalDamageDealt: number;
+}
 
 export interface S2C_QueueStatus { type: "QUEUE_STATUS"; position: number; size: number }
 export interface S2C_MatchFound { type: "MATCH_FOUND"; roomId: string; token: string; seatIndex: number }
@@ -54,6 +73,8 @@ export interface S2C_CombatStart {
 export interface S2C_CombatResult { type: "COMBAT_RESULT"; results: unknown }
 /** Private per-seat PvE loot for a round (already decided by rules; client only animates). */
 export interface S2C_Loot { type: "LOOT"; round: number; orbs: LootOrbWire[] }
+/** Private per-seat result for the just-finished round (resolution screen). */
+export interface S2C_RoundResult { type: "ROUND_RESULT"; round: number; result: RoundResultWire }
 export interface MmrChange { before: number; after: number }
 export interface S2C_MatchEnd {
   type: "MATCH_END";
@@ -62,6 +83,8 @@ export interface S2C_MatchEnd {
   mmr?: Record<number, MmrChange>;
   /** Public per-seat display name (humans + bots). */
   names?: Record<number, string>;
+  /** Per-seat accumulated match stats (round W/L, total damage taken/dealt). */
+  stats?: Record<number, MatchStats>;
 }
 export interface S2C_Error { type: "ERROR"; code: ErrorCode; message: string }
 export interface S2C_Pong { type: "PONG"; ts: number; serverTs: number }
@@ -75,6 +98,7 @@ export type S2CMessage =
   | S2C_CombatStart
   | S2C_CombatResult
   | S2C_Loot
+  | S2C_RoundResult
   | S2C_MatchEnd
   | S2C_Error
   | S2C_Pong;

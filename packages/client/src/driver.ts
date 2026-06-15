@@ -1,7 +1,8 @@
 import { gameData } from "@autobattler/data";
-import type { MatchState } from "@autobattler/rules/src/state.js";
+import type { MatchState, RoundResult } from "@autobattler/rules/src/state.js";
 import type { UnitInstance, CombatResult } from "@autobattler/sim/src/types.js";
 import type { LootOrb } from "@autobattler/rules/src/loot.js";
+import type { MatchStats } from "@autobattler/protocol";
 import { createMatch, advancePhase, isMatchOver } from "@autobattler/rules";
 import { applyCommand } from "@autobattler/rules/src/commands.js";
 import { applyAiCommands } from "@autobattler/rules/src/ai.js";
@@ -28,6 +29,10 @@ export interface IDriver {
   getPveStageName(): string | null;
   /** Loot orbs this seat earned this round (already decided by rules); empty when none. */
   getMyLootOrbs(): LootOrb[];
+  /** This seat's result for the just-finished round (resolution screen), or null. */
+  getMyRoundResult(): RoundResult | null;
+  /** Per-seat accumulated match stats (round W/L, total damage), or null until known. */
+  getMatchStats(): Record<number, MatchStats> | null;
   /**
    * Scene → driver: combat playback finished (or was skipped). LocalDriver
    * holds the RESOLUTION phase until this is called (capped); NetDriver is
@@ -50,7 +55,12 @@ const PLAYBACK_CAP_BUFFER_MS = 2_000;
 export type DriverEvent =
   | { type: "state"; state: MatchState }
   | { type: "phase_change"; phase: string; round: number }
-  | { type: "match_over"; placements: number[]; mmr?: Record<number, { before: number; after: number }> };
+  | {
+      type: "match_over";
+      placements: number[];
+      mmr?: Record<number, { before: number; after: number }>;
+      stats?: Record<number, MatchStats>;
+    };
 
 export class LocalDriver implements IDriver {
   readonly seatIndex = 0;
@@ -130,6 +140,23 @@ export class LocalDriver implements IDriver {
     return this.state.lastLootOrbs.get(HUMAN_PLAYER_ID) ?? [];
   }
 
+  getMyRoundResult(): RoundResult | null {
+    return this.state.lastRoundResult.get(HUMAN_PLAYER_ID) ?? null;
+  }
+
+  getMatchStats(): Record<number, MatchStats> | null {
+    const out: Record<number, MatchStats> = {};
+    for (const p of this.state.players) {
+      out[p.id] = {
+        roundWins: p.roundWins,
+        roundLosses: p.roundLosses,
+        totalDamageTaken: p.totalDamageTaken,
+        totalDamageDealt: p.totalDamageDealt,
+      };
+    }
+    return out;
+  }
+
   getPlanningTimeLeft(): number {
     if (this.state.phase !== "PLANNING") return 0;
     const elapsed = Date.now() - this.planningStartTime;
@@ -197,7 +224,8 @@ export class LocalDriver implements IDriver {
     }
 
     if (isMatchOver(this.state)) {
-      this.emit({ type: "match_over", placements: [...this.state.placements] });
+      const stats = this.getMatchStats();
+      this.emit({ type: "match_over", placements: [...this.state.placements], ...(stats ? { stats } : {}) });
       return;
     }
 
@@ -219,7 +247,8 @@ export class LocalDriver implements IDriver {
       this.resolutionTimerId = null;
     }
     if (isMatchOver(this.state)) {
-      this.emit({ type: "match_over", placements: [...this.state.placements] });
+      const stats = this.getMatchStats();
+      this.emit({ type: "match_over", placements: [...this.state.placements], ...(stats ? { stats } : {}) });
       return;
     }
     // RESOLUTION → PLANNING (income + shop refresh)

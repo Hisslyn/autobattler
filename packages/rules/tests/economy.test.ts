@@ -19,6 +19,10 @@ function makePlayer(overrides: Partial<PlayerState> = {}): PlayerState {
     alive: true,
     lastBoard: null,
     placement: null,
+    roundWins: 0,
+    roundLosses: 0,
+    totalDamageTaken: 0,
+    totalDamageDealt: 0,
     ...overrides,
   };
 }

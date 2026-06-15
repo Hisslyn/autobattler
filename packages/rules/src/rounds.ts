@@ -1,5 +1,5 @@
 import type { GameData, MobStageDef } from "@autobattler/data";
-import type { MatchState, PlayerState } from "./state.js";
+import type { MatchState, PlayerState, RoundResult } from "./state.js";
 import type { UnitInstance, BoardState, CombatResult } from "@autobattler/sim/src/types.js";
 import type { Prng } from "@autobattler/sim/src/prng.js";
 import { simulateCombat } from "@autobattler/sim";
@@ -247,6 +247,20 @@ function calcPlayerDamage(
   return econ.damageBase + Math.floor(round / econ.damageRoundDivisor) + unitDamage;
 }
 
+/** Records a round win for `player`: per-round result + match accumulators. */
+function recordRoundWin(state: MatchState, player: PlayerState, damageDealt: number): void {
+  player.roundWins++;
+  player.totalDamageDealt += damageDealt;
+  state.lastRoundResult.set(player.id, { status: "won", damageTaken: 0, damageDealt });
+}
+
+/** Records a round loss for `player`: per-round result + match accumulators. */
+function recordRoundLoss(state: MatchState, player: PlayerState, damageTaken: number): void {
+  player.roundLosses++;
+  player.totalDamageTaken += damageTaken;
+  state.lastRoundResult.set(player.id, { status: "lost", damageTaken, damageDealt: 0 });
+}
+
 /**
  * PvE round: every alive player fights the round's creep board (built once and
  * shared). Combat is deterministic per player from the round seed; PvE never
@@ -258,6 +272,7 @@ export function runPveRound(state: MatchState, prng: Prng, data: GameData): void
   state.lastCombatResults = new Map();
   state.lastOpponentBoards = new Map();
   state.lastLootOrbs = new Map();
+  state.lastRoundResult = new Map();
 
   const roundSeed = prng();
   const lootSeed = prng();
@@ -272,6 +287,9 @@ export function runPveRound(state: MatchState, prng: Prng, data: GameData): void
     const result = simulateCombat(boardA, mobBoard, derivePairingSeed(roundSeed, player.id), data);
     state.lastCombatResults.set(player.id, result);
     state.lastOpponentBoards.set(player.id, mobSnapshot);
+
+    // PvE never damages player HP or counts as a W/L: status 'pve', 0/0 damage.
+    state.lastRoundResult.set(player.id, { status: "pve", damageTaken: 0, damageDealt: 0 });
 
     player.gold += data.economy.pveBaseGold;
     const lootPrng = mulberry32(derivePairingSeed(lootSeed, player.id));
@@ -306,6 +324,14 @@ export function runCombatPhase(
   state.lastCombatResults = new Map();
   state.lastOpponentBoards = new Map();
   state.lastLootOrbs = new Map();
+  state.lastRoundResult = new Map();
+
+  // Default every alive player to a bye (0/0); each pairing below overwrites
+  // the actual won/lost result for the players it covers. A real-player B in a
+  // ghost fight is never paired this round, so it stays a bye.
+  for (const player of state.players.filter((p) => p.alive)) {
+    state.lastRoundResult.set(player.id, { status: "bye", damageTaken: 0, damageDealt: 0 });
+  }
 
   for (let pairingIndex = 0; pairingIndex < pairings.length; pairingIndex++) {
     const [aId, bId] = pairings[pairingIndex]!;
@@ -339,31 +365,39 @@ export function runCombatPhase(
     state.lastCombatResults.set(aId, result);
     if (!isGhost && bId >= 0) state.lastCombatResults.set(bId, result);
 
-    // Update win/lose streaks and apply damage
+    // Update win/lose streaks and apply damage. damageDealt is attributed to the
+    // winner using the SAME survivor term used to damage the loser's HP.
     if (result.winner === 0) {
       // Player A wins
       playerA.winStreak++;
       playerA.loseStreak = 0;
+      const survivorsA = result.survivingUnits.filter((u) => u.team === 0);
+      const dmg = calcPlayerDamage(survivorsA, state.round, data);
+      recordRoundWin(state, playerA, dmg);
       if (!isGhost) {
         const playerB = state.players[bId]!;
         playerB.loseStreak++;
         playerB.winStreak = 0;
-        const survivorsA = result.survivingUnits.filter((u) => u.team === 0);
-        playerB.hp -= calcPlayerDamage(survivorsA, state.round, data);
+        playerB.hp -= dmg;
+        recordRoundLoss(state, playerB, dmg);
       }
     } else if (result.winner === 1) {
       // Player B wins (or ghost wins)
       playerA.loseStreak++;
       playerA.winStreak = 0;
       const survivorsB = result.survivingUnits.filter((u) => u.team === 1);
-      playerA.hp -= calcPlayerDamage(survivorsB, state.round, data);
+      const dmg = calcPlayerDamage(survivorsB, state.round, data);
+      playerA.hp -= dmg;
+      recordRoundLoss(state, playerA, dmg);
       if (!isGhost) {
         const playerB = state.players[bId]!;
         playerB.winStreak++;
         playerB.loseStreak = 0;
+        recordRoundWin(state, playerB, dmg);
       }
     } else {
-      // Draw: no HP change, no streak change
+      // Draw: no HP change, no streak change. Both keep the bye-equivalent 0/0
+      // round result (no W/L credited).
     }
 
     // Save board snapshots (dense, positions preserved)

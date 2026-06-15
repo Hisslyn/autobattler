@@ -1,6 +1,7 @@
 import { gameData } from "@autobattler/data";
-import type { MatchState } from "@autobattler/rules/src/state.js";
+import type { MatchState, RoundResult } from "@autobattler/rules/src/state.js";
 import type { LootOrb } from "@autobattler/rules/src/loot.js";
+import type { MatchStats } from "@autobattler/protocol";
 import type { UnitInstance, CombatResult } from "@autobattler/sim/src/types.js";
 import { simulateCombat } from "@autobattler/sim";
 import { applyCommand } from "@autobattler/rules/src/commands.js";
@@ -19,6 +20,8 @@ export class NetDriver implements IDriver {
   private _clockOffset = 0;
   private listeners: Array<(e: DriverEvent) => void> = [];
   private mySeat = -1;
+  private _myRoundResult: RoundResult | null = null;
+  private _matchStats: Record<number, MatchStats> | null = null;
 
   constructor(url: string, authToken?: string) {
     this.net = new NetClient(url);
@@ -99,6 +102,7 @@ export class NetDriver implements IDriver {
           if (!this._state) break;
           this._state.lastPairings = e.pairings;
           this._state.lastLootOrbs.clear(); // fresh each round; LOOT (PvE) repopulates at resolution
+          this._myRoundResult = null;       // fresh each round; ROUND_RESULT repopulates at resolution
           this._myPairing = null;
           this._myOpponentBoard = null;
           this._myCombatResult = null;
@@ -155,6 +159,12 @@ export class NetDriver implements IDriver {
           if (this._state) this._state.lastLootOrbs.set(this.mySeat, e.orbs as LootOrb[]);
           break;
 
+        case "ROUND_RESULT":
+          // Private per-seat round outcome + damage; the resolution screen reads it.
+          this._myRoundResult = e.result as RoundResult;
+          if (this._state) this._state.lastRoundResult.set(this.mySeat, e.result as RoundResult);
+          break;
+
         case "MATCH_END":
           // Names are public; merge onto state players so the match-over overlay
           // resolves real names rather than "Player N".
@@ -164,7 +174,13 @@ export class NetDriver implements IDriver {
               if (p) p.name = name;
             }
           }
-          this.emit({ type: "match_over", placements: e.placements, ...(e.mmr ? { mmr: e.mmr } : {}) });
+          if (e.stats) this._matchStats = e.stats;
+          this.emit({
+            type: "match_over",
+            placements: e.placements,
+            ...(e.mmr ? { mmr: e.mmr } : {}),
+            ...(e.stats ? { stats: e.stats } : {}),
+          });
           break;
 
         case "PONG":
@@ -204,6 +220,7 @@ export class NetDriver implements IDriver {
         lastCombatResults: new Map(),
         lastOpponentBoards: new Map(),
         lastLootOrbs: new Map(),
+        lastRoundResult: new Map(),
       };
     }
     return this._state;
@@ -257,6 +274,16 @@ export class NetDriver implements IDriver {
     return this._state?.lastLootOrbs.get(this.mySeat) ?? [];
   }
 
+  getMyRoundResult(): RoundResult | null {
+    // Populated from the private per-seat ROUND_RESULT message at resolution.
+    return this._myRoundResult;
+  }
+
+  getMatchStats(): Record<number, MatchStats> | null {
+    // Carried on MATCH_END; null until the match ends.
+    return this._matchStats;
+  }
+
   combatPlaybackDone(): void {
     // Server paces phases; playback completion is purely visual here
   }
@@ -308,6 +335,7 @@ export class NetDriver implements IDriver {
       lastCombatResults: new Map(),
       lastOpponentBoards: new Map(),
       lastLootOrbs: new Map(),
+      lastRoundResult: new Map(),
     };
   }
 

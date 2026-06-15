@@ -21,6 +21,21 @@ export interface PlayerState {
   alive: boolean;
   lastBoard: BoardState | null;
   placement: number | null;
+  // Accumulated match stats (combat rounds only; bye/PvE don't count as W/L).
+  roundWins: number;
+  roundLosses: number;
+  totalDamageTaken: number; // total HP lost to combat across the match
+  totalDamageDealt: number; // total HP this player's board took off opponents
+}
+
+/** Outcome of one round from a player's perspective. */
+export type RoundResultStatus = "won" | "lost" | "bye" | "pve";
+
+/** Per-player result for the just-finished round (for the resolution screen). */
+export interface RoundResult {
+  status: RoundResultStatus;
+  damageTaken: number; // HP lost this round (0 on win/bye/pve)
+  damageDealt: number; // HP the opponent lost from this player's board (win only)
 }
 
 export type Phase = "PLANNING" | "COMBAT" | "RESOLUTION";
@@ -39,4 +54,5 @@ export interface MatchState {
   lastCombatResults: Map<number, CombatResult>; // keyed by player id (both sides of each pairing)
   lastOpponentBoards: Map<number, (UnitInstance | null)[]>; // keyed by player id → opponent's board at combat start
   lastLootOrbs: Map<number, LootOrb[]>; // keyed by player id → orbs awarded this round (PvE; empty otherwise) — already-decided, the client only animates the reveal
+  lastRoundResult: Map<number, RoundResult>; // keyed by player id → this round's outcome + damage (for the resolution screen)
 }

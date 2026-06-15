@@ -1,5 +1,5 @@
-import type { C2SMessage, S2CMessage, LootOrbWire } from "./messages.js";
-import { LOOT_RARITIES } from "./messages.js";
+import type { C2SMessage, S2CMessage, LootOrbWire, RoundResultWire, MatchStats } from "./messages.js";
+import { LOOT_RARITIES, ROUND_RESULT_STATUSES } from "./messages.js";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -38,6 +38,34 @@ export function validateLootOrbs(value: unknown): LootOrbWire[] | null {
     }
   }
   return value as LootOrbWire[];
+}
+
+/** Validates a per-seat round result (status enum + numeric damage fields). */
+export function validateRoundResult(value: unknown): RoundResultWire | null {
+  if (typeof value !== "object" || value === null) return null;
+  const r = value as Record<string, unknown>;
+  if (!ROUND_RESULT_STATUSES.includes(r["status"] as never)) return null;
+  if (typeof r["damageTaken"] !== "number") return null;
+  if (typeof r["damageDealt"] !== "number") return null;
+  return value as RoundResultWire;
+}
+
+/** Validates a seat→match-stats map (all numeric accumulator fields). */
+export function validateMatchStatsMap(value: unknown): Record<number, MatchStats> | null {
+  if (typeof value !== "object" || value === null) return null;
+  for (const v of Object.values(value as Record<string, unknown>)) {
+    if (typeof v !== "object" || v === null) return null;
+    const s = v as Record<string, unknown>;
+    if (
+      typeof s["roundWins"] !== "number" ||
+      typeof s["roundLosses"] !== "number" ||
+      typeof s["totalDamageTaken"] !== "number" ||
+      typeof s["totalDamageDealt"] !== "number"
+    ) {
+      return null;
+    }
+  }
+  return value as Record<number, MatchStats>;
 }
 
 export interface Envelope {
@@ -81,9 +109,11 @@ export function decodeS2C(raw: string): S2CMessage | null {
   if (typeof env.p !== "object" || env.p === null) return null;
   const p = env.p as Record<string, unknown>;
   if (typeof p["type"] !== "string") return null;
-  // Field-level validation for the payloads carrying loot / names.
+  // Field-level validation for the payloads carrying loot / names / stats.
   if (p["type"] === "LOOT" && validateLootOrbs(p["orbs"]) === null) return null;
+  if (p["type"] === "ROUND_RESULT" && validateRoundResult(p["result"]) === null) return null;
   if (p["type"] === "MATCH_END" && p["names"] !== undefined && validateNameMap(p["names"]) === null) return null;
+  if (p["type"] === "MATCH_END" && p["stats"] !== undefined && validateMatchStatsMap(p["stats"]) === null) return null;
   return p as unknown as S2CMessage;
 }
 

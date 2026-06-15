@@ -1,6 +1,7 @@
 import * as PIXI from "pixi.js";
 import { gameData } from "@autobattler/data";
 import type { MatchState, PlayerState } from "@autobattler/rules/src/state.js";
+import type { MatchStats } from "@autobattler/protocol";
 import type { UnitInstance, CombatEvent } from "@autobattler/sim/src/types.js";
 import type { HexCoord } from "@autobattler/sim/src/hex.js";
 import type { IDriver } from "../driver.js";
@@ -224,7 +225,7 @@ export class MatchScene {
         if (e.phase === "COMBAT") this.onCombatPhase();
         if (e.phase === "RESOLUTION") this.onResolutionPhase();
       }
-      if (e.type === "match_over") this.onMatchOver(e.placements, e.mmr);
+      if (e.type === "match_over") this.onMatchOver(e.placements, e.mmr, e.stats);
     });
 
     // A drop-in PNG finishing its lazy load: repaint the static planning board
@@ -2202,6 +2203,35 @@ export class MatchScene {
     hpText.y = modal.y + 68;
     this.combatLayer.addChild(hpText);
 
+    // Round damage detail (real numbers decided by rules; we only display them).
+    // PvE/bye take no HP damage; a win shows damage dealt.
+    const rr = this.driver.getMyRoundResult();
+    if (rr) {
+      let detail: string;
+      let detailColor: number;
+      if (rr.status === "pve") {
+        detail = "PvE — no damage taken";
+        detailColor = C.textMuted;
+      } else if (rr.status === "bye") {
+        detail = "Bye — no combat";
+        detailColor = C.textMuted;
+      } else if (rr.status === "won") {
+        detail = rr.damageDealt > 0 ? `Dealt ${rr.damageDealt} damage` : "No damage dealt";
+        detailColor = C.textGoodHP;
+      } else {
+        detail = `−${rr.damageTaken} HP`;
+        detailColor = C.textBadHP;
+      }
+      const detailText = new PIXI.Text(detail, {
+        fontSize: 12, fill: detailColor, fontFamily: "monospace",
+      });
+      detailText.eventMode = "none";
+      detailText.anchor.set(0.5, 0);
+      detailText.x = cx;
+      detailText.y = modal.y + 86;
+      this.combatLayer.addChild(detailText);
+    }
+
     // Continue button + countdown pinned to the modal's bottom edge.
     const btnW = Math.min(200, modal.w - 24), btnH = 44;
     const btnX = cx - btnW / 2, btnY = modal.y + modal.h - btnH - 14;
@@ -2443,7 +2473,11 @@ export class MatchScene {
     }
   }
 
-  private onMatchOver(placements: number[], mmr?: Record<number, { before: number; after: number }>): void {
+  private onMatchOver(
+    placements: number[],
+    mmr?: Record<number, { before: number; after: number }>,
+    stats?: Record<number, MatchStats>
+  ): void {
     this.teardownPlayback();
     this.clearResolutionTimer();
     this.clearLootReveal();
@@ -2477,9 +2511,12 @@ export class MatchScene {
     const rowsH = placements.length * rowH;
     const myMmr = mmr?.[seat];
     const mmrH = myMmr ? (land ? 22 : 30) : 8;
+    // Personal match summary (W–L record + total damage), decided by rules.
+    const myStats = stats?.[seat];
+    const statsH = myStats ? (land ? 30 : 40) : 0;
     const btnH = land ? 36 : 44;
     const btnGap = land ? 10 : 18;
-    const contentH = headerH + rowsH + mmrH + btnGap + btnH + 20;
+    const contentH = headerH + rowsH + mmrH + statsH + btnGap + btnH + 20;
     // centeredModal clamps the panel into the safe design area.
     const modal = centeredModal(this.layout, designW - 56, contentH);
     const panelX = modal.x, panelY = modal.y, panelW = modal.w, panelH = modal.h;
@@ -2521,6 +2558,22 @@ export class MatchScene {
         this.combatLayer,
         `MMR ${myMmr.after} (${delta >= 0 ? "+" : ""}${delta})`,
         cx, rowsTop + rowsH + 6, 12, delta >= 0 ? C.textReady : C.textBadHP, [0.5, 0]
+      );
+    }
+
+    // Personal match summary band: W–L record + total damage taken/dealt.
+    // Numbers come straight from rules; the renderer only displays them.
+    if (myStats) {
+      const summaryTop = rowsTop + rowsH + mmrH;
+      this.text(
+        this.combatLayer,
+        `Record ${myStats.roundWins}–${myStats.roundLosses}`,
+        cx, summaryTop, 12, C.textPrimary, [0.5, 0]
+      );
+      this.text(
+        this.combatLayer,
+        `Dealt ${myStats.totalDamageDealt}  ·  Taken ${myStats.totalDamageTaken}`,
+        cx, summaryTop + (land ? 14 : 18), 11, C.textMuted, [0.5, 0]
       );
     }
 

@@ -27,6 +27,10 @@ export function createMatch(seed: number, data: GameData): MatchState {
       alive: true,
       lastBoard: null,
       placement: null,
+      roundWins: 0,
+      roundLosses: 0,
+      totalDamageTaken: 0,
+      totalDamageDealt: 0,
     });
   }
 
@@ -44,6 +48,7 @@ export function createMatch(seed: number, data: GameData): MatchState {
     lastCombatResults: new Map(),
     lastOpponentBoards: new Map(),
     lastLootOrbs: new Map(),
+    lastRoundResult: new Map(),
   };
 
   // Roll initial shops

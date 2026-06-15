@@ -6,10 +6,12 @@ import {
   validateC2S,
   validateLootOrbs,
   validateNameMap,
+  validateRoundResult,
+  validateMatchStatsMap,
   isValidName,
   PROTOCOL_VERSION,
 } from "../src/index.js";
-import type { S2C_Loot, S2C_MatchEnd } from "../src/index.js";
+import type { S2C_Loot, S2C_MatchEnd, S2C_RoundResult } from "../src/index.js";
 
 describe("encode/decodeS2C round-trip", () => {
   it("PONG", () => {
@@ -54,6 +56,29 @@ describe("encode/decodeS2C round-trip", () => {
     };
     expect(decodeS2C(encode(msg))).toEqual(msg);
   });
+
+  it("ROUND_RESULT (per-seat round outcome)", () => {
+    for (const status of ["won", "lost", "bye", "pve"] as const) {
+      const msg: S2C_RoundResult = {
+        type: "ROUND_RESULT",
+        round: 3,
+        result: { status, damageTaken: status === "lost" ? 7 : 0, damageDealt: status === "won" ? 7 : 0 },
+      };
+      expect(decodeS2C(encode(msg))).toEqual(msg);
+    }
+  });
+
+  it("MATCH_END with stats", () => {
+    const msg: S2C_MatchEnd = {
+      type: "MATCH_END",
+      placements: [0, 1],
+      stats: {
+        0: { roundWins: 5, roundLosses: 2, totalDamageTaken: 30, totalDamageDealt: 80 },
+        1: { roundWins: 2, roundLosses: 5, totalDamageTaken: 80, totalDamageDealt: 30 },
+      },
+    };
+    expect(decodeS2C(encode(msg))).toEqual(msg);
+  });
 });
 
 describe("S2C field validation (reject malformed)", () => {
@@ -67,6 +92,36 @@ describe("S2C field validation (reject malformed)", () => {
   it("decodeS2C rejects MATCH_END with malformed names", () => {
     const bad = JSON.stringify({ v: PROTOCOL_VERSION, t: "MATCH_END", p: { type: "MATCH_END", placements: [0], names: { 0: 42 } } });
     expect(decodeS2C(bad)).toBeNull();
+  });
+
+  it("decodeS2C rejects MATCH_END with malformed stats", () => {
+    const bad = JSON.stringify({ v: PROTOCOL_VERSION, t: "MATCH_END", p: { type: "MATCH_END", placements: [0], stats: { 0: { roundWins: 1 } } } });
+    expect(decodeS2C(bad)).toBeNull();
+  });
+
+  it("decodeS2C rejects ROUND_RESULT with a bad status or missing damage", () => {
+    const badStatus = JSON.stringify({ v: PROTOCOL_VERSION, t: "ROUND_RESULT", p: { type: "ROUND_RESULT", round: 1, result: { status: "tied", damageTaken: 0, damageDealt: 0 } } });
+    expect(decodeS2C(badStatus)).toBeNull();
+    const missingDmg = JSON.stringify({ v: PROTOCOL_VERSION, t: "ROUND_RESULT", p: { type: "ROUND_RESULT", round: 1, result: { status: "won", damageDealt: 0 } } });
+    expect(decodeS2C(missingDmg)).toBeNull();
+  });
+
+  it("validateRoundResult accepts well-formed, rejects malformed", () => {
+    expect(validateRoundResult({ status: "won", damageTaken: 0, damageDealt: 5 })).not.toBeNull();
+    expect(validateRoundResult({ status: "pve", damageTaken: 0, damageDealt: 0 })).not.toBeNull();
+    expect(validateRoundResult({ status: "bogus", damageTaken: 0, damageDealt: 0 })).toBeNull();
+    expect(validateRoundResult({ status: "won", damageDealt: 0 })).toBeNull();
+    expect(validateRoundResult("x")).toBeNull();
+    expect(validateRoundResult(null)).toBeNull();
+  });
+
+  it("validateMatchStatsMap accepts well-formed, rejects malformed", () => {
+    expect(validateMatchStatsMap({ 0: { roundWins: 1, roundLosses: 2, totalDamageTaken: 3, totalDamageDealt: 4 } })).not.toBeNull();
+    expect(validateMatchStatsMap({})).not.toBeNull();
+    expect(validateMatchStatsMap({ 0: { roundWins: 1 } })).toBeNull();
+    expect(validateMatchStatsMap({ 0: { roundWins: "x", roundLosses: 2, totalDamageTaken: 3, totalDamageDealt: 4 } })).toBeNull();
+    expect(validateMatchStatsMap("x")).toBeNull();
+    expect(validateMatchStatsMap(null)).toBeNull();
   });
 
   it("validateLootOrbs accepts well-formed, rejects malformed", () => {

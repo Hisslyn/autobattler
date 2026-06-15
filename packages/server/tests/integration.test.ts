@@ -179,7 +179,9 @@ describe("integration: PvE loot + player names", () => {
     type Found = { type: "MATCH_FOUND"; seatIndex: number };
     type Snap = { type: "STATE_SNAPSHOT"; state: { players: { id: number; name: string }[] } };
     type Loot = { type: "LOOT"; round: number; orbs: { rarity: string; reward: { kind: string } }[] };
-    type End = { type: "MATCH_END"; placements: number[]; names?: Record<number, string> };
+    type Round = { type: "ROUND_RESULT"; round: number; result: { status: string; damageTaken: number; damageDealt: number } };
+    type Stats = { roundWins: number; roundLosses: number; totalDamageTaken: number; totalDamageDealt: number };
+    type End = { type: "MATCH_END"; placements: number[]; names?: Record<number, string>; stats?: Record<number, Stats> };
 
     const seat1 = (msgs1.find((m) => m.type === "MATCH_FOUND") as Found).seatIndex;
     const seat2 = (msgs2.find((m) => m.type === "MATCH_FOUND") as Found).seatIndex;
@@ -187,6 +189,8 @@ describe("integration: PvE loot + player names", () => {
     const snap2 = msgs2.find((m) => m.type === "STATE_SNAPSHOT") as Snap;
     const loot1 = msgs1.filter((m) => m.type === "LOOT") as Loot[];
     const loot2 = msgs2.filter((m) => m.type === "LOOT") as Loot[];
+    const rr1 = msgs1.filter((m) => m.type === "ROUND_RESULT") as Round[];
+    const rr2 = msgs2.filter((m) => m.type === "ROUND_RESULT") as Round[];
     const end1 = msgs1.find((m) => m.type === "MATCH_END") as End;
     const end2 = msgs2.find((m) => m.type === "MATCH_END") as End;
 
@@ -211,12 +215,41 @@ describe("integration: PvE loot + player names", () => {
     expect(r1b[0]!.orbs).toHaveLength(2);
     expect(r1a[0]!.orbs.every((o) => ["gold", "component", "item"].includes(o.reward.kind))).toBe(true);
 
+    // Each human gets its own private ROUND_RESULT every round (like loot).
+    // Round 1 is PvE → status "pve" with 0/0 damage; combat rounds are won|lost|bye.
+    expect(rr1.length).toBeGreaterThan(0);
+    expect(rr2.length).toBeGreaterThan(0);
+    const r1res1 = rr1.find((m) => m.round === 1);
+    expect(r1res1, "client 1 received a round-1 result").toBeDefined();
+    expect(r1res1!.result.status).toBe("pve");
+    expect(r1res1!.result.damageTaken).toBe(0);
+    expect(r1res1!.result.damageDealt).toBe(0);
+    for (const m of [...rr1, ...rr2]) {
+      expect(["won", "lost", "bye", "pve"]).toContain(m.result.status);
+      // A loss is the only outcome with HP damage; a win is the only one dealing it.
+      if (m.result.status !== "lost") expect(m.result.damageTaken).toBe(0);
+      if (m.result.status !== "won") expect(m.result.damageDealt).toBe(0);
+    }
+
     // MATCH_END carries public names (humans + bots).
     expect(end1.names).toBeDefined();
     expect(end2.names).toBeDefined();
     expect(end1.names![seat1]).toBe("Alice");
     expect(end1.names![seat2]).toBe("Bob");
     expect(Object.values(end1.names!).filter((n) => n.startsWith("Bot "))).toHaveLength(6);
+
+    // MATCH_END carries per-seat accumulated match stats for all 8 seats.
+    expect(end1.stats).toBeDefined();
+    expect(end2.stats).toBeDefined();
+    expect(Object.keys(end1.stats!)).toHaveLength(8);
+    for (const s of Object.values(end1.stats!)) {
+      expect(typeof s.roundWins).toBe("number");
+      expect(typeof s.roundLosses).toBe("number");
+      expect(typeof s.totalDamageTaken).toBe("number");
+      expect(typeof s.totalDamageDealt).toBe("number");
+      expect(s.roundWins).toBeGreaterThanOrEqual(0);
+      expect(s.roundLosses).toBeGreaterThanOrEqual(0);
+    }
   }, 70_000);
 });
 
