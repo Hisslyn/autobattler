@@ -127,7 +127,11 @@ async function main(): Promise<void> {
     scene = new MatchScene(app, driver, { settings, audio, onLeave: leaveMatch, layout: activeLayout });
     app.stage.addChild(scene.container);
     ui.enterMatch(leaveMatch);
-    if (mode === "local") ui.maybeShowCoachmarks();
+    if (mode === "local") {
+      // Supply the LIVE portrait design height so coachmark rings track the
+      // height-driven layout (portraitDesignH), not a hardcoded 844.
+      ui.maybeShowCoachmarks(() => activeLayout.portraitDesignH ?? activeLayout.designH);
+    }
   }
 
   ui.mount(wrapper);

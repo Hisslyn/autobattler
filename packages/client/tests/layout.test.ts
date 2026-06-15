@@ -6,6 +6,7 @@ import {
   landscapeBenchSlotAt,
   planningRegionAt,
   opponentRailTile,
+  portraitRegions,
   LANDSCAPE_THRESHOLD,
   PORTRAIT_W, PORTRAIT_H,
   LANDSCAPE_W, LANDSCAPE_H,
@@ -15,16 +16,6 @@ import type { Rect, MatchLayout } from "../src/layout.js";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** True if rect A and rect B overlap (axis-aligned, exclusive right/bottom edge). */
-function overlaps(a: Rect, b: Rect): boolean {
-  return (
-    a.x < b.x + b.w &&
-    a.x + a.w > b.x &&
-    a.y < b.y + b.h &&
-    a.y + b.h > b.y  // intentional: rect b's height from b.y
-  );
-}
-
-// Corrected overlap check using standard AABB test.
 function rectsOverlap(a: Rect, b: Rect): boolean {
   return (
     a.x < b.x + b.w &&
@@ -369,6 +360,126 @@ describe("portrait regions", () => {
   it("portrait item bar is two rows tall and inside the design bounds", () => {
     expect(regions.itemBar.h).toBe(68);
     expect(regions.itemBar.y + regions.itemBar.h).toBeLessThanOrEqual(designH);
+  });
+});
+
+// ── Portrait height-driven layout ─────────────────────────────────────────────
+
+describe("portrait height-driven layout", () => {
+  const heights = [606, 640, 736, 844, 926];
+
+  /** The portrait stack in render order. */
+  function portraitStack(layout: MatchLayout): Rect[] {
+    const r = layout.regions;
+    return [
+      r.statusRow,
+      r.opponentRail,
+      r.board,
+      r.traitRail,
+      r.hud,
+      r.bench,
+      r.shop,
+      r.readyButton,
+      r.itemBar,
+    ];
+  }
+
+  for (const usableH of heights) {
+    it(`design height tracks the usable viewport height (usableH=${usableH})`, () => {
+      const layout = resolveLayout({ viewportW: 390, viewportH: usableH });
+      expect(layout.orientation).toBe("portrait");
+      expect(layout.designH).toBe(usableH);
+      expect(layout.portraitDesignH).toBe(usableH);
+      // Width-only scale: canvas fills usable height exactly.
+      expect(layout.scale).toBeCloseTo(390 / PORTRAIT_W, 6);
+    });
+
+    it(`regions are pairwise non-overlapping at usableH=${usableH}`, () => {
+      const layout = resolveLayout({ viewportW: 390, viewportH: usableH });
+      for (const [a, b] of pairs(portraitStack(layout))) {
+        expect(rectsOverlap(a, b)).toBe(false);
+      }
+    });
+
+    it(`stacked regions keep a non-negative gap (no overlap) at usableH=${usableH}`, () => {
+      const layout = resolveLayout({ viewportW: 390, viewportH: usableH });
+      const stack = portraitStack(layout);
+      for (let i = 1; i < stack.length; i++) {
+        const prev = stack[i - 1]!;
+        const curr = stack[i]!;
+        expect(curr.y).toBeGreaterThanOrEqual(prev.y + prev.h);
+      }
+    });
+
+    it(`all regions bottom edge ≤ designH at usableH=${usableH}`, () => {
+      const layout = resolveLayout({ viewportW: 390, viewportH: usableH });
+      const r = layout.regions;
+      for (const rect of Object.values(r)) {
+        expect(rect.y + rect.h).toBeLessThanOrEqual(layout.designH + 1);
+      }
+    });
+
+    it(`interactive regions meet minimums at usableH=${usableH}`, () => {
+      const layout = resolveLayout({ viewportW: 390, viewportH: usableH });
+      const r = layout.regions;
+      expect(r.readyButton.h).toBeGreaterThanOrEqual(44);
+      expect(r.bench.h).toBeGreaterThanOrEqual(32);
+      expect(r.shop.h).toBeGreaterThanOrEqual(64);
+      expect(r.hud.h).toBeGreaterThanOrEqual(32);
+      expect(r.itemBar.h).toBeGreaterThanOrEqual(44);
+      expect(r.board.h).toBeGreaterThanOrEqual(280);
+      expect(r.board.w).toBeGreaterThanOrEqual(336); // hex grid must fit
+    });
+
+    it(`sell control sits beside the bench at usableH=${usableH}`, () => {
+      const layout = resolveLayout({ viewportW: 390, viewportH: usableH });
+      const r = layout.regions;
+      expect(r.bench.x).toBe(8);
+      expect(r.bench.w).toBe(324);
+      expect(r.sellControl.x).toBe(338);
+      expect(r.sellControl.w).toBe(44);
+      // Sell control tracks the bench row exactly.
+      expect(r.sellControl.y).toBe(r.bench.y);
+      expect(r.sellControl.h).toBe(r.bench.h);
+    });
+  }
+
+  it("top band is fixed regardless of height", () => {
+    for (const usableH of heights) {
+      const r = resolveLayout({ viewportW: 390, viewportH: usableH }).regions;
+      expect(r.statusRow.y).toBe(4);
+      expect(r.statusRow.h).toBe(24);
+      expect(r.opponentRail.y).toBe(28);
+      expect(r.opponentRail.h).toBe(30);
+      expect(r.board.y).toBe(58);
+    }
+  });
+
+  it("board height scales between its minimum and design max", () => {
+    const short = resolveLayout({ viewportW: 390, viewportH: 606 }).regions.board.h;
+    const tall = resolveLayout({ viewportW: 390, viewportH: 844 }).regions.board.h;
+    expect(short).toBe(280);
+    expect(tall).toBe(360);
+  });
+
+  it("portrait at design height 844 produces the prior hardcoded board position", () => {
+    const r = resolveLayout({ viewportW: 390, viewportH: 844 }).regions;
+    expect(r.board.x).toBe(8);
+    expect(r.board.y).toBe(58);
+    expect(r.board.w).toBe(374);
+    expect(r.board.h).toBeGreaterThanOrEqual(359); // 360 ±1 rounding
+    expect(r.shop.h).toBeGreaterThanOrEqual(83);   // 84 ±1
+    expect(r.itemBar.h).toBeGreaterThanOrEqual(67); // 68 ±1
+  });
+
+  it("portraitRegions(844) matches full resolveLayout output", () => {
+    const direct = portraitRegions(844);
+    const viaResolve = resolveLayout({ viewportW: 390, viewportH: 844 }).regions;
+    expect(direct.board.y).toBe(viaResolve.board.y);
+    expect(direct.shop.y).toBe(viaResolve.shop.y);
+    expect(direct.itemBar.y).toBe(viaResolve.itemBar.y);
+    expect(direct.board.h).toBe(viaResolve.board.h);
+    expect(direct.itemBar.h).toBe(viaResolve.itemBar.h);
   });
 });
 

@@ -89,6 +89,8 @@ export interface MatchLayout {
   canvasOffsetY: number;
   /** Named rects, all in design space (multiply by scale for CSS pixels). */
   regions: MatchRegions;
+  /** Portrait only: actual design height used (= usable viewport height). */
+  portraitDesignH?: number;
 }
 
 export interface ResolveLayoutInput {
@@ -99,72 +101,178 @@ export interface ResolveLayoutInput {
 }
 
 // ── Portrait layout ──────────────────────────────────────────────────────────
-// Faithfully encodes the existing match.ts constant positions so the portrait
-// path is a drop-in replacement that returns rects matching the current layout.
+// Height-driven: the portrait design height equals the usable viewport height
+// (viewport minus safe insets), the scale comes from width alone, and the lower
+// region stack is budgeted with per-region minimums + surplus distribution so
+// the 844px design case stays visually equivalent to the prior hardcoded values
+// while shorter viewports fit the stack without globally shrinking.
+//
+// See PORTRAIT_LAYOUT_SPEC.md for the full algorithm.
+
+// Static (never-scaled) top band heights.
+const P_STATUS_Y = 4;
+const P_STATUS_H = 24;
+const P_RAIL_H   = 30;
+const P_STATIC_H = P_STATUS_H + P_RAIL_H; // 54 (status margin + rail), board starts at 58
+const P_BOARD_Y  = P_STATUS_Y + P_STATUS_H + P_RAIL_H; // 58
+
+// Region minimum / design (max) heights.
+const P_BOARD_MIN = 280;
+const P_BOARD_MAX = 360;
+const P_BOARD_FRAC = 360 / 844; // ≈ 0.4265
+
+const P_TRAIT_MIN = 32;
+const P_TRAIT_MAX = 44;
+const P_TRAIT_FRAC = 0.145;
+
+const P_HUD_MIN = 32,   P_HUD_MAX = 38;
+const P_BENCH_MIN = 32, P_BENCH_MAX = 36;
+const P_SHOP_MIN = 72,  P_SHOP_MAX = 84,  P_SHOP_MIN_FLOOR = 64;
+const P_READY_H = 44;   // fixed touch target — never inflated, never compressed
+const P_ITEM_MIN = 52,  P_ITEM_MAX = 68,  P_ITEM_MIN_FLOOR = 44;
+
+const P_GAP_MAX = 8;
+const P_GAP_MIN = 4;
+const P_GAP_FLOOR = 3;
+const P_GAP_COUNT = 8;
+
+// Below this usable height the floor minimums for shop/itemBar/gap kick in.
+const P_FLOOR_THRESHOLD = 680;
+
+const P_MARGIN = 8;     // board / bench side margin
+const P_COL_X  = 9;     // trait/hud/shop/ready/item column inset
+
+/**
+ * Pure budget algorithm: given the usable design height, returns the portrait
+ * region rects. Unit-testable without viewport / scale logic.
+ */
+export function portraitRegions(designH: number): MatchRegions {
+  const dW = PORTRAIT_W;
+  const dH = Math.max(1, Math.round(designH));
+
+  const lowFloor = dH < P_FLOOR_THRESHOLD;
+  const shopMin = lowFloor ? P_SHOP_MIN_FLOOR : P_SHOP_MIN;
+  const itemMin = lowFloor ? P_ITEM_MIN_FLOOR : P_ITEM_MIN;
+
+  // Board claims a fraction of the height available below the static top band.
+  const availableH = dH - P_STATIC_H;
+  let boardH = clamp(P_BOARD_MIN, Math.round(availableH * P_BOARD_FRAC), P_BOARD_MAX);
+
+  // Fixed lower regions at their minimums.
+  const fixedSum = P_HUD_MIN + P_BENCH_MIN + shopMin + P_READY_H + itemMin;
+
+  // Height left for trait rail + fixed lower regions + the 8 inter-region gaps.
+  let remaining = availableH - boardH;
+
+  // Target trait rail as a fraction of the leftover, then solve the gap.
+  const traitTarget = clamp(P_TRAIT_MIN, Math.round(remaining * P_TRAIT_FRAC), P_TRAIT_MAX);
+  const gapRaw = (remaining - traitTarget - fixedSum) / P_GAP_COUNT;
+  const gapMin = lowFloor ? P_GAP_FLOOR : P_GAP_MIN;
+  let gap = clamp(gapMin, Math.round(gapRaw), P_GAP_MAX);
+
+  // Trait rail absorbs whatever the gap clamp left over.
+  let traitH = clamp(P_TRAIT_MIN, remaining - fixedSum - P_GAP_COUNT * gap, P_TRAIT_MAX);
+
+  // Region heights start at their minimums; surplus inflates them toward design.
+  let hudH   = P_HUD_MIN;
+  let benchH = P_BENCH_MIN;
+  let shopH  = shopMin;
+  const readyH = P_READY_H;
+  let itemH  = itemMin;
+
+  // ── Surplus distribution (section 3a) ─────────────────────────────────────
+  // Anything still unused after the minimum stack inflates regions toward their
+  // design values in priority order; the last bucket widens the gap.
+  const usedNow = () =>
+    P_STATIC_H + boardH + traitH + hudH + benchH + shopH + readyH + itemH + P_GAP_COUNT * gap;
+
+  let surplus = dH - usedNow();
+  if (surplus > 0) {
+    // 1. board → 360
+    const grow = (cur: number, max: number): [number, number] => {
+      const add = Math.min(surplus, Math.max(0, max - cur));
+      return [cur + add, surplus - add];
+    };
+    [boardH, surplus]  = grow(boardH, P_BOARD_MAX);
+    [shopH,  surplus]  = grow(shopH,  P_SHOP_MAX);
+    // readyButton intentionally fixed at 44 (saves thumb travel).
+    [itemH,  surplus]  = grow(itemH,  P_ITEM_MAX);
+    [hudH,   surplus]  = grow(hudH,   P_HUD_MAX);
+    [benchH, surplus]  = grow(benchH, P_BENCH_MAX);
+    [traitH, surplus]  = grow(traitH, P_TRAIT_MAX);
+    // 8. gap up to 8, distributed evenly across the 8 gaps.
+    if (surplus > 0 && gap < P_GAP_MAX) {
+      const perGap = Math.min(P_GAP_MAX - gap, Math.floor(surplus / P_GAP_COUNT));
+      gap += perGap;
+      surplus -= perGap * P_GAP_COUNT;
+    }
+  }
+
+  // ── Cumulate y positions from the static top band ─────────────────────────
+  const colW = dW - 2 * P_COL_X;
+
+  const boardY = P_BOARD_Y;
+  const traitY = boardY + boardH + gap;
+  const hudY   = traitY + traitH + gap;
+  const benchY = hudY + hudH + gap;
+  const shopY  = benchY + benchH + gap;
+  const readyY = shopY + shopH + gap;
+  const itemY  = readyY + readyH + gap;
+
+  // sell control (right of bench)
+  const sellW  = 44;
+  const benchGap = 6;
+  const railW  = dW - 2 * P_MARGIN;
+  const benchW = railW - sellW - benchGap;
+  const sellX  = P_MARGIN + benchW + benchGap;
+
+  return {
+    statusRow:    { x: 0,        y: P_STATUS_Y, w: dW,    h: P_STATUS_H },
+    opponentRail: { x: 0,        y: P_STATUS_Y + P_STATUS_H, w: dW, h: P_RAIL_H },
+    board:        { x: P_MARGIN, y: boardY, w: dW - 2 * P_MARGIN, h: boardH },
+    traitRail:    { x: P_COL_X,  y: traitY, w: colW,  h: traitH },
+    hud:          { x: P_COL_X,  y: hudY,   w: colW,  h: hudH },
+    bench:        { x: P_MARGIN, y: benchY, w: benchW, h: benchH },
+    sellControl:  { x: sellX,    y: benchY, w: sellW,  h: benchH },
+    shop:         { x: P_COL_X,  y: shopY,  w: colW,  h: shopH },
+    readyButton:  { x: P_COL_X,  y: readyY, w: colW,  h: readyH },
+    itemBar:      { x: P_COL_X,  y: itemY,  w: colW,  h: itemH },
+  };
+}
+
+function clamp(lo: number, v: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
+}
 
 function portraitLayout(viewportW: number, viewportH: number, safe: SafeInsets): MatchLayout {
   const dW = PORTRAIT_W;
-  const dH = PORTRAIT_H;
 
   // Usable viewport after safe insets.
   const usableW = Math.max(1, viewportW - safe.left - safe.right);
   const usableH = Math.max(1, viewportH - safe.top  - safe.bottom);
-  const scale = Math.min(usableW / dW, usableH / dH);
+
+  // Height-driven: design height == usable height; scale comes from width only,
+  // so the canvas fills the usable height exactly.
+  const dH = usableH;
+  const scale = usableW / dW;
 
   const scaledW = dW * scale;
   const scaledH = dH * scale;
-  const canvasOffsetX = safe.left  + (usableW - scaledW) / 2;
-  const canvasOffsetY = safe.top   + (usableH - scaledH) / 2;
+  const canvasOffsetX = safe.left + (usableW - scaledW) / 2;
+  const canvasOffsetY = safe.top  + (usableH - scaledH) / 2;
 
-  // Board + trait strip stay at the prior hardcoded positions (portrait-faithful);
-  // everything below the trait strip uses a single uniform SECTION_GAP so the
-  // vertical rhythm reads as one cadence (was an arbitrary 1px-then-25px mix).
-  const SECTION_GAP   = 8;
-  const STATUS_Y      = 4;
-  const RAIL_Y        = 28;
-  const BOARD_PANEL_X = 8;
-  const BOARD_PANEL_W = dW - 16;
-  const BOARD_PANEL_Y = 58;
-  const BOARD_PANEL_H = 360;
-  const TRAIT_STRIP_Y = 426;
-  const TRAIT_STRIP_H = 44;
-  const HUD_ROW_H     = 38;
-  const SHOP_CARD_H   = 84;
-  const SHOP_START_X  = 9;
+  const regions = portraitRegions(dH);
 
-  const HUD_ROW_Y   = TRAIT_STRIP_Y + TRAIT_STRIP_H + SECTION_GAP;   // 478
-  const BENCH_Y_TOP = HUD_ROW_Y + HUD_ROW_H + SECTION_GAP;           // 524
-  const BENCH_H     = 36;                                            // +2 breathing
-  const SHOP_Y      = BENCH_Y_TOP + BENCH_H + SECTION_GAP;           // 568
-  const READY_Y     = SHOP_Y + SHOP_CARD_H + SECTION_GAP;            // 660
-  const READY_H     = 34;
-  const ITEM_BAR_Y  = READY_Y + READY_H + SECTION_GAP;               // 702
-  // Item bar is two rows tall so up to 9 chips wrap without clipping or colliding
-  // with the bag glyph / "No items" label.
-  const ITEM_BAR_H  = 68;
-
-  // sell control (from benchGeom logic: right of bench)
-  const margin  = 8;
-  const sellW   = 44;
-  const gap     = 6;
-  const railW   = dW - 2 * margin;
-  const benchW  = railW - sellW - gap;
-  const sellX   = margin + benchW + gap;
-
-  const regions: MatchRegions = {
-    statusRow:    { x: 0,            y: STATUS_Y,     w: dW,           h: 24 },
-    opponentRail: { x: 0,            y: RAIL_Y,       w: dW,           h: 30 },
-    board:        { x: BOARD_PANEL_X, y: BOARD_PANEL_Y, w: BOARD_PANEL_W, h: BOARD_PANEL_H },
-    traitRail:    { x: SHOP_START_X, y: TRAIT_STRIP_Y, w: dW - 2 * SHOP_START_X, h: TRAIT_STRIP_H },
-    hud:          { x: SHOP_START_X, y: HUD_ROW_Y,   w: dW - 2 * SHOP_START_X, h: HUD_ROW_H },
-    bench:        { x: margin,       y: BENCH_Y_TOP,  w: benchW,       h: BENCH_H },
-    sellControl:  { x: sellX,        y: BENCH_Y_TOP,  w: sellW,        h: BENCH_H },
-    shop:         { x: SHOP_START_X, y: SHOP_Y,       w: dW - 2 * SHOP_START_X, h: SHOP_CARD_H },
-    readyButton:  { x: SHOP_START_X, y: READY_Y,      w: dW - 2 * SHOP_START_X, h: READY_H },
-    itemBar:      { x: SHOP_START_X, y: ITEM_BAR_Y,   w: dW - 2 * SHOP_START_X, h: ITEM_BAR_H },
+  return {
+    orientation: "portrait",
+    designW: dW,
+    designH: dH,
+    scale,
+    canvasOffsetX,
+    canvasOffsetY,
+    regions,
+    portraitDesignH: dH,
   };
-
-  return { orientation: "portrait", designW: dW, designH: dH, scale, canvasOffsetX, canvasOffsetY, regions };
 }
 
 // ── Landscape layout ─────────────────────────────────────────────────────────

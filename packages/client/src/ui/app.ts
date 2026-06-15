@@ -410,10 +410,14 @@ export class UiApp {
     this.matchOverlay.appendChild(modal);
   }
 
-  /** First-Practice-match coachmarks (gated by the seen flag). */
-  maybeShowCoachmarks(): void {
+  /**
+   * First-Practice-match coachmarks (gated by the seen flag). `getDesignH`
+   * supplies the LIVE portrait design height so the rings track the
+   * height-driven layout (defaults to the canonical 844 when omitted).
+   */
+  maybeShowCoachmarks(getDesignH?: () => number): void {
     if (!shouldShowCoachmarks(localStorage)) return;
     markCoachmarksSeen(localStorage);
-    new Coachmarks(this.matchOverlay, this.opts.canvas, COACHMARK_STEPS, () => {}).start();
+    new Coachmarks(this.matchOverlay, this.opts.canvas, COACHMARK_STEPS, () => {}, getDesignH).start();
   }
 }

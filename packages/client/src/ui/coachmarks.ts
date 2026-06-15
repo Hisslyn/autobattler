@@ -1,23 +1,62 @@
 // First-match coachmark overlay: a sequence of highlight rings + cards pointing
-// at match-scene regions. Positions map design-space rects (390×844) onto the
-// scaled canvas. Pure presentation — no game logic. Gating lives in onboarding.ts.
+// at match-scene regions. Positions map design-space rects onto the scaled canvas.
+// The design WIDTH is fixed (390) but the portrait design HEIGHT is now
+// height-driven (= usable viewport height, exposed as MatchLayout.portraitDesignH),
+// so the ring math reads the LIVE design height from `getDesignH` instead of a
+// hardcoded 844 — otherwise rings mis-scale on short viewports (down to 360×640).
+// Pure presentation — no game logic. Gating lives in onboarding.ts.
 import { el, button, clear } from "./dom.js";
 import type { CoachmarkStep } from "../onboarding.js";
 
 const DESIGN_W = 390;
-const DESIGN_H = 844;
+/** Canonical portrait design height (the original hardcoded value, fallback). */
+export const COACH_DEFAULT_DESIGN_H = 844;
+
+/** Minimal rect shape (a subset of DOMRect) for the pure ring-placement math. */
+export interface CanvasRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Pure ring-placement math: map a design-space rect onto the on-screen canvas.
+ * Width scales by the fixed 390 design width; height scales by the LIVE portrait
+ * design height (`designH`), so the canvas's CSS height ÷ designH recovers the
+ * true scale on any viewport. At designH=844 this is identical to the prior
+ * hardcoded behavior (regression guard).
+ */
+export function coachRingRect(
+  designRect: { x: number; y: number; w: number; h: number },
+  canvas: CanvasRect,
+  designH: number
+): { x: number; y: number; w: number; h: number } {
+  const sx = canvas.width / DESIGN_W;
+  const sy = canvas.height / designH;
+  return {
+    x: canvas.left + designRect.x * sx,
+    y: canvas.top + designRect.y * sy,
+    w: designRect.w * sx,
+    h: designRect.h * sy,
+  };
+}
 
 export class Coachmarks {
   private root: HTMLElement;
   private idx = 0;
+  /** Live portrait design height supplier (defaults to the canonical 844). */
+  private getDesignH: () => number;
 
   constructor(
     private parent: HTMLElement,
     private canvas: HTMLCanvasElement,
     private steps: CoachmarkStep[],
-    private onDone: () => void
+    private onDone: () => void,
+    getDesignH: () => number = () => COACH_DEFAULT_DESIGN_H
   ) {
     this.root = el("div", { attrs: { id: "coach-overlay" } });
+    this.getDesignH = getDesignH;
   }
 
   start(): void {
@@ -38,12 +77,7 @@ export class Coachmarks {
     clear(this.root);
     const step = this.steps[this.idx]!;
     const rect = this.canvas.getBoundingClientRect();
-    const sx = rect.width / DESIGN_W;
-    const sy = rect.height / DESIGN_H;
-    const x = rect.left + step.rect.x * sx;
-    const y = rect.top + step.rect.y * sy;
-    const w = step.rect.w * sx;
-    const h = step.rect.h * sy;
+    const { x, y, w, h } = coachRingRect(step.rect, rect, this.getDesignH());
 
     const ring = el("div", { class: "coach-ring" });
     ring.style.left = `${x}px`;

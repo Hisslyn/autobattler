@@ -70,16 +70,13 @@ function drawHex(
   alpha = 1,
   style: HexStyle = {}
 ): void {
-  if (style.border) g.lineStyle(style.border.width, style.border.color, style.border.alpha ?? 1);
-  g.beginFill(fill, alpha);
   const pts: number[] = [];
   for (let i = 0; i < 6; i++) {
     const angle = (Math.PI / 3) * i;
     pts.push(x + r * Math.cos(angle), y + r * Math.sin(angle));
   }
-  g.drawPolygon(pts);
-  g.endFill();
-  if (style.border) g.lineStyle(0);
+  g.poly(pts).fill({ color: fill, alpha });
+  if (style.border) g.poly(pts).stroke({ width: style.border.width, color: style.border.color, alpha: style.border.alpha ?? 1 });
 }
 
 /** Render a unit token (board/combat with bars, bench without) at (x, y). */
@@ -274,9 +271,7 @@ export class MatchScene {
   private sizeDragCatcher(): void {
     const g = this.dragCatcher;
     g.clear();
-    g.beginFill(C.bgOverlay, 0);
-    g.drawRect(0, 0, this.designW, this.designH);
-    g.endFill();
+    g.rect(0, 0, this.designW, this.designH).fill({ color: C.bgOverlay, alpha: 0 });
     g.hitArea = new PIXI.Rectangle(0, 0, this.designW, this.designH);
   }
 
@@ -321,11 +316,8 @@ export class MatchScene {
     opts: { fill?: number; fillAlpha?: number; border?: number; borderW?: number; radius?: number } = {}
   ): PIXI.Graphics {
     const g = new PIXI.Graphics();
-    g.beginFill(opts.fill ?? C.panelBg, opts.fillAlpha ?? 1);
-    g.lineStyle(opts.borderW ?? 1, opts.border ?? C.chipBorder, 1);
-    g.drawRoundedRect(x, y, w, h, opts.radius ?? 5);
-    g.endFill();
-    g.lineStyle(0);
+    g.roundRect(x, y, w, h, opts.radius ?? 5).fill({ color: opts.fill ?? C.panelBg, alpha: opts.fillAlpha ?? 1 });
+    g.roundRect(x, y, w, h, opts.radius ?? 5).stroke({ width: opts.borderW ?? 1, color: opts.border ?? C.chipBorder, alpha: 1 });
     layer.addChild(g);
     return g;
   }
@@ -394,11 +386,9 @@ export class MatchScene {
 
     // Status band (full design width across the status row).
     const bg = new PIXI.Graphics();
-    bg.beginFill(C.bgHud);
     // Portrait keeps the original 58px top band that visually backs status + rail;
     // landscape backs only the status row (rail lives in the right column).
-    bg.drawRect(0, 0, designW, this.isLandscape ? status.h + 2 : 58);
-    bg.endFill();
+    bg.rect(0, 0, designW, this.isLandscape ? status.h + 2 : 58).fill({ color: C.bgHud });
     this.hudLayer.addChild(bg);
 
     // ── A. Status row ──────────────────────────────────────────────────────
@@ -484,9 +474,7 @@ export class MatchScene {
         this.glyph(this.hudLayer, "eye", cx + av - 1, cy - av + 1, 6, C.tier3);
 
         const hit = new PIXI.Graphics();
-        hit.beginFill(C.bgOverlay, 0.001);
-        hit.drawRect(tileX, tileY, tileW, tileH);
-        hit.endFill();
+        hit.rect(tileX, tileY, tileW, tileH).fill({ color: C.bgOverlay, alpha: 0.001 });
         hit.eventMode = "static";
         hit.cursor = "pointer";
         const capturedId = i;
@@ -655,14 +643,15 @@ export class MatchScene {
       // Clear occupied-vs-empty distinction: solid elevated cell when occupied,
       // a darker "hole" when empty; selection gets the blue highlight. Max the
       // alpha contrast (1.0 vs 0.5) so the reading is pre-attentive.
-      g.beginFill(
-        isSelected ? C.bgBenchSel : occupied ? C.benchOccupied : C.benchEmpty,
-        occupied ? 1.0 : 0.5
-      );
-      g.lineStyle(1, isSelected ? C.tier3 : occupied ? C.chipBorder : C.benchEmptyRim, occupied ? 0.9 : 0.5);
-      g.drawRoundedRect(cellX + 1, cellY, cellW - 2, cellH, 4);
-      g.endFill();
-      g.lineStyle(0);
+      g.roundRect(cellX + 1, cellY, cellW - 2, cellH, 4).fill({
+        color: isSelected ? C.bgBenchSel : occupied ? C.benchOccupied : C.benchEmpty,
+        alpha: occupied ? 1.0 : 0.5,
+      });
+      g.roundRect(cellX + 1, cellY, cellW - 2, cellH, 4).stroke({
+        width: 1,
+        color: isSelected ? C.tier3 : occupied ? C.chipBorder : C.benchEmptyRim,
+        alpha: occupied ? 0.9 : 0.5,
+      });
       // Forgiving hit area covers the whole slot cell.
       g.eventMode = "static";
       g.cursor = "pointer";
@@ -706,11 +695,8 @@ export class MatchScene {
     const g = new PIXI.Graphics();
     // Armed (a unit selected/dragged) lights up at full alpha for clarity; the
     // resting state stays dim so the control reads as quiet, not an instruction.
-    g.beginFill(armed ? C.bgSellArmed : C.bgSellChip, armed ? 1.0 : 0.7);
-    g.lineStyle(1, C.textSell, armed ? 1.0 : 0.5);
-    g.drawRoundedRect(x, top, w, h, 4);
-    g.endFill();
-    g.lineStyle(0);
+    g.roundRect(x, top, w, h, 4).fill({ color: armed ? C.bgSellArmed : C.bgSellChip, alpha: armed ? 1.0 : 0.7 });
+    g.roundRect(x, top, w, h, 4).stroke({ width: 1, color: C.textSell, alpha: armed ? 1.0 : 0.5 });
     g.eventMode = "static";
     g.cursor = "pointer";
     g.hitArea = new PIXI.Rectangle(x, top, w, h);
@@ -1008,11 +994,8 @@ export class MatchScene {
       const w = 18 + preview.result.name.length * 5.0 + 14;
       const hx = Math.max(6, Math.min(this.designW - w - 6, cx - w / 2));
       const bg = new PIXI.Graphics();
-      bg.beginFill(C.panelBg, 0.97);
-      bg.lineStyle(1.5, C.itemCombineOk, 0.95);
-      bg.drawRoundedRect(hx, hintY, w, 20, 5);
-      bg.endFill();
-      bg.lineStyle(0);
+      bg.roundRect(hx, hintY, w, 20, 5).fill({ color: C.panelBg, alpha: 0.97 });
+      bg.roundRect(hx, hintY, w, 20, 5).stroke({ width: 1.5, color: C.itemCombineOk, alpha: 0.95 });
       hint.addChild(bg);
       const g = new PIXI.Graphics();
       drawGlyph(g, "gem", hx + 11, hintY + 10, 11, C.itemCombineOk);
@@ -1070,11 +1053,19 @@ export class MatchScene {
       const card = this.chip(this.shopLayer, x, shopY, cardW, cardH, {
         fill: C.bgShopCard,
       });
-      // Tier-colored top accent bar — a flat 5px bar (was a 3px rounded rect whose
-      // r=2 corners produced a pill artifact). Inset 1px each side so it tucks
-      // inside the card's rounded top edge.
+      // Tier-colored top accent bar — top corners rounded to tuck inside the
+      // card's rounded top edge, bottom corners square so it reads as a band.
+      // Inset 1px each side to sit within the card border.
       const top = new PIXI.Graphics();
-      top.rect(x + 1, shopY + 1, cardW - 2, 5).fill({ color: tc });
+      const tcr = 4, tcx = x + 1, tcy = shopY + 1, tcw = cardW - 2, tch = 5;
+      top.moveTo(tcx, tcy + tch);
+      top.lineTo(tcx, tcy + tcr);
+      top.arcTo(tcx, tcy, tcx + tcr, tcy, tcr);
+      top.lineTo(tcx + tcw - tcr, tcy);
+      top.arcTo(tcx + tcw, tcy, tcx + tcw, tcy + tcr, tcr);
+      top.lineTo(tcx + tcw, tcy + tch);
+      top.closePath();
+      top.fill({ color: tc });
       top.eventMode = "none";
       this.shopLayer.addChild(top);
 
@@ -1124,10 +1115,19 @@ export class MatchScene {
     ready.cursor = isPlanning ? "pointer" : "default";
     if (isPlanning) {
       // Top highlight band: a light-source-from-above rim so it reads pressable.
-      // Inset 4px from the rounded corners so the flat band tucks inside them.
+      // Top corners rounded to follow the button radius (7), bottom square; inset
+      // 1.5px so it tucks just inside the rounded top edge.
       const highlightH = Math.round(rb.h * 0.3);
       const hl = new PIXI.Graphics();
-      hl.rect(rb.x + 4, rb.y + 1.5, rb.w - 8, highlightH).fill({ color: C.hpGreen, alpha: 0.12 });
+      const hr = 6, hx = rb.x + 1.5, hy = rb.y + 1.5, hw = rb.w - 3;
+      hl.moveTo(hx, hy + highlightH);
+      hl.lineTo(hx, hy + hr);
+      hl.arcTo(hx, hy, hx + hr, hy, hr);
+      hl.lineTo(hx + hw - hr, hy);
+      hl.arcTo(hx + hw, hy, hx + hw, hy + hr, hr);
+      hl.lineTo(hx + hw, hy + highlightH);
+      hl.closePath();
+      hl.fill({ color: C.hpGreen, alpha: 0.12 });
       hl.eventMode = "none";
       this.shopLayer.addChild(hl);
       this.pressFeedback(ready, () => this.driver.ready(), { cx: rb.x + rb.w / 2, cy: rb.y + rb.h / 2 });
@@ -1325,11 +1325,8 @@ export class MatchScene {
     const chipW = this.traitChipWidth(c);
 
     const bg = new PIXI.Graphics();
-    bg.beginFill(C.panelBg, active ? 0.95 : 0.5);
-    bg.lineStyle(1, active ? c.color : C.chipBorder, active ? 0.9 : 0.5);
-    bg.drawRoundedRect(x, rowY, chipW, chipH, 4);
-    bg.endFill();
-    bg.lineStyle(0);
+    bg.roundRect(x, rowY, chipW, chipH, 4).fill({ color: C.panelBg, alpha: active ? 0.95 : 0.5 });
+    bg.roundRect(x, rowY, chipW, chipH, 4).stroke({ width: 1, color: active ? c.color : C.chipBorder, alpha: active ? 0.9 : 0.5 });
     bg.alpha = active ? 1 : 0.5;
     bg.eventMode = "static";
     bg.cursor = "pointer";
@@ -1739,18 +1736,14 @@ export class MatchScene {
 
     // Scrim below the panel — tap outside to dismiss (consistent with inspect).
     const scrim = new PIXI.Graphics();
-    scrim.beginFill(C.bgScrim, 0.001);
-    scrim.drawRect(0, 0, designW, designH);
-    scrim.endFill();
+    scrim.rect(0, 0, designW, designH).fill({ color: C.bgScrim, alpha: 0.001 });
     scrim.eventMode = "static";
     scrim.cursor = "pointer";
     scrim.on("pointerdown", () => this.closeScout());
     this.scoutLayer.addChild(scrim);
 
     const overlay = new PIXI.Graphics();
-    overlay.beginFill(C.bgScout, 0.92);
-    overlay.drawRoundedRect(panelX, panelY, panelW, panelH, 8);
-    overlay.endFill();
+    overlay.roundRect(panelX, panelY, panelW, panelH, 8).fill({ color: C.bgScout, alpha: 0.92 });
     overlay.eventMode = "static"; // swallow taps so they don't dismiss via the scrim
     this.scoutLayer.addChild(overlay);
 
@@ -1813,9 +1806,7 @@ export class MatchScene {
 
     // Close button — visual stays 30×24, hit area expands to a 44px min target.
     const closeBtn = new PIXI.Graphics();
-    closeBtn.beginFill(C.bgCloseBtn, 0.9);
-    closeBtn.drawRoundedRect(panelX + panelW - 30, panelY + 4, 30, 24, 4);
-    closeBtn.endFill();
+    closeBtn.roundRect(panelX + panelW - 30, panelY + 4, 30, 24, 4).fill({ color: C.bgCloseBtn, alpha: 0.9 });
     closeBtn.eventMode = "static";
     closeBtn.cursor = "pointer";
     closeBtn.hitArea = new PIXI.Rectangle(panelX + panelW - 44, panelY, 44, 36);
@@ -2151,9 +2142,7 @@ export class MatchScene {
     const cx = designW / 2;
 
     const bg = new PIXI.Graphics();
-    bg.beginFill(C.bgOverlay, 0.72);
-    bg.drawRect(0, 0, designW, designH);
-    bg.endFill();
+    bg.rect(0, 0, designW, designH).fill({ color: C.bgOverlay, alpha: 0.72 });
     // Must NOT swallow pointer events — we need the Continue button to work
     bg.eventMode = "none";
     this.combatLayer.addChild(bg);
@@ -2236,11 +2225,8 @@ export class MatchScene {
     const btnW = Math.min(200, modal.w - 24), btnH = 44;
     const btnX = cx - btnW / 2, btnY = modal.y + modal.h - btnH - 14;
     const continueBtn = new PIXI.Graphics();
-    continueBtn.beginFill(C.bgContinue, 0.95);
-    continueBtn.lineStyle(1.5, C.hpGreen, 0.8);
-    continueBtn.drawRoundedRect(btnX, btnY, btnW, btnH, 8);
-    continueBtn.endFill();
-    continueBtn.lineStyle(0);
+    continueBtn.roundRect(btnX, btnY, btnW, btnH, 8).fill({ color: C.bgContinue, alpha: 0.95 });
+    continueBtn.roundRect(btnX, btnY, btnW, btnH, 8).stroke({ width: 1.5, color: C.hpGreen, alpha: 0.8 });
     continueBtn.eventMode = "static";
     continueBtn.hitArea = new PIXI.Rectangle(btnX, btnY, btnW, btnH);
     continueBtn.cursor = "pointer";
@@ -2332,11 +2318,8 @@ export class MatchScene {
       const summary = parts.join("  ·  ") || "—";
       const bg = new PIXI.Graphics();
       const w = 40 + summary.length * 7;
-      bg.beginFill(C.bgInspect, 0.96);
-      bg.lineStyle(1.5, C.accentGold, 0.9);
-      bg.drawRoundedRect(cx - w / 2, bandY - 12, w, 30, 8);
-      bg.endFill();
-      bg.lineStyle(0);
+      bg.roundRect(cx - w / 2, bandY - 12, w, 30, 8).fill({ color: C.bgInspect, alpha: 0.96 });
+      bg.roundRect(cx - w / 2, bandY - 12, w, 30, 8).stroke({ width: 1.5, color: C.accentGold, alpha: 0.9 });
       bg.eventMode = "none";
       this.lootLayer.addChild(bg);
       this.text(this.lootLayer, summary, cx, bandY + 3, 11, C.textPrimary, [0.5, 0.5]);
@@ -2496,9 +2479,7 @@ export class MatchScene {
     // Dim scrim behind the themed panel (consistent with the inspect/resolution
     // panels — full-screen scrim + a rounded bgInspect surface with an accent rim).
     const scrim = new PIXI.Graphics();
-    scrim.beginFill(C.bgScrim, 0.72);
-    scrim.drawRect(0, 0, designW, designH);
-    scrim.endFill();
+    scrim.rect(0, 0, designW, designH).fill({ color: C.bgScrim, alpha: 0.72 });
     scrim.eventMode = "none";
     this.combatLayer.addChild(scrim);
 
@@ -2522,11 +2503,8 @@ export class MatchScene {
     const panelX = modal.x, panelY = modal.y, panelW = modal.w, panelH = modal.h;
 
     const panel = new PIXI.Graphics();
-    panel.beginFill(C.bgInspect, 0.98);
-    panel.lineStyle(1.5, C.accentGold, 0.9);
-    panel.drawRoundedRect(panelX, panelY, panelW, panelH, 12);
-    panel.endFill();
-    panel.lineStyle(0);
+    panel.roundRect(panelX, panelY, panelW, panelH, 12).fill({ color: C.bgInspect, alpha: 0.98 });
+    panel.roundRect(panelX, panelY, panelW, panelH, 12).stroke({ width: 1.5, color: C.accentGold, alpha: 0.9 });
     panel.eventMode = "static"; // modal — swallow taps
     this.combatLayer.addChild(panel);
 
@@ -2582,11 +2560,8 @@ export class MatchScene {
     const btnX = cx - btnW / 2;
     const btnY = panelY + panelH - btnH - 14;
     const menuBtn = new PIXI.Graphics();
-    menuBtn.beginFill(C.bgContinue, 0.95);
-    menuBtn.lineStyle(1.5, C.hpGreen, 0.8);
-    menuBtn.drawRoundedRect(btnX, btnY, btnW, btnH, 8);
-    menuBtn.endFill();
-    menuBtn.lineStyle(0);
+    menuBtn.roundRect(btnX, btnY, btnW, btnH, 8).fill({ color: C.bgContinue, alpha: 0.95 });
+    menuBtn.roundRect(btnX, btnY, btnW, btnH, 8).stroke({ width: 1.5, color: C.hpGreen, alpha: 0.8 });
     menuBtn.eventMode = "static";
     menuBtn.hitArea = new PIXI.Rectangle(btnX, btnY, btnW, btnH);
     menuBtn.cursor = "pointer";
@@ -2652,11 +2627,8 @@ export class MatchScene {
       : this.layout.regions.bench.y - 22 - boxH;
 
     const bg = new PIXI.Graphics();
-    bg.beginFill(C.bgToast, 0.92);
-    bg.lineStyle(1, C.textToast, 0.5);
-    bg.drawRoundedRect(boxX, boxY, boxW, boxH, 5);
-    bg.endFill();
-    bg.lineStyle(0);
+    bg.roundRect(boxX, boxY, boxW, boxH, 5).fill({ color: C.bgToast, alpha: 0.92 });
+    bg.roundRect(boxX, boxY, boxW, boxH, 5).stroke({ width: 1, color: C.textToast, alpha: 0.5 });
     bg.eventMode = "none";
     this.toastLayer.addChild(bg);
 

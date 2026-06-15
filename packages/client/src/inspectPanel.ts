@@ -69,9 +69,7 @@ function makePanelContainer(layer: PIXI.Container, reducedMotion: boolean): PIXI
 function scrim(layer: PIXI.Container, onClose: () => void, layout?: MatchLayout): void {
   const d = dims(layout);
   const s = new PIXI.Graphics();
-  s.beginFill(C.bgScrim, 0.6);
-  s.drawRect(0, 0, d.w, d.h);
-  s.endFill();
+  s.rect(0, 0, d.w, d.h).fill({ color: C.bgScrim, alpha: 0.6 });
   s.eventMode = "static";
   s.cursor = "pointer";
   s.on("pointerdown", onClose);
@@ -95,9 +93,7 @@ function panelBox(
 
 function closeButton(layer: PIXI.Container, x: number, y: number, onClose: () => void): void {
   const btn = new PIXI.Graphics();
-  btn.beginFill(C.bgCloseBtn, 0.95);
-  btn.drawRoundedRect(x, y, 26, 22, 5);
-  btn.endFill();
+  btn.roundRect(x, y, 26, 22, 5).fill({ color: C.bgCloseBtn, alpha: 0.95 });
   btn.eventMode = "static";
   btn.cursor = "pointer";
   // Expand the hit area to ~62×44px (min touch target) without changing the
@@ -191,9 +187,7 @@ export function renderUnitInspect(
   // Ability block
   const abY = y + 104;
   const abRow = new PIXI.Graphics();
-  abRow.beginFill(C.bgInspectRow, 0.9);
-  abRow.drawRoundedRect(x + 14, abY, w - 28, 52, 6);
-  abRow.endFill();
+  abRow.roundRect(x + 14, abY, w - 28, 52, 6).fill({ color: C.bgInspectRow, alpha: 0.9 });
   abRow.eventMode = "none";
   panel.addChild(abRow);
   text(panel, m.ability.name, x + 22, abY + 8, 12, C.textPrimary, [0, 0]);
@@ -213,9 +207,7 @@ export function renderUnitInspect(
     const rx = x + 14 + col * colW;
     const ry = gridY + row * 30;
     const cell = new PIXI.Graphics();
-    cell.beginFill(C.bgInspectRow, 0.7);
-    cell.drawRoundedRect(rx, ry, colW - 6, 26, 5);
-    cell.endFill();
+    cell.roundRect(rx, ry, colW - 6, 26, 5).fill({ color: C.bgInspectRow, alpha: 0.7 });
     cell.eventMode = "none";
     panel.addChild(cell);
     text(panel, stat.label, rx + 8, ry + 13, 9, C.textMuted, [0, 0.5]);
@@ -290,9 +282,7 @@ export function renderItemDetail(
   let ry = y + 70;
   for (const s of m.stats) {
     const row = new PIXI.Graphics();
-    row.beginFill(C.bgInspectRow, 0.8);
-    row.drawRoundedRect(x + 14, ry, w - 28, 20, 5);
-    row.endFill();
+    row.roundRect(x + 14, ry, w - 28, 20, 5).fill({ color: C.bgInspectRow, alpha: 0.8 });
     row.eventMode = "none";
     panel.addChild(row);
     text(panel, s.label, x + 22, ry + 10, 9, C.textMuted, [0, 0.5]);
@@ -303,11 +293,8 @@ export function renderItemDetail(
   // Passive line (completed items only)
   if (m.passive) {
     const pb = new PIXI.Graphics();
-    pb.beginFill(C.bgInspectRow, 0.9);
-    pb.lineStyle(1, accent, 0.6);
-    pb.drawRoundedRect(x + 14, ry, w - 28, 38, 6);
-    pb.endFill();
-    pb.lineStyle(0);
+    pb.roundRect(x + 14, ry, w - 28, 38, 6).fill({ color: C.bgInspectRow, alpha: 0.9 });
+    pb.roundRect(x + 14, ry, w - 28, 38, 6).stroke({ width: 1, color: accent, alpha: 0.6 });
     pb.eventMode = "none";
     panel.addChild(pb);
     text(panel, "Passive", x + 22, ry + 8, 9, accent, [0, 0]);
@@ -345,11 +332,8 @@ export function renderTraitDetail(
   m.rows.forEach((r, i) => {
     const ry = y + headerH + i * (rowH + 6);
     const row = new PIXI.Graphics();
-    row.beginFill(r.active ? C.bgInspectRow : C.bgInspect, r.reached ? 0.95 : 0.5);
-    row.lineStyle(1, r.active ? accent : C.chipBorder, r.active ? 0.9 : 0.4);
-    row.drawRoundedRect(x + 14, ry, w - 28, rowH, 6);
-    row.endFill();
-    row.lineStyle(0);
+    row.roundRect(x + 14, ry, w - 28, rowH, 6).fill({ color: r.active ? C.bgInspectRow : C.bgInspect, alpha: r.reached ? 0.95 : 0.5 });
+    row.roundRect(x + 14, ry, w - 28, rowH, 6).stroke({ width: 1, color: r.active ? accent : C.chipBorder, alpha: r.active ? 0.9 : 0.4 });
     row.eventMode = "none";
     row.alpha = r.reached ? 1 : 0.55;
     panel.addChild(row);
