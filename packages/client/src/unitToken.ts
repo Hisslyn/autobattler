@@ -8,6 +8,7 @@ import { gameData } from "@autobattler/data";
 import { C, tierColor } from "./theme.js";
 import { drawGlyph, glyphForTraits } from "./glyphs.js";
 import { resolveUnitTexture, unitTextureLookup, requestUnitArt } from "./sprites.js";
+import { drawItemIcon } from "./itemIconDraw.js";
 
 const RING_W = 2.5;
 
@@ -22,10 +23,13 @@ export interface UnitTokenOpts {
    */
   bars?: { hpFrac: number; manaFrac: number; hpChipFrac?: number };
   /**
-   * Equipped-item dots drawn along the disc base (board/bench tokens). Each
-   * entry's `component` picks the dot tint; pass the unit's item display models.
+   * Equipped items rendered as tiny icons along the disc base (board/bench
+   * tokens). Each entry's `id` resolves its distinct emblem/composed icon (the
+   * `component` flag is retained for callers that only need the tint).
    */
-  items?: { component: boolean }[];
+  items?: { id?: string; component: boolean }[];
+  /** Skip the completed-item shine sweep on equipped icons. */
+  reducedMotion?: boolean;
 }
 
 /** Draw a unit token centered at (x, y) into `parent`. */
@@ -110,20 +114,35 @@ export function drawUnitToken(
     parent.addChild(bars);
   }
 
-  // Equipped-item dots: small pips along the bottom-right arc of the disc so a
-  // glance shows which units are itemized (component vs completed tinted).
+  // Equipped items: tiny distinct icons along the bottom-right arc of the disc
+  // so a glance shows which units carry which items. An item with no id (e.g. a
+  // mob preview) falls back to a plain tinted pip.
   if (opts.items && opts.items.length > 0) {
-    const pip = new PIXI.Graphics();
-    const dotR = Math.max(2, r * 0.16);
+    const dotR = Math.max(2.5, r * 0.2);
     const gap = dotR * 2.4;
     const n = Math.min(opts.items.length, 3);
     const baseX = x + r - dotR - 1 - (n - 1) * gap;
     const dotY = y + r - dotR - 1;
     for (let i = 0; i < n; i++) {
       const it = opts.items[i]!;
-      pip.circle(baseX + i * gap, dotY, dotR).fill({ color: it.component ? C.itemComponent : C.itemCompleted, alpha: dim ? 0.5 : 1 });
-      pip.circle(baseX + i * gap, dotY, dotR).stroke({ width: 1, color: C.accentGold, alpha: dim ? 0.4 : 0.85 });
+      // Backing disc so the small icon stays legible over art/glyph.
+      const bg = new PIXI.Graphics();
+      bg.circle(baseX + i * gap, dotY, dotR + 1).fill({ color: C.tokenBg, alpha: dim ? 0.5 : 0.95 });
+      parent.addChild(bg);
+      if (it.id) {
+        const ic = new PIXI.Container();
+        drawItemIcon(ic, it.id, baseX + i * gap, dotY, {
+          radius: dotR,
+          dimmed: dim,
+          reducedMotion: opts.reducedMotion ?? true, // tiny: never animate the shine
+        });
+        parent.addChild(ic);
+      } else {
+        const pip = new PIXI.Graphics();
+        pip.circle(baseX + i * gap, dotY, dotR).fill({ color: it.component ? C.itemComponent : C.itemCompleted, alpha: dim ? 0.5 : 1 });
+        pip.circle(baseX + i * gap, dotY, dotR).stroke({ width: 1, color: C.accentGold, alpha: dim ? 0.4 : 0.85 });
+        parent.addChild(pip);
+      }
     }
-    parent.addChild(pip);
   }
 }

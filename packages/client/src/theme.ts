@@ -134,6 +134,11 @@ export const C = {
   itemCombineOk:   0x5dca6a,  // valid combine-preview highlight (recipe found)
   itemCombineNo:   0xc04a5a,  // invalid combine affordance (no recipe)
   itemSlotPip:     0x2a3142,  // empty equipped-item slot pip on a token
+  // Procedural item icons (distinct per item): emblem ink + completed-item frame.
+  itemEmblem:      0xd6cbb0,  // neutral emblem ink for a raw/unframed component
+  itemEmblemAlt:   0xb0c0d0,  // secondary emblem ink (2nd component of a pair)
+  itemFrame:       0xc9a24a,  // completed-item frame ring (gilded)
+  itemShine:       0xfbf3d8,  // completed-item shine sweep (reduced-motion gated)
   // Loot orb rarity colors (loot.json rarities) — distinct hue per tier.
   lootCommon:      0x9aa4b4,
   lootUncommon:    0x5dca8a,

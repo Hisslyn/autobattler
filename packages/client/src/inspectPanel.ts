@@ -6,6 +6,7 @@ import * as PIXI from "pixi.js";
 import { C, tierColor, traitColor } from "./theme.js";
 import { drawUnitToken } from "./unitToken.js";
 import { drawGlyph, glyphForTraits } from "./glyphs.js";
+import { drawItemIcon } from "./itemIconDraw.js";
 import type { InspectModel } from "./inspectModel.js";
 import type { TraitDetailModel } from "./traitDetailModel.js";
 import type { ItemModel } from "./itemModel.js";
@@ -178,8 +179,8 @@ export function renderUnitInspect(
       chip.lineStyle(0);
       chip.eventMode = "none";
       layer.addChild(chip);
-      const ig = new PIXI.Graphics();
-      drawGlyph(ig, item.component ? "component" : "gem", ix + 12, chipY + 12, 11, C.accentGold);
+      const ig = new PIXI.Container();
+      drawItemIcon(ig, item.id, ix + 12, chipY + 12, { radius: 8, reducedMotion: true });
       ig.eventMode = "none";
       layer.addChild(ig);
       text(layer, item.name, ix + 22, chipY + 12, 8, C.textPrimary, [0, 0.5]);
@@ -192,7 +193,8 @@ export function renderUnitInspect(
 export function renderItemDetail(
   layer: PIXI.Container,
   m: ItemModel,
-  onClose: () => void
+  onClose: () => void,
+  reducedMotion = false
 ): void {
   layer.removeChildren();
   scrim(layer, onClose);
@@ -207,14 +209,15 @@ export function renderItemDetail(
   panelBox(layer, x, y, w, h, accent);
   closeButton(layer, x + w - 32, y + 8, onClose);
 
-  // Header: item glyph disc + name + kind
+  // Header: item icon disc (distinct procedural emblem / composed completed icon)
+  // + name + kind.
   const disc = new PIXI.Graphics();
-  disc.circle(x + 32, y + 34, 18).fill({ color: m.color, alpha: 0.95 });
-  disc.circle(x + 32, y + 34, 18).stroke({ width: 1.5, color: C.itemBorder });
+  disc.circle(x + 32, y + 34, 20).fill({ color: C.bgInspectRow, alpha: 0.95 });
+  disc.circle(x + 32, y + 34, 20).stroke({ width: 1.5, color: C.itemBorder });
   disc.eventMode = "none";
   layer.addChild(disc);
-  const g = new PIXI.Graphics();
-  drawGlyph(g, m.component ? "component" : "gem", x + 32, y + 34, 18, C.accentGold);
+  const g = new PIXI.Container();
+  drawItemIcon(g, m.id, x + 32, y + 34, { radius: 16, reducedMotion });
   g.eventMode = "none";
   layer.addChild(g);
   text(layer, m.name, x + 60, y + 22, 13, C.textPrimary, [0, 0]);

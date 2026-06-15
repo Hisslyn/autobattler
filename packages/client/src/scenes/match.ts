@@ -23,6 +23,7 @@ import { combinePreview } from "../combinePreview.js";
 import { lootRevealModel } from "../lootReveal.js";
 import type { RevealStep } from "../lootReveal.js";
 import { onUnitArtReady } from "../sprites.js";
+import { drawItemIcon, onItemArtReady } from "../itemIconDraw.js";
 import { Z_COMBAT_HEADER, Z_RESOLUTION_BUTTON, Z_RESOLUTION_CONTROL } from "../combatLayout.js";
 import { benchGeom, benchSlotAtX } from "../benchLayout.js";
 import type { SettingsStore } from "../settings.js";
@@ -124,10 +125,10 @@ function drawUnit(
         manaFrac: unit.maxMana > 0 ? unit.mana / unit.maxMana : 0,
       }
     : undefined;
-  // Equipped-item dots (component vs completed tint) — display only.
+  // Equipped items rendered as tiny distinct icons — display only.
   const items =
     unit.items.length > 0
-      ? unit.items.map((id) => ({ component: gameData.items.find((d) => d.id === id)?.component === true }))
+      ? unit.items.map((id) => ({ id, component: gameData.items.find((d) => d.id === id)?.component === true }))
       : undefined;
   const opts: import("../unitToken.js").UnitTokenOpts = { radius: r, dimmed };
   if (bars) opts.bars = bars;
@@ -195,6 +196,7 @@ export class MatchScene {
   private opts: MatchSceneOptions;
   private unsub: () => void = () => {};
   private unsubArt: () => void = () => {};
+  private unsubItemArt: () => void = () => {};
 
   constructor(app: PIXI.Application, driver: IDriver, opts: MatchSceneOptions) {
     this.container = new PIXI.Container();
@@ -256,6 +258,10 @@ export class MatchScene {
     // A drop-in PNG finishing its lazy load: repaint the static planning board
     // so the glyph swaps to the sprite (combat repaints every tick already).
     this.unsubArt = onUnitArtReady(() => {
+      const s = this.driver.getState();
+      if (s.phase === "PLANNING") this.render(s);
+    });
+    this.unsubItemArt = onItemArtReady(() => {
       const s = this.driver.getState();
       if (s.phase === "PLANNING") this.render(s);
     });
@@ -669,8 +675,13 @@ export class MatchScene {
     }
     layer.addChild(g);
 
-    const ig = new PIXI.Graphics();
-    drawGlyph(ig, entry.component ? "component" : "gem", cx, cy, size * 0.7, C.accentGold);
+    // Distinct procedural item icon (component emblem / composed completed icon),
+    // or the drop-in PNG if present. Reduced motion skips the shine sweep.
+    const ig = new PIXI.Container();
+    drawItemIcon(ig, entry.id, cx, cy, {
+      radius: size * 0.34,
+      reducedMotion: this.opts.settings.get().reducedMotion,
+    });
     ig.eventMode = "none";
     layer.addChild(ig);
   }
@@ -860,7 +871,7 @@ export class MatchScene {
     const m = itemModel(itemId, gameData);
     if (!m) return;
     this.opts.audio.play("tap");
-    renderItemDetail(this.inspectLayer, m, () => this.closeInspect());
+    renderItemDetail(this.inspectLayer, m, () => this.closeInspect(), this.opts.settings.get().reducedMotion);
   }
 
   private renderShop(state: MatchState, me: PlayerState): void {
@@ -2029,8 +2040,14 @@ export class MatchScene {
       this.glyph(label, "coin", -10, 0, 11, C.starGold);
       this.text(label, step.content.label, 2, 0, 11, C.textGold, [0, 0.5]);
     } else {
-      const isComponent = step.content.kind === "component";
-      this.glyph(label, isComponent ? "component" : "gem", -10, 0, 12, C.accentGold);
+      // Distinct item icon, tinted by the orb's rarity for a consistent read.
+      const ic = new PIXI.Container();
+      drawItemIcon(ic, step.content.id, -10, 0, {
+        radius: 8,
+        rarity: step.rarity,
+        reducedMotion: this.opts.settings.get().reducedMotion,
+      });
+      label.addChild(ic);
       this.text(label, step.content.name, 4, 0, 8, C.textPrimary, [0, 0.5]);
     }
     label.eventMode = "none";
@@ -2178,6 +2195,7 @@ export class MatchScene {
     this.clearToast();
     this.unsub();
     this.unsubArt();
+    this.unsubItemArt();
     if (this.container.parent) this.container.parent.removeChild(this.container);
     this.container.destroy({ children: true });
   }
