@@ -21,6 +21,10 @@ ${themeCssVars()}
     radial-gradient(120% 80% at 50% -10%, ${cssVar("panelBg")} 0%, ${cssVar("bgPage")} 60%),
     ${cssVar("bgPage")};
   overflow-y: auto; z-index: 10;
+  /* Clear notches / home indicators on the meta screens (both orientations). */
+  padding:
+    env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 #ui-root.hidden { display: none; }
 #match-overlay { z-index: 20; pointer-events: none; }
@@ -191,6 +195,37 @@ ${themeCssVars()}
 
 /* Reduced motion: disable menu transitions (combat fx handled in CombatView). */
 .reduced-motion * { transition: none !important; animation: none !important; }
+
+/* ── Landscape meta-screen comfort (additive; portrait unaffected) ──────────── */
+@media (orientation: landscape) {
+  /* Wider, scrollable screens; comfortable bottom safe-area padding. */
+  .ui-screen {
+    max-width: 760px; padding: 16px 24px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+    gap: 9px;
+  }
+  /* Compress the vertical title space and shrink the wordmark/title. */
+  .ui-wordmark { font-size: 28px; margin: 6px 0 2px; }
+  .ui-title { font-size: 22px; margin: 8px 0 2px; }
+  .ui-subtitle { margin-bottom: 4px; }
+  /* Lay the Main Menu primary actions in two columns to use the wide viewport. */
+  .ui-btn { width: 300px; }
+  /* Modal cards (pause, etc.) never exceed the short viewport — scroll inside. */
+  .ui-card { max-height: calc(100vh - 32px); overflow-y: auto; }
+  .match-modal .ui-card { max-width: 420px; }
+  /* Trait rail sits at the left edge in landscape, so move the pause button right. */
+  .match-pause-btn { left: auto; right: 8px; }
+}
+
+/* Extra compression for very short landscape viewports. */
+@media (orientation: landscape) and (max-height: 420px) {
+  .ui-screen { padding-top: 8px; gap: 7px; }
+  .ui-wordmark { font-size: 24px; }
+  .ui-title { font-size: 19px; margin: 4px 0 2px; }
+  .ui-btn, .ui-btn-wide { padding: 9px 14px; font-size: 14px; }
+  .ui-card { padding: 10px; gap: 7px; }
+  .ui-dist { height: 56px; }
+}
 `;
 }
 

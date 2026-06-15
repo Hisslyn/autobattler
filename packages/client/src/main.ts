@@ -9,17 +9,41 @@ import { AudioManager } from "./audio/manager.js";
 import { UiApp } from "./ui/app.js";
 import type { PlayMode } from "./ui/app.js";
 import { C } from "./theme.js";
+import { resolveLayout } from "./layout.js";
+import type { MatchLayout, SafeInsets } from "./layout.js";
 
-const DESIGN_W = 390;
-const DESIGN_H = 844;
 const SERVER_URL = "ws://localhost:3001";
 const HTTP_BASE = "http://localhost:3001";
 
+/** Read env(safe-area-inset-*) via the hidden probe element's computed padding. */
+function readSafeInsets(): SafeInsets {
+  const probe = document.getElementById("safe-probe");
+  if (!probe) return { top: 0, right: 0, bottom: 0, left: 0 };
+  const cs = getComputedStyle(probe);
+  const px = (v: string): number => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  return {
+    top: px(cs.paddingTop),
+    right: px(cs.paddingRight),
+    bottom: px(cs.paddingBottom),
+    left: px(cs.paddingLeft),
+  };
+}
+
 async function main(): Promise<void> {
+  // The orientation/scale-aware layout is the single source for design dims.
+  let activeLayout: MatchLayout = resolveLayout({
+    viewportW: window.innerWidth,
+    viewportH: window.innerHeight,
+    safe: readSafeInsets(),
+  });
+
   const app = new PIXI.Application();
   await app.init({
-    width: DESIGN_W,
-    height: DESIGN_H,
+    width: activeLayout.designW,
+    height: activeLayout.designH,
     backgroundColor: C.bgPage,
     antialias: true,
     resolution: window.devicePixelRatio || 1,
@@ -30,18 +54,35 @@ async function main(): Promise<void> {
   const wrapper = document.getElementById("app")!;
   wrapper.appendChild(app.canvas);
 
+  // FUTURE (Capacitor native shell): lock the device to landscape-primary here,
+  // gated on Capacitor.isNativePlatform():
+  //   if (Capacitor.isNativePlatform()) {
+  //     await ScreenOrientation.lock({ type: "landscape-primary" });
+  //   }
+  // Web stays orientation-responsive (resolveLayout flips on aspect), so this is
+  // intentionally NOT implemented here — it belongs in the native wrapper only.
+
   function resize(): void {
-    const scale = Math.min(window.innerWidth / DESIGN_W, window.innerHeight / DESIGN_H);
-    const scaledW = Math.round(DESIGN_W * scale);
-    const scaledH = Math.round(DESIGN_H * scale);
+    activeLayout = resolveLayout({
+      viewportW: window.innerWidth,
+      viewportH: window.innerHeight,
+      safe: readSafeInsets(),
+    });
+    // Pixi v8 dynamic resize to the (possibly flipped) design dimensions.
+    app.renderer.resize(activeLayout.designW, activeLayout.designH);
+    const scaledW = Math.round(activeLayout.designW * activeLayout.scale);
+    const scaledH = Math.round(activeLayout.designH * activeLayout.scale);
+    app.canvas.style.position = "absolute";
     app.canvas.style.width = `${scaledW}px`;
     app.canvas.style.height = `${scaledH}px`;
-    app.canvas.style.position = "absolute";
-    app.canvas.style.left = `${Math.round((window.innerWidth - scaledW) / 2)}px`;
-    app.canvas.style.top = `${Math.round((window.innerHeight - scaledH) / 2)}px`;
+    app.canvas.style.left = `${Math.round(activeLayout.canvasOffsetX)}px`;
+    app.canvas.style.top = `${Math.round(activeLayout.canvasOffsetY)}px`;
+    if (scene) scene.onLayoutChange(activeLayout);
   }
   window.addEventListener("resize", resize);
-  resize();
+  // iOS reports stale viewport dims at the orientationchange moment — re-resolve
+  // a tick later once the rotation has settled.
+  window.addEventListener("orientationchange", () => setTimeout(resize, 100));
 
   // Client preferences + audio (procedural SFX; music drop-in slot).
   const settings = new SettingsStore();
@@ -57,6 +98,9 @@ async function main(): Promise<void> {
 
   let scene: MatchScene | null = null;
   let driver: IDriver | null = null;
+
+  // Initial sizing now that `scene` is in scope for resize()'s onLayoutChange.
+  resize();
 
   const ui = new UiApp({
     httpBase: HTTP_BASE,
@@ -80,7 +124,7 @@ async function main(): Promise<void> {
     driver = mode === "online"
       ? new NetDriver(SERVER_URL, ui.auth?.token)
       : new LocalDriver(undefined, ui.auth?.profile.name);
-    scene = new MatchScene(app, driver, { settings, audio, onLeave: leaveMatch });
+    scene = new MatchScene(app, driver, { settings, audio, onLeave: leaveMatch, layout: activeLayout });
     app.stage.addChild(scene.container);
     ui.enterMatch(leaveMatch);
     if (mode === "local") ui.maybeShowCoachmarks();

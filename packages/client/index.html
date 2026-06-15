@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Autobattler</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -12,6 +12,8 @@
 </head>
 <body>
   <div id="app"></div>
+  <!-- Safe-area probe: padding resolves env(safe-area-inset-*); main.ts reads its computed padding. -->
+  <div id="safe-probe" style="position:fixed;top:0;left:0;width:0;height:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);pointer-events:none;"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

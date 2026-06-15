@@ -10,14 +10,42 @@ import { drawItemIcon } from "./itemIconDraw.js";
 import type { InspectModel } from "./inspectModel.js";
 import type { TraitDetailModel } from "./traitDetailModel.js";
 import type { ItemModel } from "./itemModel.js";
+import { centeredModal } from "./layout.js";
+import type { MatchLayout } from "./layout.js";
 
-const DESIGN_W = 390;
-const DESIGN_H = 844;
+// Portrait fallback dims (used when no layout is supplied, e.g. tests).
+const PORTRAIT_W = 390;
+const PORTRAIT_H = 844;
 
-function scrim(layer: PIXI.Container, onClose: () => void): void {
+/** Design dims of the active layout (falls back to portrait). */
+function dims(layout?: MatchLayout): { w: number; h: number } {
+  return layout ? { w: layout.designW, h: layout.designH } : { w: PORTRAIT_W, h: PORTRAIT_H };
+}
+
+/**
+ * Center a panel of (contentW, contentH) within the design space and cap its
+ * height to the safe area so short landscape never overflows. Uses centeredModal
+ * when a layout is supplied, else the portrait-faithful placement.
+ */
+function panelRect(
+  layout: MatchLayout | undefined,
+  contentW: number,
+  contentH: number,
+  portraitY: number
+): { x: number; y: number; w: number; h: number } {
+  if (layout) {
+    const cap = Math.min(contentH, layout.designH - 40);
+    return centeredModal(layout, contentW, cap, 16);
+  }
+  // Portrait fallback: preserve the original placement.
+  return { x: (PORTRAIT_W - contentW) / 2, y: portraitY, w: contentW, h: contentH };
+}
+
+function scrim(layer: PIXI.Container, onClose: () => void, layout?: MatchLayout): void {
+  const d = dims(layout);
   const s = new PIXI.Graphics();
   s.beginFill(C.bgScrim, 0.6);
-  s.drawRect(0, 0, DESIGN_W, DESIGN_H);
+  s.drawRect(0, 0, d.w, d.h);
   s.endFill();
   s.eventMode = "static";
   s.cursor = "pointer";
@@ -88,17 +116,18 @@ function traitDiamond(layer: PIXI.Container, traitId: string, cx: number, cy: nu
 export function renderUnitInspect(
   layer: PIXI.Container,
   m: InspectModel,
-  onClose: () => void
+  onClose: () => void,
+  layout?: MatchLayout
 ): void {
   layer.removeChildren();
-  scrim(layer, onClose);
+  scrim(layer, onClose, layout);
 
-  const w = DESIGN_W - 56;
-  const x = 28;
+  const d = dims(layout);
   // Grow the panel when the unit carries items so the item row never collides.
   const itemRowH = m.items.length > 0 ? 56 : 0;
-  const h = 340 + itemRowH;
-  const y = (DESIGN_H - h) / 2 - 30;
+  const contentH = 340 + itemRowH;
+  const rect = panelRect(layout, d.w - 56, contentH, (PORTRAIT_H - contentH) / 2 - 30);
+  const w = rect.w, x = rect.x, y = rect.y, h = rect.h;
   const accent = tierColor(m.tier);
   panelBox(layer, x, y, w, h, accent);
   closeButton(layer, x + w - 32, y + 8, onClose);
@@ -194,19 +223,20 @@ export function renderItemDetail(
   layer: PIXI.Container,
   m: ItemModel,
   onClose: () => void,
-  reducedMotion = false
+  reducedMotion = false,
+  layout?: MatchLayout
 ): void {
   layer.removeChildren();
-  scrim(layer, onClose);
+  scrim(layer, onClose, layout);
 
-  const w = DESIGN_W - 90;
-  const x = 45;
+  const d = dims(layout);
   const statLines = m.stats.length;
   const passiveH = m.passive ? 44 : 0;
-  const h = 96 + statLines * 24 + passiveH + 16;
-  const y = (DESIGN_H - h) / 2 - 20;
+  const contentH = 96 + statLines * 24 + passiveH + 16;
+  const rect = panelRect(layout, d.w - 90, contentH, (PORTRAIT_H - contentH) / 2 - 20);
+  const w = rect.w, x = rect.x, y = rect.y;
   const accent = m.component ? C.itemComponent : C.accentGold;
-  panelBox(layer, x, y, w, h, accent);
+  panelBox(layer, x, y, w, rect.h, accent);
   closeButton(layer, x + w - 32, y + 8, onClose);
 
   // Header: item icon disc (distinct procedural emblem / composed completed icon)
@@ -256,18 +286,19 @@ export function renderItemDetail(
 export function renderTraitDetail(
   layer: PIXI.Container,
   m: TraitDetailModel,
-  onClose: () => void
+  onClose: () => void,
+  layout?: MatchLayout
 ): void {
   layer.removeChildren();
-  scrim(layer, onClose);
+  scrim(layer, onClose, layout);
 
   const accent = traitColor(m.id);
-  const w = DESIGN_W - 80;
-  const x = 40;
+  const d = dims(layout);
   const rowH = 34;
   const headerH = 76;
-  const h = headerH + m.rows.length * (rowH + 6) + 16;
-  const y = (DESIGN_H - h) / 2 - 20;
+  const contentH = headerH + m.rows.length * (rowH + 6) + 16;
+  const rect = panelRect(layout, d.w - 80, contentH, (PORTRAIT_H - contentH) / 2 - 20);
+  const w = rect.w, x = rect.x, y = rect.y, h = rect.h;
   panelBox(layer, x, y, w, h, accent);
   closeButton(layer, x + w - 32, y + 8, onClose);
 
