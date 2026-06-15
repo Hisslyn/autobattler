@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { benchGeom, benchSlotAtX } from "../src/benchLayout.js";
+import { benchGeom, benchSlotAtX, portraitBenchGeom } from "../src/benchLayout.js";
+import type { Rect } from "../src/benchLayout.js";
 
 const W = 390;
 const Y = 532;
@@ -23,6 +24,38 @@ describe("benchGeom", () => {
   it("centers the row on benchY", () => {
     const g = benchGeom(W, Y);
     expect(g.top + g.slotH / 2).toBe(Y);
+  });
+
+  it("benchGeom with regionH=36 returns slotH=36", () => {
+    const g = benchGeom(W, Y, 36);
+    expect(g.slotH).toBe(36);
+  });
+});
+
+describe("portraitBenchGeom", () => {
+  const bench: Rect = { x: 8, y: 524, w: 312, h: 36 };
+
+  it("slotW is one-ninth of the bench width", () => {
+    const g = portraitBenchGeom(bench);
+    expect(g.slotW).toBeCloseTo(bench.w / 9, 5);
+  });
+
+  it("startCx is the center of slot 0 within the bench bounds", () => {
+    const g = portraitBenchGeom(bench);
+    expect(g.startCx).toBeGreaterThanOrEqual(bench.x);
+    expect(g.startCx).toBeLessThanOrEqual(bench.x + bench.w);
+    expect(g.startCx).toBeCloseTo(bench.x + g.slotW / 2, 5);
+  });
+
+  it("slot 8 center stays within the bench right edge", () => {
+    const g = portraitBenchGeom(bench);
+    expect(g.startCx + 8 * g.slotW).toBeLessThanOrEqual(bench.x + bench.w);
+  });
+
+  it("slotH and centerY track the region", () => {
+    const g = portraitBenchGeom(bench);
+    expect(g.slotH).toBe(bench.h);
+    expect(g.centerY).toBe(bench.y + bench.h / 2);
   });
 });
 

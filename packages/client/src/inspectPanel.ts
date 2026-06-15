@@ -41,6 +41,31 @@ function panelRect(
   return { x: (PORTRAIT_W - contentW) / 2, y: portraitY, w: contentW, h: contentH };
 }
 
+/**
+ * A wrapper container that scale-ins (0.88 → 1.0) + fades from 0 → 1 over 100ms,
+ * giving the modal a sense of origin instead of appearing fully-formed. The
+ * caller adds all panel children into the returned container. Reduced motion
+ * snaps to the final state. Uses requestAnimationFrame so it needs no Pixi ticker.
+ */
+function makePanelContainer(layer: PIXI.Container, reducedMotion: boolean): PIXI.Container {
+  const c = new PIXI.Container();
+  layer.addChild(c);
+  if (reducedMotion) { c.scale.set(1); c.alpha = 1; return c; }
+  c.scale.set(0.88);
+  c.alpha = 0;
+  const start = performance.now();
+  const step = (): void => {
+    if (c.destroyed) return;
+    const k = Math.min(1, (performance.now() - start) / 100);
+    const s = 0.88 + 0.12 * k;
+    c.scale.set(s);
+    c.alpha = k;
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  return c;
+}
+
 function scrim(layer: PIXI.Container, onClose: () => void, layout?: MatchLayout): void {
   const d = dims(layout);
   const s = new PIXI.Graphics();
@@ -59,11 +84,11 @@ function panelBox(
   accent: number
 ): void {
   const box = new PIXI.Graphics();
-  box.beginFill(C.bgInspect, 0.98);
-  box.lineStyle(1.5, accent, 0.9);
-  box.drawRoundedRect(x, y, w, h, 10);
-  box.endFill();
-  box.lineStyle(0);
+  // v8 path API: fill + outer accent border + a 1px inset highlight rim so the
+  // panel reads as a raised modal, not a flat overlay rectangle.
+  box.roundRect(x, y, w, h, 10).fill({ color: C.bgInspect, alpha: 0.98 });
+  box.roundRect(x, y, w, h, 10).stroke({ width: 1.5, color: accent, alpha: 0.85 });
+  box.roundRect(x + 1, y + 1, w - 2, h - 2, 9).stroke({ width: 1, color: C.surfaceFloat, alpha: 0.3 });
   box.eventMode = "static"; // swallow taps so they don't dismiss via the scrim
   layer.addChild(box);
 }
@@ -75,7 +100,9 @@ function closeButton(layer: PIXI.Container, x: number, y: number, onClose: () =>
   btn.endFill();
   btn.eventMode = "static";
   btn.cursor = "pointer";
-  btn.hitArea = new PIXI.Rectangle(x, y, 26, 22);
+  // Expand the hit area to ~62×44px (min touch target) without changing the
+  // 26×22px visual; the leftward expansion stays inside the panel interior.
+  btn.hitArea = new PIXI.Rectangle(x - 18, y - 11, 26 + 36, 22 + 22);
   btn.on("pointerdown", onClose);
   layer.addChild(btn);
   const t = new PIXI.Text({ text: "✕", style: { fontSize: 12, fill: C.textMuted, fontFamily: "monospace" } });
@@ -101,7 +128,7 @@ function traitDiamond(layer: PIXI.Container, traitId: string, cx: number, cy: nu
   const col = traitColor(traitId);
   const d = new PIXI.Graphics();
   d.poly([cx, cy - dr, cx + dr, cy, cx, cy + dr, cx - dr, cy]);
-  d.fill({ color: col, alpha: 0.35 });
+  d.fill({ color: col, alpha: 0.5 });
   d.poly([cx, cy - dr, cx + dr, cy, cx, cy + dr, cx - dr, cy]);
   d.stroke({ width: 1, color: col });
   d.eventMode = "none";
@@ -117,10 +144,14 @@ export function renderUnitInspect(
   layer: PIXI.Container,
   m: InspectModel,
   onClose: () => void,
-  layout?: MatchLayout
+  layout?: MatchLayout,
+  reducedMotion = false
 ): void {
   layer.removeChildren();
   scrim(layer, onClose, layout);
+  // All panel content goes into a scale-in wrapper so the panel reveals from its
+  // press origin instead of appearing fully-formed.
+  const panel = makePanelContainer(layer, reducedMotion);
 
   const d = dims(layout);
   // Grow the panel when the unit carries items so the item row never collides.
@@ -129,29 +160,29 @@ export function renderUnitInspect(
   const rect = panelRect(layout, d.w - 56, contentH, (PORTRAIT_H - contentH) / 2 - 30);
   const w = rect.w, x = rect.x, y = rect.y, h = rect.h;
   const accent = tierColor(m.tier);
-  panelBox(layer, x, y, w, h, accent);
-  closeButton(layer, x + w - 32, y + 8, onClose);
+  panelBox(panel, x, y, w, h, accent);
+  closeButton(panel, x + w - 32, y + 8, onClose);
 
   // Header: token + name + tier·cost
   const tokenC = new PIXI.Container();
   tokenC.eventMode = "none";
   drawUnitToken(tokenC, m.defId, m.tier, m.star, x + 34, y + 36, { radius: 22 });
-  layer.addChild(tokenC);
-  text(layer, m.name, x + 64, y + 22, 14, C.textPrimary, [0, 0]);
-  text(layer, `Tier ${m.tier}`, x + 64, y + 42, 9, accent, [0, 0]);
+  panel.addChild(tokenC);
+  text(panel, m.name, x + 64, y + 22, 14, C.textPrimary, [0, 0]);
+  text(panel, `Tier ${m.tier}`, x + 64, y + 42, 9, accent, [0, 0]);
   // cost (gold)
   const coin = new PIXI.Graphics();
-  drawGlyph(coin, "coin", x + 110, y + 47, 10, C.starGold);
+  drawGlyph(coin, "coin", x + 110, y + 47, 10, C.accentGold);
   coin.eventMode = "none";
-  layer.addChild(coin);
-  text(layer, `${m.cost}`, x + 118, y + 47, 10, C.textGold, [0, 0.5]);
+  panel.addChild(coin);
+  text(panel, `${m.cost}`, x + 118, y + 47, 10, C.textGold, [0, 0.5]);
 
   // Traits row (origin + classes) with the diamond+glyph motif
   let tx = x + 16;
   const traitY = y + 76;
   const traitChip = (id: string, name: string): void => {
-    traitDiamond(layer, id, tx + 9, traitY + 8, 8);
-    text(layer, name, tx + 22, traitY + 8, 9, C.textLabel, [0, 0.5]);
+    traitDiamond(panel, id, tx + 9, traitY + 8, 8);
+    text(panel, name, tx + 22, traitY + 8, 9, C.textLabel, [0, 0.5]);
     tx += 24 + name.length * 5.6 + 10;
   };
   if (m.origin) traitChip(m.origin.id, m.origin.name);
@@ -164,14 +195,14 @@ export function renderUnitInspect(
   abRow.drawRoundedRect(x + 14, abY, w - 28, 52, 6);
   abRow.endFill();
   abRow.eventMode = "none";
-  layer.addChild(abRow);
-  text(layer, m.ability.name, x + 22, abY + 8, 11, C.textPrimary, [0, 0]);
+  panel.addChild(abRow);
+  text(panel, m.ability.name, x + 22, abY + 8, 12, C.textPrimary, [0, 0]);
   const mcoin = new PIXI.Graphics();
   drawGlyph(mcoin, "spark", x + w - 56, abY + 13, 9, C.manaBlue);
   mcoin.eventMode = "none";
-  layer.addChild(mcoin);
-  text(layer, `${m.ability.manaCost}`, x + w - 48, abY + 13, 10, C.manaBlue, [0, 0.5]);
-  wrapText(layer, m.ability.description, x + 22, abY + 26, w - 44, 9, C.textMuted);
+  panel.addChild(mcoin);
+  text(panel, `${m.ability.manaCost}`, x + w - 48, abY + 13, 10, C.manaBlue, [0, 0.5]);
+  wrapText(panel, m.ability.description, x + 22, abY + 26, w - 44, 9, C.textMuted);
 
   // Stat grid (2 columns)
   const gridY = y + 170;
@@ -186,33 +217,34 @@ export function renderUnitInspect(
     cell.drawRoundedRect(rx, ry, colW - 6, 26, 5);
     cell.endFill();
     cell.eventMode = "none";
-    layer.addChild(cell);
-    text(layer, stat.label, rx + 8, ry + 13, 9, C.textMuted, [0, 0.5]);
-    text(layer, stat.value, rx + colW - 14, ry + 13, 11, C.textPrimary, [1, 0.5]);
+    panel.addChild(cell);
+    text(panel, stat.label, rx + 8, ry + 13, 9, C.textMuted, [0, 0.5]);
+    text(panel, stat.value, rx + colW - 14, ry + 13, 11, C.textPrimary, [1, 0.5]);
   });
 
   // Equipped items row (only when the unit holds any). Each chip shows a small
   // item glyph + name; tapping a chip opens that item's own detail panel.
   if (m.items.length > 0) {
     const itemsY = gridY + Math.ceil(m.stats.length / 2) * 30 + 8;
-    text(layer, "ITEMS", x + 16, itemsY, 9, C.textMuted, [0, 0]);
+    text(panel, "ITEMS", x + 16, itemsY, 9, C.textMuted, [0, 0]);
     let ix = x + 14;
     const chipY = itemsY + 14;
     for (const item of m.items) {
       const chipW = 18 + item.name.length * 5.0 + 12;
       const chip = new PIXI.Graphics();
-      chip.beginFill(item.color, 0.95);
-      chip.lineStyle(1, C.itemBorder, 0.9);
-      chip.drawRoundedRect(ix, chipY, chipW, 24, 5);
-      chip.endFill();
-      chip.lineStyle(0);
+      chip.roundRect(ix, chipY, chipW, 24, 5).fill({ color: item.color, alpha: 0.95 });
+      chip.roundRect(ix, chipY, chipW, 24, 5).stroke({ width: 1, color: C.itemBorder, alpha: 0.9 });
+      // Completed items get the gilded inner rim (shared with the item frame motif).
+      if (!item.component) {
+        chip.roundRect(ix + 2, chipY + 2, chipW - 4, 20, 3).stroke({ width: 1, color: C.itemFrame, alpha: 0.55 });
+      }
       chip.eventMode = "none";
-      layer.addChild(chip);
+      panel.addChild(chip);
       const ig = new PIXI.Container();
       drawItemIcon(ig, item.id, ix + 12, chipY + 12, { radius: 8, reducedMotion: true });
       ig.eventMode = "none";
-      layer.addChild(ig);
-      text(layer, item.name, ix + 22, chipY + 12, 8, C.textPrimary, [0, 0.5]);
+      panel.addChild(ig);
+      text(panel, item.name, ix + 22, chipY + 12, 8, C.textPrimary, [0, 0.5]);
       ix += chipW + 6;
     }
   }
@@ -228,6 +260,7 @@ export function renderItemDetail(
 ): void {
   layer.removeChildren();
   scrim(layer, onClose, layout);
+  const panel = makePanelContainer(layer, reducedMotion);
 
   const d = dims(layout);
   const statLines = m.stats.length;
@@ -236,8 +269,8 @@ export function renderItemDetail(
   const rect = panelRect(layout, d.w - 90, contentH, (PORTRAIT_H - contentH) / 2 - 20);
   const w = rect.w, x = rect.x, y = rect.y;
   const accent = m.component ? C.itemComponent : C.accentGold;
-  panelBox(layer, x, y, w, rect.h, accent);
-  closeButton(layer, x + w - 32, y + 8, onClose);
+  panelBox(panel, x, y, w, rect.h, accent);
+  closeButton(panel, x + w - 32, y + 8, onClose);
 
   // Header: item icon disc (distinct procedural emblem / composed completed icon)
   // + name + kind.
@@ -245,13 +278,13 @@ export function renderItemDetail(
   disc.circle(x + 32, y + 34, 20).fill({ color: C.bgInspectRow, alpha: 0.95 });
   disc.circle(x + 32, y + 34, 20).stroke({ width: 1.5, color: C.itemBorder });
   disc.eventMode = "none";
-  layer.addChild(disc);
+  panel.addChild(disc);
   const g = new PIXI.Container();
   drawItemIcon(g, m.id, x + 32, y + 34, { radius: 16, reducedMotion });
   g.eventMode = "none";
-  layer.addChild(g);
-  text(layer, m.name, x + 60, y + 22, 13, C.textPrimary, [0, 0]);
-  text(layer, m.component ? "Component" : "Completed Item", x + 60, y + 42, 9, accent, [0, 0]);
+  panel.addChild(g);
+  text(panel, m.name, x + 60, y + 22, 13, C.textPrimary, [0, 0]);
+  text(panel, m.component ? "Component" : "Completed Item", x + 60, y + 42, 9, accent, [0, 0]);
 
   // Stat bundle rows
   let ry = y + 70;
@@ -261,9 +294,9 @@ export function renderItemDetail(
     row.drawRoundedRect(x + 14, ry, w - 28, 20, 5);
     row.endFill();
     row.eventMode = "none";
-    layer.addChild(row);
-    text(layer, s.label, x + 22, ry + 10, 9, C.textMuted, [0, 0.5]);
-    text(layer, s.value, x + w - 22, ry + 10, 11, C.textPrimary, [1, 0.5]);
+    panel.addChild(row);
+    text(panel, s.label, x + 22, ry + 10, 9, C.textMuted, [0, 0.5]);
+    text(panel, s.value, x + w - 22, ry + 10, 11, C.textPrimary, [1, 0.5]);
     ry += 24;
   }
 
@@ -276,9 +309,9 @@ export function renderItemDetail(
     pb.endFill();
     pb.lineStyle(0);
     pb.eventMode = "none";
-    layer.addChild(pb);
-    text(layer, "Passive", x + 22, ry + 8, 8, accent, [0, 0]);
-    wrapText(layer, m.passive, x + 22, ry + 20, w - 44, 9, C.textMuted);
+    panel.addChild(pb);
+    text(panel, "Passive", x + 22, ry + 8, 9, accent, [0, 0]);
+    wrapText(panel, m.passive, x + 22, ry + 20, w - 44, 9, C.textMuted);
   }
 }
 
@@ -287,10 +320,12 @@ export function renderTraitDetail(
   layer: PIXI.Container,
   m: TraitDetailModel,
   onClose: () => void,
-  layout?: MatchLayout
+  layout?: MatchLayout,
+  reducedMotion = false
 ): void {
   layer.removeChildren();
   scrim(layer, onClose, layout);
+  const panel = makePanelContainer(layer, reducedMotion);
 
   const accent = traitColor(m.id);
   const d = dims(layout);
@@ -299,13 +334,13 @@ export function renderTraitDetail(
   const contentH = headerH + m.rows.length * (rowH + 6) + 16;
   const rect = panelRect(layout, d.w - 80, contentH, (PORTRAIT_H - contentH) / 2 - 20);
   const w = rect.w, x = rect.x, y = rect.y, h = rect.h;
-  panelBox(layer, x, y, w, h, accent);
-  closeButton(layer, x + w - 32, y + 8, onClose);
+  panelBox(panel, x, y, w, h, accent);
+  closeButton(panel, x + w - 32, y + 8, onClose);
 
-  traitDiamond(layer, m.id, x + 26, y + 30, 12);
-  text(layer, m.name, x + 46, y + 18, 14, C.textPrimary, [0, 0]);
+  traitDiamond(panel, m.id, x + 26, y + 30, 12);
+  text(panel, m.name, x + 46, y + 18, 14, C.textPrimary, [0, 0]);
   const kindLabel = m.kind === "origin" ? "Origin" : "Class";
-  text(layer, `${kindLabel} · ${m.count} fielded`, x + 46, y + 40, 9, accent, [0, 0]);
+  text(panel, `${kindLabel} · ${m.count} fielded`, x + 46, y + 40, 9, accent, [0, 0]);
 
   m.rows.forEach((r, i) => {
     const ry = y + headerH + i * (rowH + 6);
@@ -317,12 +352,12 @@ export function renderTraitDetail(
     row.lineStyle(0);
     row.eventMode = "none";
     row.alpha = r.reached ? 1 : 0.55;
-    layer.addChild(row);
+    panel.addChild(row);
 
     // count badge ("(N)") + active checkmark, so meaning isn't color-only
     const badge = r.active ? `▸ ${r.count}` : `${r.count}`;
-    text(layer, badge, x + 26, ry + rowH / 2, 11, r.reached ? accent : C.textMuted, [0, 0.5]);
-    text(layer, r.effect, x + 64, ry + rowH / 2, 10, r.reached ? C.textPrimary : C.textMuted, [0, 0.5]);
+    text(panel, badge, x + 26, ry + rowH / 2, 11, r.reached ? accent : C.textMuted, [0, 0.5]);
+    text(panel, r.effect, x + 64, ry + rowH / 2, 10, r.reached ? C.textPrimary : C.textMuted, [0, 0.5]);
   });
 }
 

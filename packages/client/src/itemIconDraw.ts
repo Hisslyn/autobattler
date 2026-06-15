@@ -67,7 +67,9 @@ function drawEmblem(
   color: number
 ): void {
   const s = size / 2;
-  const lw = Math.max(1.4, size * 0.13);
+  // Same step-based stroke weight as glyphs.ts so item emblems and class glyphs
+  // are visually interchangeable at the same render size.
+  const lw = size <= 9 ? 1.2 : size <= 13 ? 1.5 : size <= 20 ? 2 : Math.max(2, size * 0.1);
   const stroke = (alpha = 1, w = lw): void => {
     g.stroke({ width: w, color, alpha, cap: "round", join: "round" });
   };

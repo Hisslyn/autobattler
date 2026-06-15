@@ -1,28 +1,41 @@
 // All game colors in one place — muted dark palette
 export const C = {
-  // Backgrounds
-  bgPage:      0x0d0d14,
-  bgHud:       0x0e1018,
-  bgBoard:     0x0f1520,
-  bgBoardOpp:  0x14100f,
+  // ─── Surface elevations (canonical depth stack, polish pass) ──────────────
+  // Four principled steps; the bg* keys below alias these so the scene reads as
+  // a depth stack (page < panels < chips/HUD < modal overlays).
+  surfaceBase:   0x0b0d13,   // deepest: page bg, board zone bg, scrim backing
+  surfaceRaise:  0x141824,   // raised: panels, cards, bench, shop cards
+  surfaceFloat:  0x1c2232,   // floating: chips, HUD bands, overlays, inspect rows
+  surfaceOver:   0x242a3e,   // topmost modal surfaces (inspect, scout, resolution)
+  // ─── Border variants (polish pass) ────────────────────────────────────────
+  borderSubtle:  0x222840,   // subdued outer edge (inactive cards/slots)
+  borderActive:  0x3a4460,   // bright selected/active border
+  // ─── Drag/drop state (polish pass) ────────────────────────────────────────
+  bgBoardDragOver: 0x1a2a3a, // hex fill when occupied + drag over (swap hint)
+
+  // Backgrounds (aliased to the elevation stack above)
+  bgPage:      0x0b0d13,  // surfaceBase
+  bgHud:       0x141824,  // surfaceRaise
+  bgBoard:     0x0b0d13,  // surfaceBase
+  bgBoardOpp:  0x120d0e,
   bgBench:     0x111822,
-  bgShopCard:  0x141e2a,
-  bgShopEmpty: 0x0d1218,
-  bgReroll:    0x1a2030,
-  bgXp:        0x162018,
+  bgShopCard:  0x141824,  // surfaceRaise
+  bgShopEmpty: 0x10131c,
+  bgReroll:    0x1c2232,  // surfaceFloat
+  bgXp:        0x1c2232,  // surfaceFloat
   bgReady:     0x162818,
-  bgReadyOff:  0x1a1420,
-  bgUnit:      0x151c28,
+  bgReadyOff:  0x1c2232,  // surfaceFloat
+  bgUnit:      0x0f1220,  // deeper token disc
   bgToast:     0x2a0a0a,
   bgOverlay:   0x000000,
-  bgPanel:     0x10151e,
-  bgScout:     0x0e1420,
+  bgPanel:     0x141824,  // surfaceRaise
+  bgScout:     0x242a3e,  // surfaceOver
   bgBoardSel:  0x1a3a5a,
   bgBenchSel:  0x1a3050,
   bgSellZone:  0x280808,
-  bgCloseBtn:  0x2a1a1a,
+  bgCloseBtn:  0x1c2232,  // surfaceFloat (desaturated red tint)
   bgContinue:  0x1a3020,
-  bgMenuBtn:   0x2a2a3a,
+  bgMenuBtn:   0x1c2232,  // surfaceFloat
 
   // Tier colors (visual overhaul stage 1)
   tier1: 0x8b93a6,
@@ -37,9 +50,9 @@ export const C = {
   star3: 0xaa8a20,
 
   // HP / mana
-  hpBg:    0x0a1a0a,
+  hpBg:    0x182a18,  // visible bar track at small sizes
   hpFill:  0x2a7a3a,
-  manaBg:  0x0a0a1a,
+  manaBg:  0x10101e,  // visible bar track at small sizes
   manaFill: 0x2a4a88,
 
   // ─── Visual overhaul stage 1: board + unit tokens ─────────────────────────
@@ -50,23 +63,23 @@ export const C = {
   // Hex board
   enemyHex:    0x191d2a,
   myHex:       0x1d2336,
-  boardBg:     0x12151f,
-  boardBorder: 0x232838,
+  boardBg:     0x0d1019,  // slightly lifted from surfaceBase for the rounded panel
+  boardBorder: 0x2a3048,  // legible hex grid line on the darker board surface
   // Token
-  tokenBg:  0x11141d,
+  tokenBg:  0x0f1220,  // deeper token disc
   starGold: 0xf0a830,
 
   // ─── Visual overhaul stage 2: in-match HUD + shop chrome ──────────────────
-  panelBg:      0x1a1e2b,
-  chipBorder:   0x2c3142,
+  panelBg:      0x141824,  // surfaceRaise
+  chipBorder:   0x363d58,  // legible 1px border at 2× DPR
   xpPurple:     0x9b87f5,
   streakOrange: 0xe2603a,
 
   // ─── Visual overhaul stage 4: DOM meta screens ───────────────────────────
   // Surface + accent tokens used by the themed menus (panel surfaces reuse
   // panelBg/chipBorder above; these add the bits the DOM needs on top).
-  bgPanelRaise: 0x222838,  // raised inner surface (rows, inputs)
-  accentGold:   0xf0c84a,  // shared gold accent (buttons, wordmark, cost/gold)
+  bgPanelRaise: 0x1c2232,  // surfaceFloat — raised inner surface (rows, inputs)
+  accentGold:   0xf2ca58,  // shared bright gold accent (buttons, wordmark, coin, star pips)
   // Rank badge colors — one per ranks.json band (reuse RANK_BANDS data)
   rankBronze:   0xb87a4a,
   rankSilver:   0xaab4c4,
@@ -77,7 +90,7 @@ export const C = {
 
   // Text
   textPrimary:  0xc9cedb,
-  textGold:     0xc8a030,
+  textGold:     0xd4a832,  // legible reading gold (HUD number, shop cost)
   textGoodHP:   0x5aaa6a,
   textBadHP:    0xaa4040,
   textMuted:    0x8088a0,
@@ -117,14 +130,14 @@ export const C = {
   fxStarUp:        0xf0d878,  // merge / star-up flourish
 
   // ─── Inspect / trait-detail panels + sell control (stage 5: in-match UX) ──
-  bgInspect:     0x141a26,  // inspect/trait panel surface
-  bgInspectRow:  0x1c2230,  // inner stat/breakpoint row
+  bgInspect:     0x242a3e,  // surfaceOver — inspect/trait panel surface
+  bgInspectRow:  0x1c2232,  // surfaceFloat — inner stat/breakpoint row
   bgScrim:       0x000000,  // dim scrim behind a panel
   bgSellChip:    0x2a1010,  // sell affordance chip fill
   bgSellArmed:   0x4a1414,  // sell zone highlighted while a unit is dragged
-  benchEmpty:    0x10151f,  // empty bench slot fill
-  benchEmptyRim: 0x232a3a,  // empty bench slot outline
-  benchOccupied: 0x1b2333,  // occupied bench slot fill
+  benchEmpty:    0x0c1018,  // empty bench slot fill ("hole" relative to the row)
+  benchEmptyRim: 0x1e2640,  // empty bench slot outline (legible)
+  benchOccupied: 0x1e2840,  // occupied bench slot fill (clear elevation over empty)
 
   // ─── Phase 10b: items, loot orbs, PvE rounds ─────────────────────────────
   // Item inventory chips: components read distinct from completed items.
@@ -140,7 +153,7 @@ export const C = {
   itemFrame:       0xc9a24a,  // completed-item frame ring (gilded)
   itemShine:       0xfbf3d8,  // completed-item shine sweep (reduced-motion gated)
   // Loot orb rarity colors (loot.json rarities) — distinct hue per tier.
-  lootCommon:      0x9aa4b4,
+  lootCommon:      0xb4bece,  // distinct from textMuted
   lootUncommon:    0x5dca8a,
   lootRare:        0x4f8fe0,
   lootLegendary:   0xf0a830,

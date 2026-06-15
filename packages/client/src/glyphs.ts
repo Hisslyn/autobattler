@@ -64,7 +64,9 @@ export function drawGlyph(
   color: number
 ): void {
   const s = size / 2; // half-extent
-  const lw = Math.max(1.5, size * 0.12);
+  // Step-based stroke weight so small (chip/rail) and large (panel) glyphs read
+  // with consistent ink rather than the same hairline across sizes 8–12.
+  const lw = size <= 9 ? 1.2 : size <= 13 ? 1.5 : size <= 20 ? 2 : Math.max(2, size * 0.1);
   const strokeIt = (): void => { g.stroke({ width: lw, color, alpha: 1, cap: "round", join: "round" }); };
   const fillIt = (): void => { g.fill({ color, alpha: 1 }); };
 
@@ -232,8 +234,11 @@ export function drawGlyph(
     case "coin":
       g.circle(cx, cy, s * 0.85);
       fillIt();
-      g.circle(cx, cy, s * 0.85);
-      g.stroke({ width: lw * 0.8, color, alpha: 0.5, cap: "round", join: "round" });
+      // The depth self-stroke reads as a muddy halo at small sizes; gate it.
+      if (size > 10) {
+        g.circle(cx, cy, s * 0.85);
+        g.stroke({ width: lw * 0.8, color, alpha: 0.5, cap: "round", join: "round" });
+      }
       break;
     case "refresh":
       // Two-thirds arc with a small arrowhead at the open end.

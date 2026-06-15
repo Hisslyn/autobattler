@@ -4,6 +4,8 @@ import {
   centeredModal,
   landscapeBenchSlotCenter,
   landscapeBenchSlotAt,
+  planningRegionAt,
+  opponentRailTile,
   LANDSCAPE_THRESHOLD,
   PORTRAIT_W, PORTRAIT_H,
   LANDSCAPE_W, LANDSCAPE_H,
@@ -222,6 +224,89 @@ describe("landscape regions", () => {
     expect(regions.shop.x).toBeGreaterThanOrEqual(boardRight);
     expect(regions.readyButton.x).toBeGreaterThanOrEqual(boardRight);
   });
+
+  it("landscape rail tiles are at least 36px tall (2 rows)", () => {
+    // opponentRail holds 2 rows of tiles; each row must be ≥ 36px.
+    expect(regions.opponentRail.h / 2).toBeGreaterThanOrEqual(36);
+  });
+});
+
+// ── NH1: planningRegionAt ──────────────────────────────────────────────────────
+
+describe("planningRegionAt", () => {
+  const layout = resolveLayout({ viewportW: 390, viewportH: 844 });
+  const r = layout.regions;
+  const center = (rect: Rect): [number, number] => [rect.x + rect.w / 2, rect.y + rect.h / 2];
+
+  it("center of the sell control returns the sell zone", () => {
+    const [px, py] = center(r.sellControl);
+    expect(planningRegionAt(px, py, layout, -1, null, 0, 30, 5)).toEqual({ zone: "sell" });
+  });
+
+  it("sell zone uses forgiving bounds (±6px outside still maps to sell)", () => {
+    const px = r.sellControl.x + r.sellControl.w + 5;
+    const py = r.sellControl.y + r.sellControl.h / 2;
+    expect(planningRegionAt(px, py, layout, -1, null, 0, 30, 5)).toEqual({ zone: "sell" });
+  });
+
+  it("center of the shop returns a shop card index 0–4", () => {
+    const [px, py] = center(r.shop);
+    const got = planningRegionAt(px, py, layout, -1, null, 0, 30, 5);
+    expect(got?.zone).toBe("shop");
+    if (got?.zone === "shop") {
+      expect(got.cardIdx).toBeGreaterThanOrEqual(0);
+      expect(got.cardIdx).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("center of the ready button returns readyButton", () => {
+    const [px, py] = center(r.readyButton);
+    expect(planningRegionAt(px, py, layout, -1, null, 0, 30, 5)).toEqual({ zone: "readyButton" });
+  });
+
+  it("a passed board slot wins as the board zone (matches hexFromPointer)", () => {
+    const [px, py] = center(r.board);
+    expect(planningRegionAt(px, py, layout, 12, null, 0, 30, 5)).toEqual({ zone: "board", slotIdx: 12 });
+  });
+
+  it("first item-bar chip maps to itemBar idx 0", () => {
+    const cx = r.itemBar.x + 18 + 30 / 2;
+    const py = r.itemBar.y + r.itemBar.h / 2;
+    const got = planningRegionAt(cx, py, layout, -1, null, 3, 30, 5);
+    expect(got).toEqual({ zone: "itemBar", itemIdx: 0, itemCount: 3 });
+  });
+
+  it("a point outside every region returns null", () => {
+    expect(planningRegionAt(-50, -50, layout, -1, null, 0, 30, 5)).toBeNull();
+  });
+});
+
+// ── NH2: opponentRailTile ──────────────────────────────────────────────────────
+
+describe("opponentRailTile", () => {
+  const rail: Rect = { x: 600, y: 26, w: 240, h: 72 };
+
+  it("seat 0 in a 4-col layout → col 0, row 0", () => {
+    const t = opponentRailTile(0, 4, 2, rail);
+    expect(t.col).toBe(0);
+    expect(t.row).toBe(0);
+  });
+
+  it("seat 7 in a 4-col layout → col 3, row 1", () => {
+    const t = opponentRailTile(7, 4, 2, rail);
+    expect(t.col).toBe(3);
+    expect(t.row).toBe(1);
+  });
+
+  it("cx stays within the rail horizontally; cy within vertically", () => {
+    for (let i = 0; i < 8; i++) {
+      const t = opponentRailTile(i, 4, 2, rail);
+      expect(t.cx).toBeGreaterThanOrEqual(rail.x);
+      expect(t.cx).toBeLessThanOrEqual(rail.x + rail.w);
+      expect(t.cy).toBeGreaterThanOrEqual(rail.y);
+      expect(t.cy).toBeLessThanOrEqual(rail.y + rail.h);
+    }
+  });
 });
 
 // ── Portrait region geometry ──────────────────────────────────────────────────
@@ -262,6 +347,28 @@ describe("portrait regions", () => {
   it("portrait uses design 390×844", () => {
     expect(layout.designW).toBe(390);
     expect(layout.designH).toBe(844);
+  });
+
+  it("portrait regions have a uniform inter-region gap below the trait strip", () => {
+    // Each adjacent pair in the stacked lower column should sit 6–10px apart.
+    const stack = [
+      regions.traitRail,
+      regions.hud,
+      regions.bench,
+      regions.shop,
+      regions.readyButton,
+      regions.itemBar,
+    ];
+    for (let i = 0; i < stack.length - 1; i++) {
+      const gap = stack[i + 1]!.y - (stack[i]!.y + stack[i]!.h);
+      expect(gap).toBeGreaterThanOrEqual(6);
+      expect(gap).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it("portrait item bar is two rows tall and inside the design bounds", () => {
+    expect(regions.itemBar.h).toBe(68);
+    expect(regions.itemBar.y + regions.itemBar.h).toBeLessThanOrEqual(designH);
   });
 });
 

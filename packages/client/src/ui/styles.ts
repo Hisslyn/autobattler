@@ -43,14 +43,14 @@ ${themeCssVars()}
   margin: 16px 0 4px; color: ${cssVar("textLabel")};
 }
 .ui-wordmark {
-  font-size: 34px; letter-spacing: 5px;
+  font-size: 34px; letter-spacing: 5px; font-weight: 800;
   background: linear-gradient(180deg, ${cssVar("accentGold")} 0%, ${cssVar("streakOrange")} 120%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
   text-shadow: 0 2px 18px rgba(0,0,0,0.5);
 }
 .ui-subtitle { font-size: 13px; color: ${cssVar("textMuted")}; margin-bottom: 8px; }
 .ui-section-title {
-  font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+  font-size: 12px; letter-spacing: 1px; text-transform: uppercase; font-weight: 700;
   color: ${cssVar("textMuted")}; align-self: flex-start; margin-top: 8px;
 }
 .ui-muted { color: ${cssVar("textMuted")}; font-size: 12px; }
@@ -60,17 +60,37 @@ ${themeCssVars()}
   appearance: none; border: 1px solid ${cssVar("chipBorder")};
   background: ${cssVar("panelBg")}; color: ${cssVar("textPrimary")};
   font-family: inherit; font-size: 15px; padding: 13px 18px; border-radius: 9px;
-  cursor: pointer; width: 260px; text-align: center;
+  cursor: pointer; width: 260px; text-align: center; letter-spacing: 0.5px;
   transition: filter .12s, border-color .12s, transform .08s;
 }
-.ui-btn:hover, .ui-btn-wide:hover, .ui-btn-back:hover { filter: brightness(1.25); border-color: ${cssVar("accentGold")}; }
-.ui-btn:active, .ui-btn-wide:active { transform: translateY(1px); }
+.ui-btn:hover, .ui-btn-wide:hover, .ui-btn-back:hover {
+  filter: brightness(1.25); border-color: ${cssVar("accentGold")};
+}
+/* Press mirrors the Pixi alpha-dip + scale-pop model (darker + scale 0.98). */
+.ui-btn:active, .ui-btn-wide:active, .ui-btn-back:active {
+  filter: brightness(0.88); transform: scale(0.98); transform-origin: center;
+}
+.ui-btn:focus-visible, .ui-btn-wide:focus-visible, .ui-btn-back:focus-visible {
+  outline: 2px solid ${cssVar("accentGold")}; outline-offset: 2px;
+}
 .ui-btn:disabled, .ui-btn-wide:disabled { opacity: .4; cursor: not-allowed; filter: none; border-color: ${cssVar("chipBorder")}; }
 .ui-btn-wide { width: 100%; }
 .ui-btn-back {
   width: auto; font-size: 13px; padding: 7px 13px; align-self: flex-start;
   background: transparent; border-color: ${cssVar("chipBorder")}; color: ${cssVar("textMuted")};
 }
+/* How-to-Play nav — a proper 44px touch target (vs the small back button). */
+.ui-btn-nav {
+  appearance: none; border: 1px solid ${cssVar("chipBorder")};
+  background: ${cssVar("panelBg")}; color: ${cssVar("textPrimary")};
+  font-family: inherit; font-size: 14px; padding: 12px 20px; border-radius: 9px;
+  cursor: pointer; min-height: 44px; letter-spacing: 0.5px;
+  transition: filter .12s, border-color .12s, transform .08s;
+}
+.ui-btn-nav:hover { filter: brightness(1.25); border-color: ${cssVar("accentGold")}; }
+.ui-btn-nav:active { filter: brightness(0.88); transform: scale(0.98); transform-origin: center; }
+.ui-btn-nav:focus-visible { outline: 2px solid ${cssVar("accentGold")}; outline-offset: 2px; }
+.ui-btn-nav:disabled { opacity: .4; cursor: not-allowed; filter: none; }
 .ui-btn-primary {
   border-color: ${cssVar("accentGold")}; color: ${cssVar("bgPage")}; font-weight: 700;
   background: linear-gradient(180deg, ${cssVar("accentGold")} 0%, ${cssVar("starGold")} 100%);
@@ -92,7 +112,7 @@ ${themeCssVars()}
   border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 9px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.35);
 }
-.ui-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; }
+.ui-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 44px; }
 .ui-row label { font-size: 13px; color: ${cssVar("textLabel")}; }
 .ui-row input[type=range] { flex: 1; accent-color: ${cssVar("accentGold")}; }
 .ui-row input[type=text] {
@@ -105,7 +125,7 @@ ${themeCssVars()}
 /* Toggle pill */
 .ui-toggle {
   cursor: pointer; user-select: none; font-size: 12px; font-weight: 700;
-  padding: 4px 14px; border-radius: 999px; border: 1px solid ${cssVar("chipBorder")};
+  padding: 10px 16px; border-radius: 999px; border: 1px solid ${cssVar("chipBorder")};
 }
 .ui-toggle[data-on="true"] { color: ${cssVar("bgPage")}; background: ${cssVar("hpGreen")}; border-color: ${cssVar("hpGreen")}; }
 .ui-toggle[data-on="false"] { color: ${cssVar("textMuted")}; background: ${cssVar("bgPanelRaise")}; }
@@ -114,7 +134,7 @@ ${themeCssVars()}
 .ui-rank-badge {
   display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
   padding: 3px 9px; border-radius: 999px;
-  color: var(--rank); border: 1px solid var(--rank);
+  color: var(--rank, ${cssVar("textMuted")}); border: 1px solid var(--rank, ${cssVar("chipBorder")});
   background: ${cssVar("bgPanelRaise")};
 }
 .ui-bigmmr { font-size: 30px; color: ${cssVar("accentGold")}; font-weight: 700; letter-spacing: 1px; }
@@ -123,6 +143,7 @@ ${themeCssVars()}
 .ui-list { width: 100%; display: flex; flex-direction: column; gap: 4px; }
 .ui-list-row {
   display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px;
+  letter-spacing: 0.3px;
   padding: 8px 10px; background: ${cssVar("bgPanelRaise")}; border: 1px solid ${cssVar("chipBorder")}; border-radius: 6px;
 }
 .ui-list-row .pos { color: ${cssVar("textMuted")}; min-width: 24px; font-weight: 700; }
@@ -155,9 +176,9 @@ ${themeCssVars()}
 }
 
 /* How to play */
-.ui-howto-body { width: 100%; font-size: 13px; line-height: 1.55; color: ${cssVar("textPrimary")}; }
+.ui-howto-body { width: 100%; font-size: 13px; line-height: 1.6; color: ${cssVar("textPrimary")}; }
 .ui-howto-body h3 { color: ${cssVar("accentGold")}; font-size: 15px; letter-spacing: 1px; margin-bottom: 10px; }
-.ui-howto-body p { margin-bottom: 8px; }
+.ui-howto-body p { margin-bottom: 8px; line-height: 1.6; }
 .ui-howto-nav { display: flex; justify-content: space-between; width: 100%; align-items: center; }
 .ui-toast { color: ${cssVar("textToast")}; font-size: 12px; min-height: 16px; }
 
@@ -195,6 +216,11 @@ ${themeCssVars()}
 
 /* Reduced motion: disable menu transitions (combat fx handled in CombatView). */
 .reduced-motion * { transition: none !important; animation: none !important; }
+/* Honor the OS preference even without the DOM class (button press transforms). */
+@media (prefers-reduced-motion: reduce) {
+  .ui-btn, .ui-btn-wide, .ui-btn-back, .ui-btn-nav { transition: none; }
+  .ui-btn:active, .ui-btn-wide:active, .ui-btn-back:active, .ui-btn-nav:active { transform: none; }
+}
 
 /* ── Landscape meta-screen comfort (additive; portrait unaffected) ──────────── */
 @media (orientation: landscape) {
@@ -213,8 +239,9 @@ ${themeCssVars()}
   /* Modal cards (pause, etc.) never exceed the short viewport — scroll inside. */
   .ui-card { max-height: calc(100vh - 32px); overflow-y: auto; }
   .match-modal .ui-card { max-width: 420px; }
-  /* Trait rail sits at the left edge in landscape, so move the pause button right. */
-  .match-pause-btn { left: auto; right: 8px; }
+  /* Trait rail sits at the left edge in landscape, so move the pause button right
+     and down below the Pixi status band so its tap can't slip onto the canvas. */
+  .match-pause-btn { left: auto; right: 8px; top: 28px; }
 }
 
 /* Extra compression for very short landscape viewports. */

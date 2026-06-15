@@ -116,7 +116,10 @@ function portraitLayout(viewportW: number, viewportH: number, safe: SafeInsets):
   const canvasOffsetX = safe.left  + (usableW - scaledW) / 2;
   const canvasOffsetY = safe.top   + (usableH - scaledH) / 2;
 
-  // Mirror existing constants from match.ts:
+  // Board + trait strip stay at the prior hardcoded positions (portrait-faithful);
+  // everything below the trait strip uses a single uniform SECTION_GAP so the
+  // vertical rhythm reads as one cadence (was an arbitrary 1px-then-25px mix).
+  const SECTION_GAP   = 8;
   const STATUS_Y      = 4;
   const RAIL_Y        = 28;
   const BOARD_PANEL_X = 8;
@@ -124,15 +127,21 @@ function portraitLayout(viewportW: number, viewportH: number, safe: SafeInsets):
   const BOARD_PANEL_Y = 58;
   const BOARD_PANEL_H = 360;
   const TRAIT_STRIP_Y = 426;
-  const HUD_ROW_Y     = 476;
+  const TRAIT_STRIP_H = 44;
   const HUD_ROW_H     = 38;
-  const BENCH_Y       = 532;
-  const SHOP_Y        = 574;
   const SHOP_CARD_H   = 84;
   const SHOP_START_X  = 9;
-  const READY_Y       = SHOP_Y + SHOP_CARD_H + 10;
-  const ITEM_BAR_Y    = READY_Y + 40;
-  const ITEM_SLOT     = 30;
+
+  const HUD_ROW_Y   = TRAIT_STRIP_Y + TRAIT_STRIP_H + SECTION_GAP;   // 478
+  const BENCH_Y_TOP = HUD_ROW_Y + HUD_ROW_H + SECTION_GAP;           // 524
+  const BENCH_H     = 36;                                            // +2 breathing
+  const SHOP_Y      = BENCH_Y_TOP + BENCH_H + SECTION_GAP;           // 568
+  const READY_Y     = SHOP_Y + SHOP_CARD_H + SECTION_GAP;            // 660
+  const READY_H     = 34;
+  const ITEM_BAR_Y  = READY_Y + READY_H + SECTION_GAP;               // 702
+  // Item bar is two rows tall so up to 9 chips wrap without clipping or colliding
+  // with the bag glyph / "No items" label.
+  const ITEM_BAR_H  = 68;
 
   // sell control (from benchGeom logic: right of bench)
   const margin  = 8;
@@ -146,13 +155,13 @@ function portraitLayout(viewportW: number, viewportH: number, safe: SafeInsets):
     statusRow:    { x: 0,            y: STATUS_Y,     w: dW,           h: 24 },
     opponentRail: { x: 0,            y: RAIL_Y,       w: dW,           h: 30 },
     board:        { x: BOARD_PANEL_X, y: BOARD_PANEL_Y, w: BOARD_PANEL_W, h: BOARD_PANEL_H },
-    traitRail:    { x: SHOP_START_X, y: TRAIT_STRIP_Y, w: dW - 2 * SHOP_START_X, h: 44 },
+    traitRail:    { x: SHOP_START_X, y: TRAIT_STRIP_Y, w: dW - 2 * SHOP_START_X, h: TRAIT_STRIP_H },
     hud:          { x: SHOP_START_X, y: HUD_ROW_Y,   w: dW - 2 * SHOP_START_X, h: HUD_ROW_H },
-    bench:        { x: margin,       y: BENCH_Y - 17, w: benchW,       h: 34 },
-    sellControl:  { x: sellX,        y: BENCH_Y - 17, w: sellW,        h: 34 },
+    bench:        { x: margin,       y: BENCH_Y_TOP,  w: benchW,       h: BENCH_H },
+    sellControl:  { x: sellX,        y: BENCH_Y_TOP,  w: sellW,        h: BENCH_H },
     shop:         { x: SHOP_START_X, y: SHOP_Y,       w: dW - 2 * SHOP_START_X, h: SHOP_CARD_H },
-    readyButton:  { x: SHOP_START_X, y: READY_Y,      w: dW - 2 * SHOP_START_X, h: 34 },
-    itemBar:      { x: SHOP_START_X, y: ITEM_BAR_Y,   w: dW - 2 * SHOP_START_X, h: ITEM_SLOT },
+    readyButton:  { x: SHOP_START_X, y: READY_Y,      w: dW - 2 * SHOP_START_X, h: READY_H },
+    itemBar:      { x: SHOP_START_X, y: ITEM_BAR_Y,   w: dW - 2 * SHOP_START_X, h: ITEM_BAR_H },
   };
 
   return { orientation: "portrait", designW: dW, designH: dH, scale, canvasOffsetX, canvasOffsetY, regions };
@@ -264,10 +273,12 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
   // Tile height raised from 28→32: avatar (r=8, span=18px) + HP bar bottom at 22px
   // from tile top — 32px gives 10px breathing vs the previous 6px.
   const railTileW   = Math.floor(rightColW / 4);
-  const railTileH   = 32;
+  // Raised 32→36 so the seat number + the level label (now below the disc) +
+  // the HP bar all fit without overlapping inside one tile.
+  const railTileH   = 36;
   const railCols    = 4;
   const railRows    = 2;
-  const railH       = railRows * railTileH;   // 64
+  const railH       = railRows * railTileH;   // 72
   const railY       = contentTop;
 
   // HUD row: gold + xp + streak + buttons.
@@ -454,4 +465,95 @@ export function landscapeBenchSlotAt(
   const row = Math.floor((py - bench.y) / (bench.h / 3));
   const idx = row * 3 + col;
   return Math.max(0, Math.min(8, idx));
+}
+
+// ── New pure helpers (polish pass) ─────────────────────────────────────────────
+
+/** Named planning-phase region a pointer falls in (NH1). */
+export type PlanningRegion =
+  | { zone: "board"; slotIdx: number }
+  | { zone: "bench"; slotIdx: number }
+  | { zone: "sell" }
+  | { zone: "itemBar"; itemIdx: number; itemCount: number }
+  | { zone: "hud" }
+  | { zone: "shop"; cardIdx: number }
+  | { zone: "readyButton" }
+  | null;
+
+function inRect(px: number, py: number, r: Rect, pad = 0): boolean {
+  return px >= r.x - pad && px <= r.x + r.w + pad && py >= r.y - pad && py <= r.y + r.h + pad;
+}
+
+/**
+ * NH1 — hit-test which planning region a pointer is in. Pure consolidation of
+ * the forgiving-bounds arithmetic match.ts spreads across its drag handlers.
+ * Board slot index matches hexFromPointer (computed by the caller from the hex
+ * geometry, then folded in here only as a region membership test). Sell uses
+ * ±6px forgiving bounds. Returns the most specific interactive region, or null.
+ */
+export function planningRegionAt(
+  px: number,
+  py: number,
+  layout: MatchLayout,
+  boardSlot: number,
+  benchSlot: number | null,
+  itemCount: number,
+  itemSlot: number,
+  itemGap: number
+): PlanningRegion {
+  const r = layout.regions;
+  // Order: most-specific interactive targets first.
+  if (boardSlot >= 0) return { zone: "board", slotIdx: boardSlot };
+  if (benchSlot !== null && inRect(px, py, r.bench, 7)) return { zone: "bench", slotIdx: benchSlot };
+  if (inRect(px, py, r.sellControl, 6)) return { zone: "sell" };
+  // Item bar: walk the chips (offset past the bag glyph) to find the slot.
+  if (itemCount > 0 && inRect(px, py, r.itemBar, 6)) {
+    const chipStartX = r.itemBar.x + 18 + itemSlot / 2;
+    for (let i = 0; i < itemCount; i++) {
+      const cx = chipStartX + i * (itemSlot + itemGap);
+      if (px >= cx - itemSlot / 2 - itemGap / 2 && px <= cx + itemSlot / 2 + itemGap / 2) {
+        return { zone: "itemBar", itemIdx: i, itemCount };
+      }
+    }
+  }
+  if (inRect(px, py, r.readyButton)) return { zone: "readyButton" };
+  if (inRect(px, py, r.shop)) {
+    const cardW = r.shop.w / 5;
+    const cardIdx = Math.max(0, Math.min(4, Math.floor((px - r.shop.x) / cardW)));
+    return { zone: "shop", cardIdx };
+  }
+  if (inRect(px, py, r.hud)) return { zone: "hud" };
+  return null;
+}
+
+/** Geometry of one opponent-rail tile in a cols×rows grid (NH2). */
+export interface RailTile {
+  col: number; row: number;
+  tileX: number; tileY: number;
+  cx: number; cy: number;
+  tileW: number; tileH: number;
+}
+
+/**
+ * NH2 — pure tile geometry for the opponent rail grid. `renderHud` and any
+ * overlay wanting to highlight a seat tile share this one computation.
+ */
+export function opponentRailTile(
+  seatIdx: number,
+  cols: number,
+  rows: number,
+  rail: Rect
+): RailTile {
+  const col = seatIdx % cols;
+  const row = Math.floor(seatIdx / cols);
+  const tileW = rail.w / cols;
+  const tileH = rail.h / rows;
+  const tileX = rail.x + col * tileW;
+  const tileY = rail.y + row * tileH;
+  return {
+    col, row, tileX, tileY,
+    cx: tileX + tileW / 2,
+    cy: tileY + tileH / 2,
+    tileW, tileH,
+  };
 }

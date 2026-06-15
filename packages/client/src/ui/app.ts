@@ -265,8 +265,8 @@ export class UiApp {
       const motif = this.howToMotif(p.title);
       if (motif) body.appendChild(motif);
       clear(nav);
-      const prev = button("‹ Prev", () => { if (page > 0) { page--; renderPage(); } }, "ui-btn-back");
-      const next = button("Next ›", () => { if (page < HELP_PAGES.length - 1) { page++; renderPage(); } }, "ui-btn-back");
+      const prev = button("‹ Prev", () => { if (page > 0) { page--; renderPage(); } }, "ui-btn-nav");
+      const next = button("Next ›", () => { if (page < HELP_PAGES.length - 1) { page++; renderPage(); } }, "ui-btn-nav");
       prev.disabled = page === 0;
       next.disabled = page === HELP_PAGES.length - 1;
       nav.appendChild(prev);

@@ -1,6 +1,8 @@
 // Pure layout math for the 9-slot bench rail + the sell control beside it.
 // Extracted so hit-target geometry is testable without Pixi.
 
+export interface Rect { x: number; y: number; w: number; h: number }
+
 export interface BenchGeom {
   /** Slot height (taller than wide for comfortable thumb targets). */
   slotH: number;
@@ -19,10 +21,11 @@ export interface BenchGeom {
 /**
  * Compute bench/sell geometry for a given design width and the bench row's
  * vertical center. 8px side margins; 9 slots; a fixed-width sell control on the
- * right with a 6px gap.
+ * right with a 6px gap. `regionH` (default 34) is the bench region's height so
+ * the slot height tracks the actual region rather than a stale literal.
  */
-export function benchGeom(designW: number, benchY: number): BenchGeom {
-  const slotH = 34;
+export function benchGeom(designW: number, benchY: number, regionH = 34): BenchGeom {
+  const slotH = regionH;
   const sellW = 44;
   const margin = 8;
   const gap = 6;
@@ -36,6 +39,26 @@ export function benchGeom(designW: number, benchY: number): BenchGeom {
     startCx: margin + slotW / 2,
     sellX: margin + benchW + gap,
     top: benchY - slotH / 2,
+  };
+}
+
+/**
+ * Region-based bench geometry (NH3): derive the 9 slot positions straight from
+ * the bench region rect rather than from the full design width. Used where the
+ * bench width may differ from `designW − margins` (e.g. portrait sell-beside).
+ */
+export function portraitBenchGeom(bench: Rect): {
+  slotW: number;
+  slotH: number;
+  startCx: number;
+  centerY: number;
+} {
+  const slotW = bench.w / 9;
+  return {
+    slotW,
+    slotH: bench.h,
+    startCx: bench.x + slotW / 2,
+    centerY: bench.y + bench.h / 2,
   };
 }
 

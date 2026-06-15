@@ -31,7 +31,7 @@ import type { AudioManager } from "../audio/manager.js";
 import { phaseToMusicState } from "../audio/director.js";
 
 import type { MatchLayout } from "../layout.js";
-import { centeredModal, landscapeBenchSlotCenter, landscapeBenchSlotAt } from "../layout.js";
+import { centeredModal, landscapeBenchSlotCenter, landscapeBenchSlotAt, opponentRailTile } from "../layout.js";
 
 export interface MatchSceneOptions {
   settings: SettingsStore;
@@ -350,33 +350,37 @@ export class MatchScene {
 
   /**
    * Wire a tap handler with quick press feedback for perceived responsiveness.
-   * Reduced-motion (or non-Container scale targets) still get a visible pressed
-   * state via an instant alpha dip; otherwise a brief scale-down springs back.
-   * The actual action fires on pointerdown (unchanged behavior).
+   * The visual pressed look (alpha dip + scale pop) fires on pointerdown for
+   * instant tactile feedback, but the ACTION fires on pointerup — so a finger
+   * can slide off to cancel (the standard button escape path, matching the shop
+   * cards + DOM buttons). pointerupoutside is the cancel path (no action).
+   *
+   * `pivot` is the button's center in its own local space; passing it avoids a
+   * per-press getLocalBounds() (a synchronous bounds recalc that can stutter on
+   * low-end devices). The geometry is stable between renders so it's computed once.
    */
-  private pressFeedback(g: PIXI.Graphics, onTap: () => void): void {
+  private pressFeedback(g: PIXI.Graphics, onTap: () => void, pivot?: { cx: number; cy: number }): void {
     const reduced = this.opts.settings.get().reducedMotion;
+    if (!reduced && pivot) {
+      // Pivot about the button center once, at wire-up time.
+      g.pivot.set(pivot.cx, pivot.cy);
+      g.position.set(pivot.cx, pivot.cy);
+    }
     const press = (): void => {
-      // Instant, always-visible pressed look.
       g.alpha = 0.7;
-      if (!reduced) {
-        // Quick scale pop about the button's own center, then spring back.
-        const b = g.getLocalBounds();
-        g.pivot.set(b.x + b.width / 2, b.y + b.height / 2);
-        g.position.set(g.pivot.x, g.pivot.y);
-        g.scale.set(0.94);
-      }
-      onTap();
+      if (!reduced && pivot) g.scale.set(0.94);
     };
-    const release = (): void => {
+    const restore = (): void => {
       g.alpha = 1;
       g.scale.set(1);
     };
     g.on("pointerdown", press);
-    g.on("pointerup", release);
-    g.on("pointerupoutside", release);
-    // Safety: if no release arrives shortly, restore (e.g. re-render swaps the node).
-    g.on("pointerdown", () => setTimeout(release, 120));
+    // Action fires on pointerup only (slide-off-to-cancel = pointerupoutside).
+    g.on("pointerup", () => { restore(); onTap(); });
+    g.on("pointerupoutside", restore);
+    // Safety: if no release arrives shortly, restore the visual (e.g. re-render
+    // swaps the node) — without firing the action.
+    g.on("pointerdown", () => setTimeout(restore, 200));
   }
 
   // ─── HUD: status row + opponent rail ─────────────────────────────────────────
@@ -413,11 +417,12 @@ export class MatchScene {
       const m = Math.floor(secs / 60);
       const ss = (secs % 60).toString().padStart(2, "0");
       this.text(
-        this.hudLayer, `${m}:${ss}`, designW / 2, sy + 10, 13,
+        this.hudLayer, `${m}:${ss}`, designW / 2, sy + 10, 12,
         secs <= 5 ? C.hpLow : C.textMuted, [0.5, 0.5]
       );
     } else {
-      this.text(this.hudLayer, state.phase, designW / 2, sy + 10, 11, C.textMuted, [0.5, 0.5]);
+      // Same 12px as the timer so phase transitions don't jitter the slot.
+      this.text(this.hudLayer, state.phase, designW / 2, sy + 10, 12, C.textMuted, [0.5, 0.5]);
     }
     // Right slot reserved for the DOM ☰ pause button (existing hook).
 
@@ -428,17 +433,12 @@ export class MatchScene {
     const currentOpp = myPairing && !myPairing.isGhost ? myPairing.opponentId : -1;
     const cols = this.isLandscape ? 4 : 8;
     const rows = this.isLandscape ? 2 : 1;
-    const tileW = rail.w / cols;
-    const tileH = rail.h / rows;
     const av = 8; // avatar radius
     for (let i = 0; i < 8; i++) {
       const p = state.players[i];
       if (!p) continue;
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const tileX = rail.x + col * tileW;
-      const tileY = rail.y + row * tileH;
-      const cx = tileX + tileW / 2;
+      const tile = opponentRailTile(i, cols, rows, rail);
+      const { tileX, tileY, tileW, tileH, cx } = tile;
       const cy = tileY + av + 1;
       const isSelf = i === this.driver.seatIndex;
       const elim = !p.alive;
@@ -447,22 +447,25 @@ export class MatchScene {
 
       const avg = new PIXI.Graphics();
       avg.circle(cx, cy, av).fill({ color: C.panelBg, alpha: elim ? 0.4 : 1 });
+      // Current opponent uses the combat-header color (not gold — gold means
+      // economy here), self stays tier3, others the neutral chip border.
       avg.circle(cx, cy, av).stroke({
-        width: i === currentOpp ? 2 : 1,
-        color: i === currentOpp ? C.starGold : isSelf ? C.tier3 : C.chipBorder,
+        width: i === currentOpp ? 2.5 : 1,
+        color: i === currentOpp ? C.textCombat : isSelf ? C.tier3 : C.chipBorder,
         alpha: elim ? 0.4 : 1,
       });
       this.hudLayer.addChild(avg);
 
-      // Seat number + level (e.g. "3·L5") so each tile shows the opponent's level.
-      this.text(this.hudLayer, `${i + 1}`, cx, cy - 2, 9, elim ? C.textMuted : C.textPrimary, [0.5, 0.5]);
-      this.text(this.hudLayer, `L${p.level}`, cx, cy + 6, 6, elim ? C.textMuted : C.textLabel, [0.5, 0.5]);
+      // Seat number inside the disc; level label below the disc (legible at 8px,
+      // no longer stacked inside the 16px disc).
+      this.text(this.hudLayer, `${i + 1}`, cx, cy - 1, 10, elim ? C.textMuted : C.textPrimary, [0.5, 0.5]);
+      this.text(this.hudLayer, `L${p.level}`, cx, cy + av + 5, 8, elim ? C.textMuted : C.textMuted, [0.5, 0.5]);
 
-      // HP bar below the avatar
+      // HP bar below the avatar — baseline leaves room for the level label above.
       const hpFrac = Math.max(0, Math.min(1, p.hp / 100));
       const barW = tileW - 10;
       const barX = cx - barW / 2;
-      const barY = cy + av + 2;
+      const barY = cy + av + (this.isLandscape ? 16 : 12);
       const hb = new PIXI.Graphics();
       hb.rect(barX, barY, barW, 3).fill({ color: C.hpBg, alpha: elim ? 0.4 : 1 });
       hb.rect(barX, barY, Math.round(barW * hpFrac), 3)
@@ -498,11 +501,12 @@ export class MatchScene {
   private drawBoardPanel(layer: PIXI.Container): void {
     const b = this.layout.regions.board;
     const panel = new PIXI.Graphics();
-    panel.beginFill(C.boardBg, 0.92);
-    panel.lineStyle(1, C.boardBorder, 0.9);
-    panel.drawRoundedRect(b.x, b.y, b.w, b.h, 10);
-    panel.endFill();
-    panel.lineStyle(0);
+    // v8 path API: fill, outer border, then a faint inset rim so the board reads
+    // as a raised panel above the page rather than a flat rectangle.
+    panel.roundRect(b.x, b.y, b.w, b.h, 10).fill({ color: C.boardBg, alpha: 0.92 });
+    panel.roundRect(b.x, b.y, b.w, b.h, 10).stroke({ width: 1, color: C.boardBorder, alpha: 0.9 });
+    panel.roundRect(b.x + 1, b.y + 1, b.w - 2, b.h - 2, 9).stroke({ width: 1, color: C.surfaceFloat, alpha: 0.25 });
+    panel.eventMode = "none";
     layer.addChild(panel);
   }
 
@@ -513,29 +517,37 @@ export class MatchScene {
     const playerY = this.boardOffsetY;
     const oppY = this.oppBoardOffsetY;
 
-    // Enemy zone (top 4 rows) — darker tint, untargetable during planning
+    // Only a UNIT drag (not an item drag) makes player hexes valid drop targets.
+    const unitDragging = this.isDragging && this.dragItem === null;
+
+    // Enemy zone (top 4 rows) — darker tint, untargetable during planning. While
+    // dragging a unit, dim it so it reads as "not a valid drop zone".
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
         const { x, y } = hexToPixel(q, r, offX, oppY);
         const g = new PIXI.Graphics();
-        drawHex(g, x, y, HEX_R - 2, C.enemyHex, 1, {
-          border: { color: C.boardBorder, width: 1, alpha: 0.8 },
+        drawHex(g, x, y, HEX_R - 2, C.enemyHex, unitDragging ? 0.4 : 1, {
+          border: { color: C.boardBorder, width: 1, alpha: unitDragging ? 0.4 : 0.8 },
         });
         this.boardLayer.addChild(g);
       }
     }
 
-    // Player zone (bottom 4 rows) — lighter tint; valid drop hexes glow while dragging
-    const dragging = this.isDragging;
+    // Player zone (bottom 4 rows) — lighter tint; valid drop hexes glow green
+    // while dragging a unit; an occupied hex (a valid swap) gets a lighter fill.
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
         const slotIdx = r * BOARD_COLS + q;
         const { x, y } = hexToPixel(q, r, offX, playerY);
         const isSelected = this.selectedBoardIdx === slotIdx && me.board[slotIdx] != null;
+        const occupied = me.board[slotIdx] != null;
+        const fill = isSelected
+          ? C.bgBoardSel
+          : unitDragging && occupied ? C.bgBoardDragOver : C.myHex;
         const g = new PIXI.Graphics();
-        drawHex(g, x, y, HEX_R - 2, isSelected ? C.bgBoardSel : C.myHex, 1, {
-          border: dragging
-            ? { color: C.textMuted, width: 2, alpha: 0.75 }
+        drawHex(g, x, y, HEX_R - 2, fill, 1, {
+          border: unitDragging
+            ? { color: C.hpGreen, width: 2, alpha: 0.6 }
             : { color: C.boardBorder, width: 1, alpha: 0.8 },
         });
         g.eventMode = "static";
@@ -553,6 +565,14 @@ export class MatchScene {
       const q = idx % BOARD_COLS;
       const r = Math.floor(idx / BOARD_COLS);
       const { x, y } = hexToPixel(q, r, offX, playerY);
+      // Selected (tap-to-move) unit gets a halo ring OUTSIDE its tier ring so it
+      // reads as "this unit is selected" — the hex fill alone is hidden behind it.
+      if (this.selectedBoardIdx === idx && !this.isDragging) {
+        const halo = new PIXI.Graphics();
+        halo.circle(x, y, 20).stroke({ width: 2, color: C.tier3, alpha: 0.75 });
+        halo.eventMode = "none";
+        this.boardLayer.addChild(halo);
+      }
       const uc = new PIXI.Container();
       uc.eventMode = "static";
       uc.cursor = "grab";
@@ -566,7 +586,8 @@ export class MatchScene {
 
   /** Geometry for the 9 bench slots and the sell control beside them (pure, portrait). */
   private benchGeom() {
-    return benchGeom(this.designW, this.benchCenterY);
+    // Slot height tracks the bench region height (E3) — portrait bench is now 36px.
+    return benchGeom(this.designW, this.benchCenterY, this.layout.regions.bench.h);
   }
 
   /** Portrait single-row bench center y (also reused for portrait sell/pops). */
@@ -593,6 +614,19 @@ export class MatchScene {
   private renderBench(me: PlayerState): void {
     this.benchLayer.removeChildren();
 
+    // Landscape: a subtle column-bg behind the whole left column (trait rail →
+    // bench → sell → item bar) so the three-column structure reads at a glance
+    // (chips/slots no longer float against the bare page color). Drawn first.
+    if (this.isLandscape) {
+      const regions = this.layout.regions;
+      const colBg = new PIXI.Graphics();
+      const colW = regions.bench.x + regions.bench.w + 4;
+      colBg.rect(0, regions.statusRow.h, colW, this.designH - regions.statusRow.h)
+        .fill({ color: C.bgHud, alpha: 0.4 });
+      colBg.eventMode = "none";
+      this.benchLayer.addChild(colBg);
+    }
+
     for (let i = 0; i < 9; i++) {
       const { x: cx, y: cy } = this.benchSlotCenter(i);
       const unit = me.bench[i];
@@ -617,11 +651,12 @@ export class MatchScene {
       }
 
       const g = new PIXI.Graphics();
-      // Clear occupied-vs-empty distinction: filled+rimmed when occupied,
-      // dashed-feel hollow when empty; selection gets the blue highlight.
+      // Clear occupied-vs-empty distinction: solid elevated cell when occupied,
+      // a darker "hole" when empty; selection gets the blue highlight. Max the
+      // alpha contrast (1.0 vs 0.5) so the reading is pre-attentive.
       g.beginFill(
         isSelected ? C.bgBenchSel : occupied ? C.benchOccupied : C.benchEmpty,
-        occupied ? 0.95 : 0.6
+        occupied ? 1.0 : 0.5
       );
       g.lineStyle(1, isSelected ? C.tier3 : occupied ? C.chipBorder : C.benchEmptyRim, occupied ? 0.9 : 0.5);
       g.drawRoundedRect(cellX + 1, cellY, cellW - 2, cellH, 4);
@@ -668,8 +703,10 @@ export class MatchScene {
     const refund = selected ? sellValue(selected, gameData) : null;
 
     const g = new PIXI.Graphics();
-    g.beginFill(armed ? C.bgSellArmed : C.bgSellChip, armed ? 0.95 : 0.7);
-    g.lineStyle(1, C.textSell, armed ? 0.95 : 0.5);
+    // Armed (a unit selected/dragged) lights up at full alpha for clarity; the
+    // resting state stays dim so the control reads as quiet, not an instruction.
+    g.beginFill(armed ? C.bgSellArmed : C.bgSellChip, armed ? 1.0 : 0.7);
+    g.lineStyle(1, C.textSell, armed ? 1.0 : 0.5);
     g.drawRoundedRect(x, top, w, h, 4);
     g.endFill();
     g.lineStyle(0);
@@ -681,11 +718,19 @@ export class MatchScene {
 
     if (refund != null) {
       // Refund amount front-and-center with the gold coin glyph.
-      this.glyph(this.benchLayer, "coin", cx - 8, midY - 5, 9, C.starGold);
+      this.glyph(this.benchLayer, "coin", cx - 8, midY - 5, 9, C.accentGold);
       this.text(this.benchLayer, `${refund}`, cx + 3, midY - 5, 11, C.textGold, [0.5, 0.5]);
       this.text(this.benchLayer, "Sell", cx, midY + 7, 7, C.textSell, [0.5, 0.5]);
-    } else {
+    } else if (armed) {
+      // Dragging but no selection yet: show the "Sell" drop-target label.
       this.text(this.benchLayer, "Sell", cx, midY, 9, C.textSell, [0.5, 0.5]);
+    } else {
+      // Resting: only the dagger glyph at low alpha (no permanent label noise).
+      const ig = new PIXI.Graphics();
+      drawGlyph(ig, "dagger", cx, midY, 11, C.textSell);
+      ig.alpha = 0.35;
+      ig.eventMode = "none";
+      this.benchLayer.addChild(ig);
     }
   }
 
@@ -719,15 +764,17 @@ export class MatchScene {
     // Inventory label (bag glyph) so the bar reads as your item stash.
     this.glyph(this.itemLayer, "bag", bar.x + 7, midY, 13, C.textMuted);
     if (inv.length === 0) {
-      this.text(this.itemLayer, "No items", bar.x + 20, midY, 9, C.textDimmed, [0, 0.5]);
+      // Smaller + nudged past the bag glyph so it reads as clearly secondary.
+      this.text(this.itemLayer, "No items", bar.x + 26, midY, 8, C.textDimmed, [0, 0.5]);
       return;
     }
 
+    // Chips wrap to a second row past the row cap (portrait item bar is 2 rows).
     for (let i = 0; i < inv.length; i++) {
       const entry = inv[i]!;
       if (this.dragItem?.index === i) continue; // being dragged
-      const cx = this.itemBarCx(i, inv.length);
-      this.drawItemChip(this.itemLayer, entry, cx, midY, ITEM_SLOT, () =>
+      const pos = this.itemBarPos(i);
+      this.drawItemChip(this.itemLayer, entry, pos.x, pos.y, ITEM_SLOT, () =>
         this.openItemDetail(entry.id)
       , (e) => this.startDragItem(entry, e));
     }
@@ -745,11 +792,13 @@ export class MatchScene {
   ): void {
     const half = size / 2;
     const g = new PIXI.Graphics();
-    g.beginFill(entry.color, 0.95);
-    g.lineStyle(1.5, C.itemBorder, 0.95);
-    g.drawRoundedRect(cx - half, cy - half, size, size, 6);
-    g.endFill();
-    g.lineStyle(0);
+    g.roundRect(cx - half, cy - half, size, size, 6).fill({ color: entry.color, alpha: 0.95 });
+    g.roundRect(cx - half, cy - half, size, size, 6).stroke({ width: 1.5, color: C.itemBorder, alpha: 0.95 });
+    // Completed items carry the gilded inner rim (same motif as the full icon
+    // frame) so the chip reads as a finished item, not a loose component.
+    if (!entry.component) {
+      g.roundRect(cx - half + 2, cy - half + 2, size - 4, size - 4, 4).stroke({ width: 1, color: C.itemFrame, alpha: 0.55 });
+    }
     // Only the inventory chips are interactive; the floating drag sprite (no
     // onDragStart) is display-only so it never captures the pointer.
     if (onDragStart) {
@@ -900,18 +949,36 @@ export class MatchScene {
     return null;
   }
 
-  /** x-center of inventory chip `i` (accounts for the bag-glyph offset). */
+  /** Chips that fit on one row before wrapping (pure from the item bar width). */
+  private itemRowCap(): number {
+    const w = this.layout.regions.itemBar.w;
+    return Math.max(1, Math.floor((w - 18) / (ITEM_SLOT + ITEM_GAP)));
+  }
+
+  /** Pixel center of inventory chip `i`, wrapping to a second row past the cap. */
+  private itemBarPos(i: number): { x: number; y: number } {
+    const cap = this.itemRowCap();
+    const col = i % cap;
+    const row = Math.floor(i / cap);
+    return {
+      x: this.itemBar.chipStartX + ITEM_SLOT / 2 + col * (ITEM_SLOT + ITEM_GAP),
+      y: this.itemBar.y + ITEM_SLOT / 2 + row * (ITEM_SLOT + ITEM_GAP + 2),
+    };
+  }
+
+  /** x-center of inventory chip `i` (row-0 x; kept for x-only callers). */
   private itemBarCx(i: number, _count: number): number {
-    return this.itemBar.chipStartX + ITEM_SLOT / 2 + i * (ITEM_SLOT + ITEM_GAP);
+    return this.itemBarPos(i).x;
   }
 
   /** Inventory slot under a pixel within the (offset) item bar, or null. */
   private itemSlotAtBar(px: number, py: number, count: number): number | null {
-    const y0 = this.itemBar.y;
-    if (py < y0 - 6 || py > y0 + ITEM_SLOT + 6) return null;
     for (let i = 0; i < count; i++) {
-      const cx = this.itemBarCx(i, count);
-      if (px >= cx - ITEM_SLOT / 2 - ITEM_GAP / 2 && px <= cx + ITEM_SLOT / 2 + ITEM_GAP / 2) return i;
+      const c = this.itemBarPos(i);
+      if (
+        px >= c.x - ITEM_SLOT / 2 - ITEM_GAP / 2 && px <= c.x + ITEM_SLOT / 2 + ITEM_GAP / 2 &&
+        py >= c.y - ITEM_SLOT / 2 - 6 && py <= c.y + ITEM_SLOT / 2 + 6
+      ) return i;
     }
     return null;
   }
@@ -927,7 +994,12 @@ export class MatchScene {
     const other = me.items[overIdx]!;
     const preview = combinePreview(this.dragItem.id, this.dragItem.index, other, overIdx, gameData);
     const cx = this.itemBarCx(overIdx, inv.length);
-    const hintY = this.itemBar.y - 26;
+    // Landscape: the item bar is at the bottom of the short left column, so a
+    // hint above it would overlap the board; place it above the bench (in the
+    // trait-rail space) instead. Portrait: just above the item bar.
+    const hintY = this.isLandscape
+      ? this.layout.regions.bench.y - 30
+      : Math.max(this.layout.regions.statusRow.h + 6, this.itemBar.y - 26);
     const midY = this.itemBar.y + ITEM_SLOT / 2;
     const hint = new PIXI.Container();
     if (preview.ok) {
@@ -983,8 +1055,9 @@ export class MatchScene {
       const slot = me.shop[i];
 
       if (!slot) {
+        // Empty slots read as non-interactive: dimmer fill + subdued border.
         this.chip(this.shopLayer, x, shopY, cardW, cardH, {
-          fill: C.bgShopEmpty, fillAlpha: 0.6, border: C.chipBorder,
+          fill: C.bgShopEmpty, fillAlpha: 0.4, border: C.borderSubtle,
         });
         continue;
       }
@@ -996,11 +1069,11 @@ export class MatchScene {
       const card = this.chip(this.shopLayer, x, shopY, cardW, cardH, {
         fill: C.bgShopCard,
       });
-      // tier-colored 3px top border
+      // Tier-colored top accent bar — a flat 5px bar (was a 3px rounded rect whose
+      // r=2 corners produced a pill artifact). Inset 1px each side so it tucks
+      // inside the card's rounded top edge.
       const top = new PIXI.Graphics();
-      top.beginFill(tc);
-      top.drawRoundedRect(x, shopY, cardW, 3, 2);
-      top.endFill();
+      top.rect(x + 1, shopY + 1, cardW - 2, 5).fill({ color: tc });
       top.eventMode = "none";
       this.shopLayer.addChild(top);
 
@@ -1028,40 +1101,118 @@ export class MatchScene {
       const traitNames = [def?.origin, ...(def?.classes ?? [])]
         .map((tid) => gameData.traits.find((t) => t.id === tid)?.name)
         .filter((n): n is string => !!n);
-      this.text(this.shopLayer, traitNames.join(" · "), cardCx, shopY + 60, 6, C.textMuted, [0.5, 0]);
+      // Truncate (not wrap) at 7px so the line stays legible inside the 71px card.
+      const traitStr = traitNames.length > 1
+        ? `${traitNames[0]!.slice(0, 6)}·${traitNames[1]!.slice(0, 6)}`
+        : (traitNames[0] ?? "");
+      this.text(this.shopLayer, traitStr, cardCx, shopY + 60, 7, C.textMuted, [0.5, 0]);
 
-      this.glyph(this.shopLayer, "coin", x + 12, shopY + cardH - 9, 9, C.starGold);
+      this.glyph(this.shopLayer, "coin", x + 12, shopY + cardH - 9, 9, C.accentGold);
       this.text(this.shopLayer, `${slot.tier}`, x + 20, shopY + cardH - 9, 11, C.textGold, [0, 0.5]);
     }
 
-    // ── Ready button (its own layout region) ─────────────────────────────────
+    // ── Ready button (its own layout region) — primary CTA identity ──────────
     const rb = this.layout.regions.readyButton;
     const isPlanning = state.phase === "PLANNING";
     const ready = this.chip(this.shopLayer, rb.x, rb.y, rb.w, rb.h, {
-      fill: isPlanning ? C.bgReady : C.bgReadyOff, border: isPlanning ? C.hpGreen : C.chipBorder, radius: 7,
+      fill: isPlanning ? C.bgReady : C.bgReadyOff, border: isPlanning ? C.hpGreen : C.chipBorder,
+      borderW: isPlanning ? 1.5 : 1, radius: 7,
     });
     ready.eventMode = isPlanning ? "static" : "none";
     ready.hitArea = new PIXI.Rectangle(rb.x, rb.y, rb.w, rb.h);
     ready.cursor = isPlanning ? "pointer" : "default";
-    if (isPlanning) this.pressFeedback(ready, () => this.driver.ready());
-    this.text(
-      this.shopLayer, isPlanning ? "Ready" : state.phase, rb.x + rb.w / 2, rb.y + rb.h / 2, 13,
-      isPlanning ? C.textReady : C.textMuted, [0.5, 0.5]
-    );
+    if (isPlanning) {
+      // Top highlight band: a light-source-from-above rim so it reads pressable.
+      // Inset 4px from the rounded corners so the flat band tucks inside them.
+      const highlightH = Math.round(rb.h * 0.3);
+      const hl = new PIXI.Graphics();
+      hl.rect(rb.x + 4, rb.y + 1.5, rb.w - 8, highlightH).fill({ color: C.hpGreen, alpha: 0.12 });
+      hl.eventMode = "none";
+      this.shopLayer.addChild(hl);
+      this.pressFeedback(ready, () => this.driver.ready(), { cx: rb.x + rb.w / 2, cy: rb.y + rb.h / 2 });
+    }
+    const readyTxt = new PIXI.Text(isPlanning ? "Ready" : state.phase, {
+      fontSize: isPlanning ? 14 : 13, fill: isPlanning ? C.textReady : C.textMuted,
+      fontFamily: "monospace", fontWeight: isPlanning ? "bold" : "normal",
+    });
+    readyTxt.anchor.set(0.5, 0.5);
+    readyTxt.x = rb.x + rb.w / 2;
+    readyTxt.y = rb.y + rb.h / 2;
+    readyTxt.eventMode = "none";
+    this.shopLayer.addChild(readyTxt);
   }
 
   // ─── D. HUD row: level / gold / streak / reroll / buy-xp ──────────────────────
 
   private renderControls(me: PlayerState): void {
+    if (this.isLandscape) { this.renderControlsLandscape(me); return; }
+    this.renderControlsPortrait(me);
+  }
+
+  /**
+   * Landscape HUD: two sub-rows so the economy display (level/gold/streak) reads
+   * separately from the action buttons (reroll/XP), instead of one crammed band.
+   * Sub-row A = top half (compressed text); sub-row B = the two wide buttons.
+   */
+  private renderControlsLandscape(me: PlayerState): void {
+    const hud = this.layout.regions.hud;
+    const x0 = hud.x;
+    const y = hud.y;
+
+    // ── Sub-row A: level chip | gold | streak (compressed) ──────────────────
+    // Level chip + xp bar
+    const levelW = 50, levelH = 22;
+    this.chip(this.shopLayer, x0, y, levelW, levelH);
+    this.text(this.shopLayer, `Lv ${me.level}`, x0 + 6, y + 8, 10, C.textPrimary, [0, 0.5]);
+    const xp = xpProgress(me.xp, me.level, gameData.economy.levelXpThresholds);
+    const xpBarX = x0 + 6, xpBarW = levelW - 12, xpBarY = y + levelH - 5;
+    const xpb = new PIXI.Graphics();
+    xpb.rect(xpBarX, xpBarY, xpBarW, 3).fill({ color: C.bgShopEmpty });
+    xpb.rect(xpBarX, xpBarY, Math.round(xpBarW * xp.frac), 3).fill({ color: C.xpPurple });
+    xpb.eventMode = "none";
+    this.shopLayer.addChild(xpb);
+
+    // Gold (coin glyph + compressed number)
+    this.glyph(this.shopLayer, "coin", x0 + 52, y + 11, 10, C.accentGold);
+    this.text(this.shopLayer, `${me.gold}`, x0 + 64, y + 11, 15, C.textGold, [0, 0.5]);
+
+    // Streak (flame + signed value)
+    const streak = me.winStreak > 0 ? me.winStreak : me.loseStreak > 0 ? -me.loseStreak : 0;
+    if (streak !== 0) {
+      this.glyph(this.shopLayer, "flame", x0 + 110, y + 11, 11, C.streakOrange);
+      this.text(this.shopLayer, `${streak > 0 ? "+" : ""}${streak}`, x0 + 120, y + 11, 11, C.streakOrange, [0, 0.5]);
+    }
+
+    // ── Sub-row B: reroll | XP buttons (each half the remaining width) ───────
+    const btnY = y + 26, btnH = 20, btnW = 106;
+    const rrX = x0;
+    const rr = this.chip(this.shopLayer, rrX, btnY, btnW, btnH, { fill: C.bgReroll });
+    rr.eventMode = "static";
+    rr.hitArea = new PIXI.Rectangle(rrX, btnY, btnW, btnH);
+    rr.cursor = "pointer";
+    this.pressFeedback(rr, () => this.onReroll(), { cx: rrX + btnW / 2, cy: btnY + btnH / 2 });
+    this.glyph(this.shopLayer, "refresh", rrX + 12, btnY + btnH / 2, 11, C.textPrimary);
+    this.glyph(this.shopLayer, "coin", rrX + 28, btnY + btnH / 2, 8, C.accentGold);
+    this.text(this.shopLayer, `${gameData.economy.rerollCost}g`, rrX + 36, btnY + btnH / 2, 10, C.textGold, [0, 0.5]);
+
+    const xpX = x0 + 110;
+    const xpBtn = this.chip(this.shopLayer, xpX, btnY, btnW, btnH, { fill: C.bgXp });
+    xpBtn.eventMode = "static";
+    xpBtn.hitArea = new PIXI.Rectangle(xpX, btnY, btnW, btnH);
+    xpBtn.cursor = "pointer";
+    this.pressFeedback(xpBtn, () => this.onBuyXp(), { cx: xpX + btnW / 2, cy: btnY + btnH / 2 });
+    this.text(this.shopLayer, "XP", xpX + 8, btnY + btnH / 2, 10, C.textPrimary, [0, 0.5]);
+    this.glyph(this.shopLayer, "coin", xpX + 30, btnY + btnH / 2, 8, C.accentGold);
+    this.text(this.shopLayer, `${gameData.economy.xpBuyCost}g`, xpX + 38, btnY + btnH / 2, 10, C.textGold, [0, 0.5]);
+  }
+
+  /** Portrait HUD: the prior single horizontal band (unchanged). */
+  private renderControlsPortrait(me: PlayerState): void {
     const hud = this.layout.regions.hud;
     const y = hud.y;
     const h = hud.h;
     const x0 = hud.x;
-    // Cluster offsets relative to the hud region. Portrait preserves the prior
-    // absolute layout (hud.x = 9); landscape compresses to the narrower column.
-    const off = this.isLandscape
-      ? { goldG: 6, goldT: 18, streakG: 70, streakT: 82, rrX: hud.w - 132, rrW: 60, xpX: hud.w - 68, xpW: 64, levelW: 56 }
-      : { goldG: 83, goldT: 95, streakG: 147, streakT: 159, rrX: 233, rrW: 62, xpX: 303, xpW: 70, levelW: 66 };
+    const off = { goldG: 83, goldT: 95, streakG: 147, streakT: 159, rrX: 233, rrW: 62, xpX: 303, xpW: 70, levelW: 66 };
 
     // Level chip + xp-purple progress bar
     this.chip(this.shopLayer, x0, y, off.levelW, h);
@@ -1077,7 +1228,7 @@ export class MatchScene {
     this.shopLayer.addChild(xpb);
 
     // Gold (large, gold + coin glyph)
-    this.glyph(this.shopLayer, "coin", x0 + off.goldG, y + h / 2, 13, C.starGold);
+    this.glyph(this.shopLayer, "coin", x0 + off.goldG, y + h / 2, 13, C.accentGold);
     this.text(this.shopLayer, `${me.gold}`, x0 + off.goldT, y + h / 2, 18, C.textGold, [0, 0.5]);
 
     // Streak (flame + signed value, streak-orange)
@@ -1098,9 +1249,9 @@ export class MatchScene {
     rr.eventMode = "static";
     rr.hitArea = new PIXI.Rectangle(rrX, btnY, rrW, btnH);
     rr.cursor = "pointer";
-    this.pressFeedback(rr, () => this.onReroll());
+    this.pressFeedback(rr, () => this.onReroll(), { cx: rrX + rrW / 2, cy: btnY + btnH / 2 });
     this.glyph(this.shopLayer, "refresh", rrX + 13, btnY + btnH / 2, 13, C.textPrimary);
-    this.glyph(this.shopLayer, "coin", rrX + 30, btnY + btnH / 2, 8, C.starGold);
+    this.glyph(this.shopLayer, "coin", rrX + 30, btnY + btnH / 2, 8, C.accentGold);
     this.text(this.shopLayer, `${gameData.economy.rerollCost}`, rrX + 38, btnY + btnH / 2, 11, C.textGold, [0, 0.5]);
 
     // Buy XP button (label + cost)
@@ -1109,9 +1260,9 @@ export class MatchScene {
     xpBtn.eventMode = "static";
     xpBtn.hitArea = new PIXI.Rectangle(xpX, btnY, xpW, btnH);
     xpBtn.cursor = "pointer";
-    this.pressFeedback(xpBtn, () => this.onBuyXp());
+    this.pressFeedback(xpBtn, () => this.onBuyXp(), { cx: xpX + xpW / 2, cy: btnY + btnH / 2 });
     this.text(this.shopLayer, "XP", xpX + 8, btnY + btnH / 2, 11, C.textPrimary, [0, 0.5]);
-    this.glyph(this.shopLayer, "coin", xpX + 36, btnY + btnH / 2, 8, C.starGold);
+    this.glyph(this.shopLayer, "coin", xpX + 36, btnY + btnH / 2, 8, C.accentGold);
     this.text(this.shopLayer, `${gameData.economy.xpBuyCost}`, xpX + 44, btnY + btnH / 2, 11, C.textGold, [0, 0.5]);
   }
 
@@ -1193,7 +1344,7 @@ export class MatchScene {
     const diamond = new PIXI.Graphics();
     const dr = 7;
     diamond.poly([dcx, cy - dr, dcx + dr, cy, dcx, cy + dr, dcx - dr, cy]);
-    diamond.fill({ color: active ? c.color : C.chipBorder, alpha: active ? 0.35 : 0.25 });
+    diamond.fill({ color: active ? c.color : C.chipBorder, alpha: active ? 0.5 : 0.25 });
     diamond.poly([dcx, cy - dr, dcx + dr, cy, dcx, cy + dr, dcx - dr, cy]);
     diamond.stroke({ width: 1, color: active ? c.color : C.textMuted });
     layer.addChild(diamond);
@@ -1442,7 +1593,7 @@ export class MatchScene {
     if (this.opts.settings.get().reducedMotion) return;
     const node = new PIXI.Container();
     node.position.set(x, y - 18);
-    this.glyph(node, "coin", -8, 0, 9, C.starGold);
+    this.glyph(node, "coin", -8, 0, 9, C.accentGold);
     this.text(node, `+${refund}`, 3, 0, 11, C.textGold, [0, 0.5]);
     this.planningFxLayer.addChild(node);
     let age = 0;
@@ -1585,20 +1736,43 @@ export class MatchScene {
     const panelH = designH - panelY - pad;
     const panelCx = panelX + panelW / 2;
 
+    // Scrim below the panel — tap outside to dismiss (consistent with inspect).
+    const scrim = new PIXI.Graphics();
+    scrim.beginFill(C.bgScrim, 0.001);
+    scrim.drawRect(0, 0, designW, designH);
+    scrim.endFill();
+    scrim.eventMode = "static";
+    scrim.cursor = "pointer";
+    scrim.on("pointerdown", () => this.closeScout());
+    this.scoutLayer.addChild(scrim);
+
     const overlay = new PIXI.Graphics();
     overlay.beginFill(C.bgScout, 0.92);
     overlay.drawRoundedRect(panelX, panelY, panelW, panelH, 8);
     overlay.endFill();
-    overlay.eventMode = "static";
+    overlay.eventMode = "static"; // swallow taps so they don't dismiss via the scrim
     this.scoutLayer.addChild(overlay);
 
-    const title = new PIXI.Text(`${this.seatName(state, playerId)}  HP:${Math.max(0, target.hp)}`, {
-      fontSize: 12, fill: C.textBanner, fontFamily: "monospace",
+    // Name (left) + a small HP bar with a numeric label (right) — separated, so
+    // the two facts read as a clear hierarchy rather than one concatenated string.
+    const nameTxt = new PIXI.Text(this.seatName(state, playerId), {
+      fontSize: 13, fill: C.textBanner, fontFamily: "monospace",
     });
-    title.anchor.set(0.5, 0);
-    title.x = panelCx;
-    title.y = panelY + 8;
-    this.scoutLayer.addChild(title);
+    nameTxt.anchor.set(0, 0);
+    nameTxt.x = panelX + 10;
+    nameTxt.y = panelY + 8;
+    this.scoutLayer.addChild(nameTxt);
+
+    const hp = Math.max(0, target.hp);
+    const hpFrac = Math.max(0, Math.min(1, hp / 100));
+    const hpBarW = 60, hpBarX = panelX + panelW - 90, hpBarY = panelY + 12;
+    const hpBar = new PIXI.Graphics();
+    hpBar.rect(hpBarX, hpBarY, hpBarW, 5).fill({ color: C.hpBg });
+    hpBar.rect(hpBarX, hpBarY, Math.round(hpBarW * hpFrac), 5)
+      .fill({ color: hpFrac < 0.25 ? C.hpLow : C.hpGreen });
+    hpBar.eventMode = "none";
+    this.scoutLayer.addChild(hpBar);
+    this.text(this.scoutLayer, `${hp} HP`, panelX + panelW - 28, panelY + 14, 9, C.textMuted, [0, 0.5]);
 
     // Board units — long-press any token to open the SAME unit-inspect panel as
     // your own board, so a scouted board reads identically to your inspect view.
@@ -1636,13 +1810,14 @@ export class MatchScene {
       cx += w + 5;
     }
 
-    // Close button
+    // Close button — visual stays 30×24, hit area expands to a 44px min target.
     const closeBtn = new PIXI.Graphics();
     closeBtn.beginFill(C.bgCloseBtn, 0.9);
     closeBtn.drawRoundedRect(panelX + panelW - 30, panelY + 4, 30, 24, 4);
     closeBtn.endFill();
     closeBtn.eventMode = "static";
     closeBtn.cursor = "pointer";
+    closeBtn.hitArea = new PIXI.Rectangle(panelX + panelW - 44, panelY, 44, 36);
     closeBtn.on("pointerdown", () => this.closeScout());
     this.scoutLayer.addChild(closeBtn);
     const closeX = new PIXI.Text("X", { fontSize: 11, fill: C.textMuted, fontFamily: "monospace" });
@@ -1685,7 +1860,7 @@ export class MatchScene {
     if (!m) return;
     this.abortDrag(); // a long-press supersedes any in-progress drag
     this.opts.audio.play("tap");
-    renderUnitInspect(this.inspectLayer, m, () => this.closeInspect(), this.layout);
+    renderUnitInspect(this.inspectLayer, m, () => this.closeInspect(), this.layout, this.opts.settings.get().reducedMotion);
   }
 
   /** Cancel an in-progress drag without issuing a move (long-press took over). */
@@ -1702,7 +1877,7 @@ export class MatchScene {
     const m = traitDetailModel(traitId, count, gameData);
     if (!m) return;
     this.opts.audio.play("tap");
-    renderTraitDetail(this.inspectLayer, m, () => this.closeInspect(), this.layout);
+    renderTraitDetail(this.inspectLayer, m, () => this.closeInspect(), this.layout, this.opts.settings.get().reducedMotion);
   }
 
   private closeInspect(): void {
@@ -1734,7 +1909,25 @@ export class MatchScene {
   private onCombatPhase(): void {
     const state = this.driver.getState();
     void this.opts.audio.setMusicState(phaseToMusicState("COMBAT"));
-    this.renderCombat(state);
+    // Bridge planning → combat with a brief cross-fade so the cut isn't a hard
+    // single-frame flash. Reduced-motion skips straight to the combat render.
+    if (this.opts.settings.get().reducedMotion) {
+      this.renderCombat(state);
+      return;
+    }
+    const planning = [this.boardLayer, this.benchLayer, this.shopLayer, this.traitLayer, this.itemLayer];
+    let t = 0;
+    const fade = (ticker: PIXI.Ticker): void => {
+      t += ticker.deltaMS;
+      const k = Math.min(1, t / 120);
+      for (const l of planning) l.alpha = 1 - k;
+      if (k >= 1) {
+        this.app.ticker.remove(fade);
+        this.renderCombat(this.driver.getState());
+        for (const l of planning) l.alpha = 1;
+      }
+    };
+    this.app.ticker.add(fade);
   }
 
   private renderCombat(state: MatchState): void {
@@ -1920,7 +2113,7 @@ export class MatchScene {
       g.hitArea = new PIXI.Rectangle(x, btnY, btnW, btnH);
       g.cursor = "pointer";
       g.zIndex = Z_COMBAT_HEADER;
-      this.pressFeedback(g, onTap);
+      this.pressFeedback(g, onTap, { cx: x + btnW / 2, cy: btnY + btnH / 2 });
       const t = this.text(this.combatLayer, label, x + btnW / 2, btnY + btnH / 2, 12, C.textPrimary, [0.5, 0.5]);
       t.zIndex = Z_COMBAT_HEADER;
       return t;
@@ -1967,13 +2160,6 @@ export class MatchScene {
     // Centered + clamped modal (fits short landscape, designH=390).
     const modal = centeredModal(this.layout, designW - 80, 240);
 
-    const box = new PIXI.Graphics();
-    box.beginFill(C.bgPanel, 0.95);
-    box.drawRoundedRect(modal.x, modal.y, modal.w, modal.h, 8);
-    box.endFill();
-    box.eventMode = "none";
-    this.combatLayer.addChild(box);
-
     // Outcome cue: a player elimination overrides the round win/loss sting.
     if (!me.alive) this.opts.audio.play("elimination");
     else if (won) this.opts.audio.play("roundWin");
@@ -1981,6 +2167,14 @@ export class MatchScene {
 
     const resultStr = drew ? "Draw" : won ? "Victory" : "Defeat";
     const resultColor = drew ? C.textGold : won ? C.textGoodHP : C.textBadHP;
+
+    // Brighter modal surface (surfaceOver) + an outcome-tinted accent rim so the
+    // panel pops off the scrim instead of blending into it.
+    const box = new PIXI.Graphics();
+    box.roundRect(modal.x, modal.y, modal.w, modal.h, 8).fill({ color: C.bgInspect, alpha: 0.97 });
+    box.roundRect(modal.x, modal.y, modal.w, modal.h, 8).stroke({ width: 1.5, color: resultColor, alpha: 0.6 });
+    box.eventMode = "none";
+    this.combatLayer.addChild(box);
     const title = new PIXI.Text(`Round ${state.round} — ${resultStr}`, {
       fontSize: 13, fill: C.textPrimary, fontFamily: "monospace",
     });
@@ -2202,7 +2396,7 @@ export class MatchScene {
     const label = new PIXI.Container();
     label.position.set(0, -30);
     if (step.content.kind === "gold") {
-      this.glyph(label, "coin", -10, 0, 11, C.starGold);
+      this.glyph(label, "coin", -10, 0, 11, C.accentGold);
       this.text(label, step.content.label, 2, 0, 11, C.textGold, [0, 0.5]);
     } else {
       // Distinct item icon, tinted by the orb's rarity for a consistent read.
@@ -2398,8 +2592,11 @@ export class MatchScene {
     const lineH = fontSize + 4;
     const boxH = lines.length * lineH + 14;
     const boxX = designW / 2 - boxW / 2;
-    // Just above the bench region (orientation-aware).
-    const boxY = this.layout.regions.bench.y - 22 - boxH;
+    // Portrait: just above the bench. Landscape: just below the status row so it
+    // never overlaps the board panel (which nearly fills the short viewport).
+    const boxY = this.isLandscape
+      ? this.layout.regions.statusRow.h + 8
+      : this.layout.regions.bench.y - 22 - boxH;
 
     const bg = new PIXI.Graphics();
     bg.beginFill(C.bgToast, 0.92);
