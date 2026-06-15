@@ -79,7 +79,7 @@ async function main(): Promise<void> {
     audio.resume();
     driver = mode === "online"
       ? new NetDriver(SERVER_URL, ui.auth?.token)
-      : new LocalDriver();
+      : new LocalDriver(undefined, ui.auth?.profile.name);
     scene = new MatchScene(app, driver, { settings, audio, onLeave: leaveMatch });
     app.stage.addChild(scene.container);
     ui.enterMatch(leaveMatch);

@@ -73,12 +73,14 @@ wss.on("connection", (ws: WebSocket) => {
           send(session, { type: "ERROR", code: "UNAUTHENTICATED", message: "QUEUE_JOIN requires authToken" });
           break;
         }
-        void repo.findByToken(authToken).then((account) => {
+        void repo.findByToken(authToken).then(async (account) => {
           if (!account) {
             send(session, { type: "ERROR", code: "UNAUTHENTICATED", message: "Invalid auth token" });
             return;
           }
           session.accountId = account.accountId;
+          const profile = await repo.getProfile(account.accountId);
+          session.name = profile?.name ?? null;
           joinQueue(session);
         });
         break;

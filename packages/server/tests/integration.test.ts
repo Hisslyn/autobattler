@@ -134,6 +134,92 @@ describe("integration: 2 humans + 6 bots full match", () => {
   }, 60_000);
 });
 
+describe("integration: PvE loot + player names", () => {
+  let proc: ChildProcess;
+  let port: number;
+
+  beforeAll(async () => {
+    port = await getFreePort();
+    proc = launchServer(port);
+    await waitForPort(port, 8000);
+  }, 15_000);
+
+  afterAll(() => { proc.kill(); });
+
+  it("each human gets its own PvE loot; names in snapshots + MATCH_END; bots named", async () => {
+    const [auth1, auth2] = await Promise.all([
+      authGuest(port, "loot-dev-1", "Alice"),
+      authGuest(port, "loot-dev-2", "Bob"),
+    ]);
+    const ws1 = new WebSocket(`ws://localhost:${port}`);
+    const ws2 = new WebSocket(`ws://localhost:${port}`);
+    await Promise.all([waitOpen(ws1), waitOpen(ws2)]);
+
+    const done1 = collectUntil(ws1, "MATCH_END", 50_000);
+    const done2 = collectUntil(ws2, "MATCH_END", 50_000);
+
+    function autoReady(ws: WebSocket): void {
+      ws.on("message", (data: Buffer | string) => {
+        const msg = decodeS2C(typeof data === "string" ? data : data.toString());
+        if (msg?.type === "PHASE_CHANGE" && (msg.phase === "PLANNING" || msg.phase === "RESOLUTION")) {
+          setTimeout(() => sendRaw(ws, { type: "READY" }), 30);
+        }
+      });
+    }
+    autoReady(ws1);
+    autoReady(ws2);
+
+    sendRaw(ws1, { type: "QUEUE_JOIN", authToken: auth1.token });
+    sendRaw(ws2, { type: "QUEUE_JOIN", authToken: auth2.token });
+
+    const [msgs1, msgs2] = await Promise.all([done1, done2]);
+    ws1.close();
+    ws2.close();
+
+    type Found = { type: "MATCH_FOUND"; seatIndex: number };
+    type Snap = { type: "STATE_SNAPSHOT"; state: { players: { id: number; name: string }[] } };
+    type Loot = { type: "LOOT"; round: number; orbs: { rarity: string; reward: { kind: string } }[] };
+    type End = { type: "MATCH_END"; placements: number[]; names?: Record<number, string> };
+
+    const seat1 = (msgs1.find((m) => m.type === "MATCH_FOUND") as Found).seatIndex;
+    const seat2 = (msgs2.find((m) => m.type === "MATCH_FOUND") as Found).seatIndex;
+    const snap1 = msgs1.find((m) => m.type === "STATE_SNAPSHOT") as Snap;
+    const snap2 = msgs2.find((m) => m.type === "STATE_SNAPSHOT") as Snap;
+    const loot1 = msgs1.filter((m) => m.type === "LOOT") as Loot[];
+    const loot2 = msgs2.filter((m) => m.type === "LOOT") as Loot[];
+    const end1 = msgs1.find((m) => m.type === "MATCH_END") as End;
+    const end2 = msgs2.find((m) => m.type === "MATCH_END") as End;
+
+    // Names: every seat in the snapshot has a name; own seat is the profile name,
+    // the other human appears, and bot seats carry generated "Bot N" names.
+    expect(snap1.state.players).toHaveLength(8);
+    expect(snap1.state.players.every((p) => typeof p.name === "string" && p.name.length > 0)).toBe(true);
+    expect(snap1.state.players[seat1]!.name).toBe("Alice");
+    expect(snap2.state.players[seat2]!.name).toBe("Bob");
+    expect(snap1.state.players[seat2]!.name).toBe("Bob"); // other human visible publicly
+    const botSeats = snap1.state.players.filter((_, i) => i !== seat1 && i !== seat2);
+    expect(botSeats.every((p) => p.name.startsWith("Bot "))).toBe(true);
+
+    // Round 1 is PvE (drops 2 common orbs). Each human gets EXACTLY its own one
+    // private LOOT message for the round — never the other's (no broadcast leak).
+    const r1a = loot1.filter((m) => m.round === 1);
+    const r1b = loot2.filter((m) => m.round === 1);
+    expect(r1a).toHaveLength(1);
+    expect(r1b).toHaveLength(1);
+    expect(r1a[0]!.orbs).toHaveLength(2);
+    expect(r1a[0]!.orbs.every((o) => o.rarity === "common")).toBe(true);
+    expect(r1b[0]!.orbs).toHaveLength(2);
+    expect(r1a[0]!.orbs.every((o) => ["gold", "component", "item"].includes(o.reward.kind))).toBe(true);
+
+    // MATCH_END carries public names (humans + bots).
+    expect(end1.names).toBeDefined();
+    expect(end2.names).toBeDefined();
+    expect(end1.names![seat1]).toBe("Alice");
+    expect(end1.names![seat2]).toBe("Bob");
+    expect(Object.values(end1.names!).filter((n) => n.startsWith("Bot "))).toHaveLength(6);
+  }, 70_000);
+});
+
 describe("reconnect: token restores seat mid-match", () => {
   let proc: ChildProcess;
   let port: number;

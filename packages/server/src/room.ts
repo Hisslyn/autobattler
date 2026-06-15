@@ -8,6 +8,7 @@ import {
 } from "@autobattler/rules";
 import { applyCommand } from "@autobattler/rules/src/commands.js";
 import { applyAiCommands } from "@autobattler/rules/src/ai.js";
+import { isPveRound } from "@autobattler/rules/src/rounds.js";
 import { mulberry32 } from "@autobattler/sim/src/prng.js";
 import type { MatchState, PlayerState } from "@autobattler/rules/src/state.js";
 import type { Command } from "@autobattler/rules/src/commands.js";
@@ -29,6 +30,8 @@ export interface Room {
   seats: (Session | null)[];
   /** Account per seat, captured at room creation; null = bot seat. */
   seatAccounts: (string | null)[];
+  /** Public display name per seat, captured at room creation (humans + bots). */
+  seatNames: string[];
   phaseTimer: ReturnType<typeof setTimeout> | null;
   prng: () => number;
 }
@@ -51,12 +54,16 @@ export function createRoom(sessions: Session[], seedOverride?: number): Room {
 
   const seats: (Session | null)[] = new Array(HUMAN_SEAT_COUNT).fill(null);
   const seatAccounts: (string | null)[] = new Array(HUMAN_SEAT_COUNT).fill(null);
+  // Names are set once per match: humans use their profile name, bot seats a
+  // generated placeholder. Public via the leaderboard, so safe to broadcast.
+  const seatNames: string[] = new Array(HUMAN_SEAT_COUNT).fill("").map((_, i) => `Bot ${i + 1}`);
   for (let i = 0; i < sessions.length && i < HUMAN_SEAT_COUNT; i++) {
     seats[i] = sessions[i]!;
     seatAccounts[i] = sessions[i]!.accountId;
+    seatNames[i] = sessions[i]!.name ?? `Player ${i + 1}`;
   }
 
-  const room: Room = { id: roomId, matchId: randomUUID(), state, seats, seatAccounts, phaseTimer: null, prng };
+  const room: Room = { id: roomId, matchId: randomUUID(), state, seats, seatAccounts, seatNames, phaseTimer: null, prng };
   rooms.set(roomId, room);
 
   // Assign sessions to room/seat
@@ -227,7 +234,9 @@ async function finalizeMatch(room: Room): Promise<void> {
     console.error(`[room ${room.id}] failed to persist match result`, err);
   }
 
-  broadcastAll(room, { type: "MATCH_END", placements, mmr });
+  const names: Record<number, string> = {};
+  room.seatNames.forEach((n, i) => { names[i] = n; });
+  broadcastAll(room, { type: "MATCH_END", placements, mmr, names });
   clearRoomSeatTokens(room.id);
   rooms.delete(room.id);
 }
@@ -237,6 +246,19 @@ async function finalizeMatch(room: Room): Promise<void> {
 function startResolution(room: Room): void {
   clearReady(room);
   const resolutionMs = gameData.economy.resolutionSeconds * 1000;
+
+  // PvE rounds award seeded loot decided by rules. Each human gets ONLY its own
+  // orbs (private, like gold/shop) — sent before the phase change so the client
+  // has them when it triggers the reveal on RESOLUTION.
+  if (isPveRound(room.state.round, gameData)) {
+    for (let i = 0; i < HUMAN_SEAT_COUNT; i++) {
+      const s = room.seats[i];
+      if (!s || s.afk) continue;
+      const orbs = room.state.lastLootOrbs.get(i) ?? [];
+      send(s, { type: "LOOT", round: room.state.round, orbs });
+    }
+  }
+
   broadcastAll(room, {
     type: "PHASE_CHANGE",
     phase: "RESOLUTION",
@@ -280,7 +302,7 @@ export function reconnectSession(room: Room, session: Session, seatIndex: number
 }
 
 function sendSnapshot(room: Room, session: Session): void {
-  send(session, { type: "STATE_SNAPSHOT", state: serializeState(room.state, session.seatIndex!) });
+  send(session, { type: "STATE_SNAPSHOT", state: serializeState(room.state, session.seatIndex!, room.seatNames) });
 }
 
 // Per-seat deltas: private fields (gold, shop, unequipped item inventory)
@@ -289,7 +311,7 @@ function broadcastDelta(room: Room, changedSeat: number): void {
   for (let i = 0; i < HUMAN_SEAT_COUNT; i++) {
     const s = room.seats[i];
     if (s && !s.afk) {
-      send(s, { type: "STATE_DELTA", delta: serializeDelta(room.state, changedSeat, i) });
+      send(s, { type: "STATE_DELTA", delta: serializeDelta(room.state, changedSeat, i, room.seatNames) });
     }
   }
 }
@@ -331,11 +353,12 @@ function validateCommand(raw: Record<string, unknown>): Command | null {
   }
 }
 
-// Public view: hp, level, xp, streaks, board (fielded units carry their
+// Public view: name, hp, level, xp, streaks, board (fielded units carry their
 // items), bench. Private (own seat only): gold, shop, item inventory.
-function serializePlayerPublic(p: PlayerState) {
+function serializePlayerPublic(p: PlayerState, name: string) {
   return {
     id: p.id,
+    name,
     hp: p.hp,
     level: p.level,
     xp: p.xp,
@@ -364,20 +387,20 @@ function serializeOpponentSnapshot(state: MatchState, recipientId: number, oppon
   };
 }
 
-function serializeState(state: MatchState, seatIndex: number) {
+function serializeState(state: MatchState, seatIndex: number, names: string[]) {
   return {
     round: state.round,
     phase: state.phase,
     me: state.players[seatIndex],
-    players: state.players.map(serializePlayerPublic),
+    players: state.players.map((p, i) => serializePlayerPublic(p, names[i] ?? `Player ${i + 1}`)),
     lastPairings: state.lastPairings,
   };
 }
 
-function serializeDelta(state: MatchState, changedSeat: number, recipientSeat: number) {
+function serializeDelta(state: MatchState, changedSeat: number, recipientSeat: number, names: string[]) {
   return {
     changedSeat,
-    players: state.players.map(serializePlayerPublic),
+    players: state.players.map((p, i) => serializePlayerPublic(p, names[i] ?? `Player ${i + 1}`)),
     // Full state (incl. gold/shop/items) only for the recipient's own seat
     ...(changedSeat === recipientSeat ? { me: state.players[changedSeat] } : {}),
   };

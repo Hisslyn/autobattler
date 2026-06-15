@@ -9,6 +9,7 @@ export interface Session {
   seatIndex: number | null;
   token: string | null;
   accountId: string | null; // set on authenticated QUEUE_JOIN
+  name: string | null; // profile display name, set on authenticated QUEUE_JOIN
   afk: boolean;
   cmdCount: number;
   cmdWindowStart: number;
@@ -30,6 +31,7 @@ export function createSession(ws: WebSocket): Session {
     seatIndex: null,
     token: null,
     accountId: null,
+    name: null,
     afk: false,
     cmdCount: 0,
     cmdWindowStart: Date.now(),

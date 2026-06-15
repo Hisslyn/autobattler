@@ -67,6 +67,8 @@ export class NetDriver implements IDriver {
           for (let i = 0; i < delta.players.length; i++) {
             const pub = delta.players[i]!;
             const existing = this._state.players[i]!;
+            const pubName = (pub as { name?: string }).name;
+            if (pubName !== undefined) (existing as { name?: string }).name = pubName;
             existing.hp = pub.hp;
             existing.alive = pub.alive;
             existing.placement = pub.placement;
@@ -96,6 +98,7 @@ export class NetDriver implements IDriver {
         case "COMBAT_START": {
           if (!this._state) break;
           this._state.lastPairings = e.pairings;
+          this._state.lastLootOrbs.clear(); // fresh each round; LOOT (PvE) repopulates at resolution
           this._myPairing = null;
           this._myOpponentBoard = null;
           this._myCombatResult = null;
@@ -146,7 +149,21 @@ export class NetDriver implements IDriver {
           break;
         }
 
+        case "LOOT":
+          // Server decided the orbs; we only animate. Store keyed by our seat so
+          // getMyLootOrbs resolves them and the reveal plays exactly as in Practice.
+          if (this._state) this._state.lastLootOrbs.set(this.mySeat, e.orbs as LootOrb[]);
+          break;
+
         case "MATCH_END":
+          // Names are public; merge onto state players so the match-over overlay
+          // resolves real names rather than "Player N".
+          if (this._state && e.names) {
+            for (const [seat, name] of Object.entries(e.names)) {
+              const p = this._state.players[Number(seat)] as (MatchState["players"][number] & { name?: string }) | undefined;
+              if (p) p.name = name;
+            }
+          }
           this.emit({ type: "match_over", placements: e.placements, ...(e.mmr ? { mmr: e.mmr } : {}) });
           break;
 
@@ -235,8 +252,8 @@ export class NetDriver implements IDriver {
   }
 
   getMyLootOrbs(): LootOrb[] {
-    // Online PvE loot is not carried by the protocol today; LocalDriver (Practice)
-    // is where loot orbs animate. Empty here is a clean no-op reveal.
+    // Populated from the private per-seat LOOT message on PvE rounds; the reveal
+    // animates these already-decided orbs exactly as in Practice.
     return this._state?.lastLootOrbs.get(this.mySeat) ?? [];
   }
 
@@ -263,8 +280,11 @@ export class NetDriver implements IDriver {
 
   private _buildStateFromSnapshot(snap: { round: number; phase: string; me: MatchState["players"][0]; players: MatchState["players"]; lastPairings: [number, number][] }): MatchState {
     const players = snap.players.map((pub, i) => {
-      if (i === this.mySeat) return snap.me;
-      // Public view lacks private fields; fill with placeholders
+      if (i === this.mySeat) {
+        // `me` is the full private state but lacks the public name; attach it.
+        return { ...snap.me, name: (pub as { name?: string }).name } as MatchState["players"][0];
+      }
+      // Public view lacks private fields; fill with placeholders (name carried by ...pub).
       return {
         ...pub,
         gold: 0,
@@ -296,12 +316,17 @@ export class NetDriver implements IDriver {
     this._state.round = snap.round;
     this._state.phase = snap.phase as MatchState["phase"];
     this._state.lastPairings = snap.lastPairings ?? [];
-    if (this.mySeat >= 0) this._state.players[this.mySeat] = snap.me;
+    if (this.mySeat >= 0) {
+      const mePub = snap.players[this.mySeat] as { name?: string } | undefined;
+      this._state.players[this.mySeat] = { ...snap.me, name: mePub?.name } as MatchState["players"][0];
+    }
     for (let i = 0; i < snap.players.length; i++) {
       if (i === this.mySeat) continue;
       const pub = snap.players[i]!;
       const existing = this._state.players[i];
       if (existing) {
+        const pubName = (pub as { name?: string }).name;
+        if (pubName !== undefined) (existing as { name?: string }).name = pubName;
         existing.hp = pub.hp;
         existing.alive = pub.alive;
         existing.placement = pub.placement;

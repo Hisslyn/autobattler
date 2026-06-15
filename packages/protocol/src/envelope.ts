@@ -1,6 +1,44 @@
-import type { C2SMessage, S2CMessage } from "./messages.js";
+import type { C2SMessage, S2CMessage, LootOrbWire } from "./messages.js";
+import { LOOT_RARITIES } from "./messages.js";
 
 export const PROTOCOL_VERSION = 1;
+
+const NAME_MAX_LEN = 32;
+
+/** A display name carried over the wire: non-empty string within the length cap. */
+export function isValidName(value: unknown): value is string {
+  return typeof value === "string" && value.length >= 1 && value.length <= NAME_MAX_LEN;
+}
+
+/** A seat→name map (humans + bots), all entries valid names. */
+export function validateNameMap(value: unknown): Record<number, string> | null {
+  if (typeof value !== "object" || value === null) return null;
+  for (const v of Object.values(value as Record<string, unknown>)) {
+    if (!isValidName(v)) return null;
+  }
+  return value as Record<number, string>;
+}
+
+/** Validates a per-seat loot payload's orbs (rarity + reward shape). */
+export function validateLootOrbs(value: unknown): LootOrbWire[] | null {
+  if (!Array.isArray(value)) return null;
+  for (const orb of value) {
+    if (typeof orb !== "object" || orb === null) return null;
+    const o = orb as Record<string, unknown>;
+    if (!LOOT_RARITIES.includes(o["rarity"] as never)) return null;
+    const r = o["reward"];
+    if (typeof r !== "object" || r === null) return null;
+    const reward = r as Record<string, unknown>;
+    if (reward["kind"] === "gold") {
+      if (typeof reward["amount"] !== "number") return null;
+    } else if (reward["kind"] === "component" || reward["kind"] === "item") {
+      if (typeof reward["id"] !== "string") return null;
+    } else {
+      return null;
+    }
+  }
+  return value as LootOrbWire[];
+}
 
 export interface Envelope {
   v: number;  // protocol version
@@ -43,6 +81,9 @@ export function decodeS2C(raw: string): S2CMessage | null {
   if (typeof env.p !== "object" || env.p === null) return null;
   const p = env.p as Record<string, unknown>;
   if (typeof p["type"] !== "string") return null;
+  // Field-level validation for the payloads carrying loot / names.
+  if (p["type"] === "LOOT" && validateLootOrbs(p["orbs"]) === null) return null;
+  if (p["type"] === "MATCH_END" && p["names"] !== undefined && validateNameMap(p["names"]) === null) return null;
   return p as unknown as S2CMessage;
 }
 

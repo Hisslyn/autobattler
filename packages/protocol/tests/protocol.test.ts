@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { encode, decodeC2S, decodeS2C, validateC2S, PROTOCOL_VERSION } from "../src/index.js";
+import {
+  encode,
+  decodeC2S,
+  decodeS2C,
+  validateC2S,
+  validateLootOrbs,
+  validateNameMap,
+  isValidName,
+  PROTOCOL_VERSION,
+} from "../src/index.js";
+import type { S2C_Loot, S2C_MatchEnd } from "../src/index.js";
 
 describe("encode/decodeS2C round-trip", () => {
   it("PONG", () => {
@@ -21,6 +31,62 @@ describe("encode/decodeS2C round-trip", () => {
   it("MATCH_END", () => {
     const msg = { type: "MATCH_END" as const, placements: [2, 5, 1, 7, 0, 3, 4, 6] };
     expect(decodeS2C(encode(msg))).toEqual(msg);
+  });
+
+  it("MATCH_END with names", () => {
+    const msg: S2C_MatchEnd = {
+      type: "MATCH_END",
+      placements: [0, 1],
+      names: { 0: "Alice", 1: "Bot 2" },
+    };
+    expect(decodeS2C(encode(msg))).toEqual(msg);
+  });
+
+  it("LOOT", () => {
+    const msg: S2C_Loot = {
+      type: "LOOT",
+      round: 1,
+      orbs: [
+        { rarity: "common", reward: { kind: "gold", amount: 3 } },
+        { rarity: "rare", reward: { kind: "item", id: "iron_sword" } },
+        { rarity: "uncommon", reward: { kind: "component", id: "chain_vest" } },
+      ],
+    };
+    expect(decodeS2C(encode(msg))).toEqual(msg);
+  });
+});
+
+describe("S2C field validation (reject malformed)", () => {
+  it("decodeS2C rejects LOOT with malformed orbs", () => {
+    const bad = JSON.stringify({ v: PROTOCOL_VERSION, t: "LOOT", p: { type: "LOOT", round: 1, orbs: [{ rarity: "mythic", reward: { kind: "gold", amount: 1 } }] } });
+    expect(decodeS2C(bad)).toBeNull();
+    const notArray = JSON.stringify({ v: PROTOCOL_VERSION, t: "LOOT", p: { type: "LOOT", round: 1, orbs: "nope" } });
+    expect(decodeS2C(notArray)).toBeNull();
+  });
+
+  it("decodeS2C rejects MATCH_END with malformed names", () => {
+    const bad = JSON.stringify({ v: PROTOCOL_VERSION, t: "MATCH_END", p: { type: "MATCH_END", placements: [0], names: { 0: 42 } } });
+    expect(decodeS2C(bad)).toBeNull();
+  });
+
+  it("validateLootOrbs accepts well-formed, rejects malformed", () => {
+    expect(validateLootOrbs([{ rarity: "common", reward: { kind: "gold", amount: 5 } }])).not.toBeNull();
+    expect(validateLootOrbs([{ rarity: "legendary", reward: { kind: "item", id: "x" } }])).not.toBeNull();
+    expect(validateLootOrbs("x")).toBeNull();
+    expect(validateLootOrbs([{ rarity: "bogus", reward: { kind: "gold", amount: 1 } }])).toBeNull();
+    expect(validateLootOrbs([{ rarity: "common", reward: { kind: "gold" } }])).toBeNull();
+    expect(validateLootOrbs([{ rarity: "common", reward: { kind: "item" } }])).toBeNull();
+    expect(validateLootOrbs([{ rarity: "common" }])).toBeNull();
+  });
+
+  it("validateNameMap / isValidName", () => {
+    expect(validateNameMap({ 0: "A", 1: "Bot 2" })).not.toBeNull();
+    expect(validateNameMap({ 0: 1 })).toBeNull();
+    expect(validateNameMap("x")).toBeNull();
+    expect(isValidName("Alice")).toBe(true);
+    expect(isValidName("")).toBe(false);
+    expect(isValidName("x".repeat(33))).toBe(false);
+    expect(isValidName(5)).toBe(false);
   });
 });
 

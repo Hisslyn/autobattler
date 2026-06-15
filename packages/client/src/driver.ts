@@ -63,9 +63,15 @@ export class LocalDriver implements IDriver {
   private pendingResolution = false;
   private planningStartTime = 0;
 
-  constructor(seed = Date.now()) {
+  constructor(seed = Date.now(), humanName?: string) {
     this.prng = mulberry32(seed);
     this.state = createMatch(seed, gameData);
+    // Practice parity with online: seat 0 is the human (profile name), the rest
+    // are named bots. Names live only on the client view (not used by the sim).
+    for (let i = 0; i < this.state.players.length; i++) {
+      (this.state.players[i] as { name?: string }).name =
+        i === HUMAN_PLAYER_ID ? (humanName ?? "You") : `Bot ${i + 1}`;
+    }
     this.emit({ type: "state", state: this.state });
   }
 

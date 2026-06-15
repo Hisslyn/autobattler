@@ -25,9 +25,20 @@ export type S2CType =
   | "PHASE_CHANGE"
   | "COMBAT_START"
   | "COMBAT_RESULT"
+  | "LOOT"
   | "MATCH_END"
   | "ERROR"
   | "PONG";
+
+// Loot wire shape (structurally mirrors rules' LootOrb; protocol keeps zero
+// runtime deps so the shape is declared locally rather than imported).
+export const LOOT_RARITIES = ["common", "uncommon", "rare", "legendary"] as const;
+export type LootRarityWire = (typeof LOOT_RARITIES)[number];
+export type LootRewardWire =
+  | { kind: "gold"; amount: number }
+  | { kind: "component"; id: string }
+  | { kind: "item"; id: string };
+export interface LootOrbWire { rarity: LootRarityWire; reward: LootRewardWire }
 
 export interface S2C_QueueStatus { type: "QUEUE_STATUS"; position: number; size: number }
 export interface S2C_MatchFound { type: "MATCH_FOUND"; roomId: string; token: string; seatIndex: number }
@@ -41,12 +52,16 @@ export interface S2C_CombatStart {
   roundSeed: number;
 }
 export interface S2C_CombatResult { type: "COMBAT_RESULT"; results: unknown }
+/** Private per-seat PvE loot for a round (already decided by rules; client only animates). */
+export interface S2C_Loot { type: "LOOT"; round: number; orbs: LootOrbWire[] }
 export interface MmrChange { before: number; after: number }
 export interface S2C_MatchEnd {
   type: "MATCH_END";
   placements: number[];
   /** Per-seat MMR change; only seats backed by an account appear. */
   mmr?: Record<number, MmrChange>;
+  /** Public per-seat display name (humans + bots). */
+  names?: Record<number, string>;
 }
 export interface S2C_Error { type: "ERROR"; code: ErrorCode; message: string }
 export interface S2C_Pong { type: "PONG"; ts: number; serverTs: number }
@@ -59,6 +74,7 @@ export type S2CMessage =
   | S2C_PhaseChange
   | S2C_CombatStart
   | S2C_CombatResult
+  | S2C_Loot
   | S2C_MatchEnd
   | S2C_Error
   | S2C_Pong;

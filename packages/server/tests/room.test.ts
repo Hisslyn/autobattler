@@ -38,6 +38,7 @@ function makeFakeSession(id: string): { session: Session; messages: S2CMessage[]
     seatIndex: null,
     token: `tok-${id}`,
     accountId: null,
+    name: null,
     afk: false,
     cmdCount: 0,
     cmdWindowStart: Date.now(),
