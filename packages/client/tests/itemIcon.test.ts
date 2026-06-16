@@ -60,10 +60,12 @@ describe("completed-item icons", () => {
   });
 
   it("no real item falls back to the generic glyph (every component/completed resolves)", () => {
-    // Consumables have no procedural emblem (client icon work is out of scope
-    // for the item-system data/rules phase); every component/completed resolves.
+    // Consumables, artifacts, and mythicals have no procedural emblem yet (client
+    // icon work is out of scope for the item-system data/rules phase); every
+    // component/completed resolves.
+    const SKIP_KINDS = new Set(["consumable", "artifact", "mythical"]);
     for (const item of gameData.items) {
-      if (itemKind(item) === "consumable") continue;
+      if (SKIP_KINDS.has(itemKind(item))) continue;
       expect(itemIcon(item.id, gameData), `item ${item.id} resolves`).not.toBeNull();
     }
   });

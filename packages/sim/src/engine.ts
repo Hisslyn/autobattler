@@ -93,18 +93,45 @@ function applyItems(unit: UnitInstance, data: GameData): void {
   }
 }
 
-/** Item passives + start-of-combat ability behaviors. Runs once after stats. */
+/**
+ * Item passives + start-of-combat ability behaviors. Runs once after stats.
+ *
+ * Pair-passive gating: if an item def carries a `pairPassive`, that passive is
+ * active ONLY when the unit also has the `pairPassive.partnerId` in its items
+ * array. The item's own base stat bundle (applied in `applyItems`) is never
+ * gated — base stats always apply regardless. A unit that equips only one item
+ * from a pair receives the base stats but NOT the pair passive. A missing partner
+ * id (item not in items array) silently skips the pairPassive; no error.
+ */
 function applyStartOfCombat(unit: UnitInstance, data: GameData): void {
   for (const itemId of unit.items) {
-    const passive = data.items.find((i) => i.id === itemId)?.passive;
-    if (!passive) continue;
-    if (passive.kind === "shield") {
-      unit.shield = (unit.shield ?? 0) + passive.value;
-      refreshStatus(unit, "shield", passive.duration);
-    } else if (passive.kind === "burn") {
-      unit.onHitBurn = { value: passive.value, duration: passive.duration };
+    const itemDef = data.items.find((i) => i.id === itemId);
+    if (!itemDef) continue;
+
+    // Base passive (burn on-hit / shield start-of-combat) — always applied.
+    const passive = itemDef.passive;
+    if (passive) {
+      if (passive.kind === "shield") {
+        unit.shield = (unit.shield ?? 0) + passive.value;
+        refreshStatus(unit, "shield", passive.duration);
+      } else if (passive.kind === "burn") {
+        unit.onHitBurn = { value: passive.value, duration: passive.duration };
+      }
+    }
+
+    // Pair-passive — active only when the partner item is also equipped.
+    const pairPassive = itemDef.pairPassive;
+    if (pairPassive && unit.items.includes(pairPassive.partnerId)) {
+      const eff = pairPassive.effect;
+      if (eff.kind === "shield") {
+        unit.shield = (unit.shield ?? 0) + eff.value;
+        refreshStatus(unit, "shield", eff.duration);
+      } else if (eff.kind === "burn") {
+        unit.onHitBurn = { value: eff.value, duration: eff.duration };
+      }
     }
   }
+
   if (unit.ability?.effect.kind === "stealth") {
     unit.untargetableUntil = unit.ability.effect.duration;
   }

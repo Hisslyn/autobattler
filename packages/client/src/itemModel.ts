@@ -28,7 +28,7 @@ export interface ItemStatLine {
 /** Item tier classification (phase 2): a component, a completed (tier-2) item,
  *  a radiant (tier-4) upgrade, or a consumable. Mirrors rules' itemKind/itemTier
  *  but flattens "completed vs radiant" into one tier axis for display. */
-export type ItemTier = "component" | "completed" | "radiant" | "consumable";
+export type ItemTier = "component" | "completed" | "radiant" | "artifact" | "mythical" | "consumable";
 
 export interface ItemModel {
   id: string;
@@ -85,8 +85,11 @@ export function itemStatLines(stats: ItemDataDef["stats"]): ItemStatLine[] {
 
 /** Tier classification for an item def (component/completed/radiant/consumable). */
 function tierOf(def: ItemDataDef): ItemTier {
-  if (itemKind(def) === "consumable") return "consumable";
-  if (itemKind(def) === "component") return "component";
+  const kind = itemKind(def);
+  if (kind === "consumable") return "consumable";
+  if (kind === "component") return "component";
+  if (kind === "artifact") return "artifact";
+  if (kind === "mythical") return "mythical";
   // "completed" kind covers both base completed items and radiant variants
   // (loader gives radiant_* the literal kind "completed"); the id prefix is
   // the only signal distinguishing them.
@@ -104,6 +107,10 @@ function colorForTier(tier: ItemTier): number {
     case "component": return C.itemComponent;
     case "completed": return C.itemCompleted;
     case "radiant": return C.itemFrame;
+    // Artifact (tier 3) / mythical (tier 5) have no dedicated client color yet —
+    // reuse the completed-item tint as a placeholder so they read as equippable.
+    case "artifact": return C.itemCompleted;
+    case "mythical": return C.itemCompleted;
     case "consumable": return C.itemConsumable;
   }
 }

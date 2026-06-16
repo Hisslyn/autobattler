@@ -41,5 +41,7 @@
   "radiantStatMultiplier": 1750,
   "itemTierComponent": 1,
   "itemTierCompleted": 2,
-  "itemTierRadiant": 4
+  "itemTierArtifact": 3,
+  "itemTierRadiant": 4,
+  "itemTierMythical": 5
 }

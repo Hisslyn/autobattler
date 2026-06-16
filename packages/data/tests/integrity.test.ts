@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gameData, itemKind } from "../src/loader.js";
+import { gameData, itemKind, itemTier } from "../src/loader.js";
 
 const CONSUMABLE_EFFECTS = new Set(["remove_item", "reforge", "radiant_upgrade"]);
 
@@ -182,6 +182,92 @@ describe("v1 content completeness", () => {
       expect(gameData.economy.poolCounts[String(tier)]).toBeGreaterThan(0);
       const anyNonzero = gameData.economy.shopOdds.some((row) => (row[tier - 1] ?? 0) > 0);
       expect(anyNonzero, `tier ${tier} appears in some shop level`).toBe(true);
+    }
+  });
+});
+
+describe("phase 3 artifacts + mythicals", () => {
+  const artifacts = gameData.items.filter((i) => itemKind(i) === "artifact");
+  const mythicals = gameData.items.filter((i) => itemKind(i) === "mythical");
+
+  it("has exactly 6 artifacts and 3 mythicals", () => {
+    expect(artifacts.length).toBe(6);
+    expect(mythicals.length).toBe(3);
+  });
+
+  it("artifacts and mythicals use only valid stat keys", () => {
+    for (const item of [...artifacts, ...mythicals]) {
+      for (const stat of Object.keys(item.stats)) {
+        expect(VALID_STATS.has(stat), `${item.id} buffs unknown stat ${stat}`).toBe(true);
+        expect((item.stats as Record<string, number>)[stat]).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("artifacts and mythicals carry no recipe and no component flag", () => {
+    for (const item of [...artifacts, ...mythicals]) {
+      expect(item.recipe, `${item.id} must have no recipe`).toBeUndefined();
+      expect(item.component, `${item.id} must not be a component`).toBeFalsy();
+    }
+  });
+
+  it("pairPassive is internally consistent (partner is a paired artifact that references back)", () => {
+    const byId = new Map(gameData.items.map((i) => [i.id, i]));
+    let pairedCount = 0;
+    for (const a of artifacts) {
+      if (!a.pairPassive) continue;
+      pairedCount++;
+      const partner = byId.get(a.pairPassive.partnerId);
+      // Partner exists and is itself an artifact.
+      expect(partner, `${a.id} partner ${a.pairPassive.partnerId} exists`).toBeDefined();
+      expect(itemKind(partner!), `${a.id} partner is an artifact`).toBe("artifact");
+      // Partner references back to this artifact.
+      expect(partner!.pairPassive?.partnerId, `${a.id} partner references back`).toBe(a.id);
+      // Effect kind is one the engine supports.
+      expect(["burn", "shield"]).toContain(a.pairPassive.effect.kind);
+    }
+    // Paired artifacts come in mutual pairs (even count).
+    expect(pairedCount % 2).toBe(0);
+    expect(pairedCount).toBeGreaterThan(0);
+  });
+
+  it("mythicals never carry a pairPassive", () => {
+    for (const m of mythicals) {
+      expect(m.pairPassive, `${m.id} must have no pairPassive`).toBeUndefined();
+    }
+  });
+
+  it("itemTier returns 3 for every artifact and 5 for every mythical", () => {
+    for (const a of artifacts) {
+      expect(itemTier(a.id, gameData.items, gameData.economy), `${a.id} tier`).toBe(
+        gameData.economy.itemTierArtifact
+      );
+      expect(gameData.economy.itemTierArtifact).toBe(3);
+    }
+    for (const m of mythicals) {
+      expect(itemTier(m.id, gameData.items, gameData.economy), `${m.id} tier`).toBe(
+        gameData.economy.itemTierMythical
+      );
+      expect(gameData.economy.itemTierMythical).toBe(5);
+    }
+  });
+
+  it("loot placement: artifacts in 'rare' not 'legendary', mythicals in 'legendary' not 'rare'", () => {
+    const ids = (rarity: "rare" | "legendary") =>
+      new Set(
+        gameData.loot.tables[rarity]
+          .filter((e): e is Extract<typeof e, { kind: "item" }> => e.kind === "item")
+          .map((e) => e.id)
+      );
+    const rare = ids("rare");
+    const legendary = ids("legendary");
+    for (const a of artifacts) {
+      expect(rare.has(a.id), `artifact ${a.id} in rare`).toBe(true);
+      expect(legendary.has(a.id), `artifact ${a.id} NOT in legendary`).toBe(false);
+    }
+    for (const m of mythicals) {
+      expect(legendary.has(m.id), `mythical ${m.id} in legendary`).toBe(true);
+      expect(rare.has(m.id), `mythical ${m.id} NOT in rare`).toBe(false);
     }
   });
 });

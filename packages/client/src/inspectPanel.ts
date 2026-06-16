@@ -249,6 +249,8 @@ function itemKindLabel(m: ItemModel): string {
     case "component": return "Component";
     case "completed": return "Completed Item";
     case "radiant": return "Radiant Item";
+    case "artifact": return "Artifact";
+    case "mythical": return "Mythical Item";
     case "consumable": return "Consumable";
   }
 }
@@ -259,6 +261,9 @@ function itemKindAccent(m: ItemModel): number {
     case "component": return C.itemComponent;
     case "completed": return C.accentGold;
     case "radiant": return C.radiantBadge;
+    // No dedicated artifact/mythical accent yet — reuse the completed accent.
+    case "artifact": return C.accentGold;
+    case "mythical": return C.accentGold;
     case "consumable": return C.itemConsumableRim;
   }
 }

@@ -46,16 +46,27 @@ Three consumables (`consumableEffect` discriminates behavior):
   consumable is not consumed and no state changes.
 - `reforger` (`reforge`) — reforges **every** item equipped on the target
   unit, each one independently replaced with a different random item of its
-  **own same tier** (component tier 1, completed tier 2), excluding its own
-  original id. Each equipped slot gets its own prng draw, processed in
-  equipped-slot order, off the match's seeded prng (never `Math.random`), so
-  the same seed + same call always yields the same set of replacements. The
-  reforger is consumed exactly once regardless of how many items it touched.
-  Tier-restricted per item so a reforge never changes a component into a
-  completed item or vice versa. If the target unit holds zero items, this is
-  a normal **no-op success** (not consumed, no state change). If any
-  equipped item has no same-tier alternative, the whole command fails with
-  `NO_ALTERNATIVE_ITEM` (no partial reforge).
+  **own same tier** (component tier 1, completed tier 2, artifact tier 3,
+  radiant tier 4, mythical tier 5), excluding its own original id. Each
+  equipped slot gets its own prng draw, processed in equipped-slot order, off
+  the match's seeded prng (never `Math.random`), so the same seed + same call
+  always yields the same set of replacements. The reforger is consumed exactly
+  once regardless of how many items it touched. Tier-restricted per item so a
+  reforge never changes the tier of any equipped item. If the target unit holds
+  zero items, this is a normal **no-op success** (not consumed, no state
+  change). If any equipped item has no same-tier alternative, the whole command
+  fails with `NO_ALTERNATIVE_ITEM` (no partial reforge).
+
+  **Scarcity note for artifacts/mythicals:** with only 6 artifacts and 3
+  mythicals in the roster, a unit holding an artifact or mythical will
+  frequently hit `NO_ALTERNATIVE_ITEM` when targeted by a reforger (5 other
+  artifacts exist for tier-3 reforge; 2 other mythicals for tier-5). This is
+  an **intended scarcity outcome** — the reforger is intentionally less
+  reliable at high tiers. Balance consideration for a later tuning pass:
+  if NO_ALTERNATIVE_ITEM becomes a dominant frustration point at high tiers,
+  consider expanding the artifact/mythical roster rather than changing the
+  reforge mechanic itself.
+
 - `radiant_enhancer` (`radiant_upgrade`) — still targets exactly **one**
   named **completed** (tier-2) item on a unit (explicit `targetItemId`,
   required), upgrading it into its tier-4 "radiant" variant: every stat in
@@ -67,8 +78,8 @@ Three consumables (`consumableEffect` discriminates behavior):
   the target unit holds **no** tier-2 (completed, non-radiant) items at all,
   the command fails with `NO_TIER_2_ITEMS_EQUIPPED`. If the unit does hold a
   tier-2 item but the given `targetItemId` isn't one (a component, a
-  consumable, or an already-radiant variant), it fails with
-  `NOT_TIER_2_ITEM`.
+  consumable, an artifact, a mythical, or an already-radiant variant), it
+  fails with `NOT_TIER_2_ITEM`.
 
 **Rounding rule** (applies everywhere a stat is scaled, e.g. the radiant
 multiply): multiply the raw integer stat by the fixed-point multiplier (scale
@@ -97,6 +108,110 @@ item picker when the unit holds completed items (pick → send with
 `targetItemId`; dismiss → cancel, chip returns to the bar), else sends and lets
 the server reject with `NO_TIER_2_ITEMS_EQUIPPED`.
 
+## Artifact and Mythical items (item-system phase 3)
+
+Two new loot-only item kinds, introduced in phase 3:
+
+### Tier overview
+
+| Tier | Kind      | Source         | Notes                                      |
+|------|-----------|----------------|--------------------------------------------|
+| 1    | component | shop / loot    | 9 base components                          |
+| 2    | completed | crafted / loot | 36 two-component combos                    |
+| 3    | artifact  | loot only      | 6 hand-authored; may carry pair-passive    |
+| 4    | radiant   | radiant_enhancer consumable | derived from completed items  |
+| 5    | mythical  | loot only      | 3 hand-authored; supreme power             |
+
+Artifacts and mythicals are **not shop-purchasable** and **not craftable**
+via `recipeResult` (they have no `recipe` field). The only acquisition path
+is PvE loot drops. They are equippable (occupy a unit item slot, subject to
+the normal MAX_ITEMS_PER_UNIT = 3 cap) and are eligible for `item_remover`
+and `reforger` — but NOT for `radiant_enhancer` (they are not `completed`
+tier-2 items; targeting one returns `NOT_TIER_2_ITEM`).
+
+### Artifact roster (tier 3)
+
+Power benchmark: ~1.5× the primary stat of a typical tier-2 completed item
+(guideline, not strict formula). Stats are hand-authored to feel distinct.
+
+| id           | name        | stats                              | pair partner |
+|--------------|-------------|------------------------------------|--------------|
+| `warblade`   | Warblade    | ad 220, as 200                     | `warplate`   |
+| `warplate`   | Warplate    | armor 420, hp 600                  | `warblade`   |
+| `voidstaff`  | Voidstaff   | abilityDamage 280, mana 40         | `voidmantle` |
+| `voidmantle` | Voidmantle  | mr 320, hp 500                     | `voidstaff`  |
+| `stormrider` | Stormrider  | as 300, ad 120, mr 150             | —            |
+| `titan_heart`| Titan Heart | hp 1100, armor 250                 | —            |
+
+### Mythical roster (tier 5)
+
+Power benchmark: ~2× the primary stat of a typical tier-2 completed item.
+
+| id                | name            | stats                            |
+|-------------------|-----------------|----------------------------------|
+| `eclipse_crown`   | Eclipse Crown   | ad 250, abilityDamage 350, as 180|
+| `undying_bulwark` | Undying Bulwark | hp 1800, armor 450, mr 350       |
+| `arcane_engine`   | Arcane Engine   | abilityDamage 500, mana 80, as 200|
+
+### Pair-passive mechanic
+
+Two named artifact pairs: **Warblade + Warplate** and **Voidstaff + Voidmantle**.
+
+When a unit holds **both** artifacts of a pair, each item's `pairPassive` is
+activated at combat start. The pair passive reuses the existing passive effect
+primitives (`burn` on-hit / `shield` start-of-combat) — no new engine
+primitives required.
+
+- **Warblade + Warplate pair bonus:** on-hit burn (value 40, duration 50 ticks).
+  Applied by whichever item carries the `pairPassive` — since both items in the
+  pair reference each other, the engine checks each item's `pairPassive.partnerId`
+  against the unit's equipped items at combat start.
+
+- **Voidstaff + Voidmantle pair bonus:** start-of-combat shield (value 600,
+  duration 120 ticks). The shield stacks with any other shield sources.
+
+The engine gates pair passives purely on the `partnerId` equip check: if the
+partner id is present in the unit's `items` array, the pairPassive fires;
+otherwise the item's base stats apply but the passive is skipped. Both items in
+a pair carry the pairPassive field pointing to each other, so the passive effect
+is naturally applied once per item (burn → one `onHitBurn` entry set; shield →
+added to `unit.shield` once per item's passive). The burn case: the engine
+processes each item's pairPassive in slot order, so `onHitBurn` from the second
+item overwrites the first (same value — no effective difference). The shield case:
+each of the two items' pairPassives adds 600 shield → total 1200 shield if both
+are equipped. This is intentional and expected for the design.
+
+Only artifact items carry `pairPassive`. Mythical items never have one (field
+absent). Unpaired artifacts (`stormrider`, `titan_heart`) also lack the field.
+No null/false sentinel — the field's absence means "no pair passive."
+
+**Decision point created:** equipping both paired artifacts costs 2 of the unit's
+3 item slots in exchange for a potent passive bonus. Players choose between
+the pair synergy vs filling the third slot with a different item.
+
+**Counterplay:** scouting the opponent's board reveals paired artifacts on units;
+players can prioritize burst damage or silence effects to kill the paired unit
+before it benefits from the passive over multiple rounds.
+
+### Loot table placement
+
+Artifacts appear in the `rare` rarity table (weight 3 each, 18 total new weight
+out of roughly 100+ total). Mythicals appear in the `legendary` rarity table
+(weight 6 each, 18 total new weight). Existing entries reduced proportionally to
+keep total weight coherent. The `rare` gold entries were slightly reduced (18+10
+→ 14+8) to accommodate artifacts; legendary gold reduced (14 → 10).
+
+### Reforge scarcity at artifact/mythical tiers
+
+With 6 artifacts (tier 3) and 3 mythicals (tier 5), a reforger targeting a unit
+holding an artifact has 5 alternatives; targeting a mythical has only 2
+alternatives. This makes `NO_ALTERNATIVE_ITEM` a realistic, frequent outcome when
+reforging mythical items (only 2 alternatives means 1-in-3 chance per slot if
+the item is picked is one of the 2 others... but with only 2 alternatives the
+pool is thin). **Balance consideration:** if NO_ALTERNATIVE_ITEM becomes a dominant
+player frustration at high tiers, expand the mythical roster (add 1-2 more
+mythicals) rather than relaxing the reforge mechanic tier-restriction.
+
 ## future: deferred behaviors (NOT implemented — do not encode in JSON)
 
 These would each require new engine primitives and event types; intentionally
@@ -112,6 +227,8 @@ left out of v1 content so the engine stays within its spec'd behavior set:
 - // future: full scripted tutorial match (a guided first game with forced
   moves). Phase 9 ships only dismissable, once-shown coachmarks on the first
   Practice match (client `onboarding.ts`); a scripted tutorial is out of scope.
-- // future: Artifacts / Mythical items and the full Radiant item catalog
-  beyond the single generic upgrade path shipped to date (out of scope for
-  this phase; tracked for a later item-system phase)
+- // future: pair-passive on mythical items (currently only artifacts carry
+  pairPassive; mythicals are intentionally simpler for the first phase)
+- // future: named pair-passive interactions beyond burn/shield primitives
+  (new effect kinds such as haste, omnivamp, mana-restore would require new
+  engine primitives)

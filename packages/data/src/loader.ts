@@ -59,8 +59,28 @@ export type ItemPassiveData =
   | { kind: "burn"; value: number; duration: number }
   | { kind: "shield"; value: number; duration: number };
 
-/** Item classification: stat component, completed item, or a consumable. */
-export type ItemKind = "component" | "completed" | "consumable";
+/**
+ * Pair-bonus passive: active only when the named partner item is also equipped
+ * on the same unit. Reuses the existing passive effect shape (burn / shield).
+ * Present only on artifact items that participate in a named pair.
+ */
+export interface PairPassiveData {
+  /** The id of the partner artifact that must also be equipped to activate this passive. */
+  partnerId: string;
+  /** The passive effect granted when both paired items are equipped on the same unit. */
+  effect: ItemPassiveData;
+}
+
+/**
+ * Item classification.
+ *
+ * component  — one of the 9 base stat components (no recipe, not equip-as-is for passives)
+ * completed  — a crafted item (two components combined via recipe)
+ * consumable — single-use item applied via USE_CONSUMABLE; never occupies a unit item slot
+ * artifact   — high-power loot-only item (tier 3); may carry a pairPassive
+ * mythical   — supreme-power loot-only item (tier 5); no pairPassive
+ */
+export type ItemKind = "component" | "completed" | "consumable" | "artifact" | "mythical";
 
 /** The effect a consumable applies when used. */
 export type ConsumableEffect = "remove_item" | "reforge" | "radiant_upgrade";
@@ -79,6 +99,12 @@ export interface ItemDataDef {
   kind?: ItemKind;
   /** Set on consumables — the effect applied when the consumable is used. */
   consumableEffect?: ConsumableEffect;
+  /**
+   * Pair-bonus: present ONLY on artifact items that participate in a named pair.
+   * The passive is active only when `partnerId` is also equipped on the same unit.
+   * Absent (field not present) on all other item kinds and unpaired artifacts.
+   */
+  pairPassive?: PairPassiveData;
 }
 
 export interface StreakEntry {
@@ -102,10 +128,12 @@ export interface EconomyData {
   pveBaseGold: number;
   /** Fixed-point (scale 1000) stat multiplier applied to a radiant variant. */
   radiantStatMultiplier: number;
-  /** Item-tier classification constants (component / completed / radiant). */
+  /** Item-tier classification constants. */
   itemTierComponent: number;
   itemTierCompleted: number;
+  itemTierArtifact: number;
   itemTierRadiant: number;
+  itemTierMythical: number;
   streakTable: StreakEntry[];
   damageBase: number;
   damageRoundDivisor: number;
@@ -222,6 +250,7 @@ export const DATA_VERSION = "0.1.0";
  * Pure recipe lookup: the completed item built from an unordered pair of
  * component ids, or null if no recipe combines them. Recipes in items.json
  * are unordered, so this matches either component order.
+ * Artifact and mythical items have no recipe and can never be produced here.
  */
 export function recipeResult(
   aId: string,
@@ -277,6 +306,7 @@ const radiantCache = new Map<string, ItemDataDef>();
  * `items` list is the lookup source for the base item. Returns null when the
  * base item isn't a `completed` item. The same baseId always returns the
  * identical (reference-stable) object.
+ * Artifact and mythical items are never radiant-upgraded (they are not "completed").
  */
 export function getOrCreateRadiantItem(
   baseId: string,
@@ -305,9 +335,17 @@ export function getOrCreateRadiantItem(
 }
 
 /**
- * Pure: an item's tier, driven by economy constants. Radiant variants are the
- * radiant tier, components/completed map to their constants, consumables and
- * unknown ids have no tier (null).
+ * Pure: an item's tier bucket. Five distinct tiers:
+ *   1 = component
+ *   2 = completed (crafted from two components)
+ *   3 = artifact  (loot-only, high-power)
+ *   4 = radiant   (upgraded completed item)
+ *   5 = mythical  (loot-only, supreme power)
+ *
+ * Consumables and unknown ids return null (no tier).
+ * Radiant variants are detected by the "radiant_" prefix before looking up
+ * the base item, so they always map to tier 4 regardless of whether their
+ * base item is still in the items array.
  */
 export function itemTier(
   itemId: string,
@@ -320,6 +358,8 @@ export function itemTier(
   const kind = itemKind(item);
   if (kind === "component") return economy.itemTierComponent;
   if (kind === "completed") return economy.itemTierCompleted;
+  if (kind === "artifact") return economy.itemTierArtifact;
+  if (kind === "mythical") return economy.itemTierMythical;
   return null; // consumable
 }
 
@@ -337,6 +377,7 @@ export const gameData: GameData = {
 // so sim/engine.ts `applyItems` (a plain `data.items.find`) resolves radiant_*
 // ids with no sim changes. getOrCreateRadiantItem memoizes, so rules later hit
 // the same cached object already present in the array.
+// Artifact and mythical items are excluded (itemKind check inside the function).
 for (const item of [...gameData.items]) {
   if (itemKind(item) !== "completed") continue;
   const radiant = getOrCreateRadiantItem(

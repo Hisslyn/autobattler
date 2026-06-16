@@ -560,5 +560,122 @@
     "stats": {},
     "kind": "consumable",
     "consumableEffect": "radiant_upgrade"
+  },
+  {
+    "id": "warblade",
+    "name": "Warblade",
+    "kind": "artifact",
+    "stats": {
+      "ad": 220,
+      "as": 200
+    },
+    "pairPassive": {
+      "partnerId": "warplate",
+      "effect": {
+        "kind": "burn",
+        "value": 40,
+        "duration": 50
+      }
+    }
+  },
+  {
+    "id": "warplate",
+    "name": "Warplate",
+    "kind": "artifact",
+    "stats": {
+      "armor": 420,
+      "hp": 600
+    },
+    "pairPassive": {
+      "partnerId": "warblade",
+      "effect": {
+        "kind": "burn",
+        "value": 40,
+        "duration": 50
+      }
+    }
+  },
+  {
+    "id": "voidstaff",
+    "name": "Voidstaff",
+    "kind": "artifact",
+    "stats": {
+      "abilityDamage": 280,
+      "mana": 40
+    },
+    "pairPassive": {
+      "partnerId": "voidmantle",
+      "effect": {
+        "kind": "shield",
+        "value": 600,
+        "duration": 120
+      }
+    }
+  },
+  {
+    "id": "voidmantle",
+    "name": "Voidmantle",
+    "kind": "artifact",
+    "stats": {
+      "mr": 320,
+      "hp": 500
+    },
+    "pairPassive": {
+      "partnerId": "voidstaff",
+      "effect": {
+        "kind": "shield",
+        "value": 600,
+        "duration": 120
+      }
+    }
+  },
+  {
+    "id": "stormrider",
+    "name": "Stormrider",
+    "kind": "artifact",
+    "stats": {
+      "as": 300,
+      "ad": 120,
+      "mr": 150
+    }
+  },
+  {
+    "id": "titan_heart",
+    "name": "Titan Heart",
+    "kind": "artifact",
+    "stats": {
+      "hp": 1100,
+      "armor": 250
+    }
+  },
+  {
+    "id": "eclipse_crown",
+    "name": "Eclipse Crown",
+    "kind": "mythical",
+    "stats": {
+      "ad": 250,
+      "abilityDamage": 350,
+      "as": 180
+    }
+  },
+  {
+    "id": "undying_bulwark",
+    "name": "Undying Bulwark",
+    "kind": "mythical",
+    "stats": {
+      "hp": 1800,
+      "armor": 450,
+      "mr": 350
+    }
+  },
+  {
+    "id": "arcane_engine",
+    "name": "Arcane Engine",
+    "kind": "mythical",
+    "stats": {
+      "abilityDamage": 500,
+      "mana": 80,
+      "as": 200
+    }
   }
 ]

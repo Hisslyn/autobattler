@@ -383,6 +383,132 @@ describe("USE_CONSUMABLE — typed errors", () => {
   });
 });
 
+describe("phase 3 artifacts + mythicals — consumable interactions", () => {
+  const ARTIFACT_A = gameData.items.find((i) => itemKind(i) === "artifact")!.id;
+  const ARTIFACT_B = gameData.items.find(
+    (i) => itemKind(i) === "artifact" && i.id !== ARTIFACT_A
+  )!.id;
+  const MYTHICAL = gameData.items.find((i) => itemKind(i) === "mythical")!.id;
+
+  it("radiant_upgrade targeting an artifact → NOT_TIER_2_ITEM (unit also holds a tier-2 item)", () => {
+    const { state, unit } = setup(["radiant_enhancer"], [FIRST_COMPLETED, ARTIFACT_A]);
+    const prng = mulberry32(1);
+    const res = applyCommand(
+      state,
+      0,
+      {
+        type: "USE_CONSUMABLE",
+        consumableId: "radiant_enhancer",
+        targetUnitId: unit.uid,
+        targetItemId: ARTIFACT_A,
+      },
+      prng,
+      gameData
+    );
+    expect(res).toEqual({ ok: false, error: "NOT_TIER_2_ITEM" });
+  });
+
+  it("radiant_upgrade targeting a mythical → NOT_TIER_2_ITEM (unit also holds a tier-2 item)", () => {
+    const { state, unit } = setup(["radiant_enhancer"], [FIRST_COMPLETED, MYTHICAL]);
+    const prng = mulberry32(1);
+    const res = applyCommand(
+      state,
+      0,
+      {
+        type: "USE_CONSUMABLE",
+        consumableId: "radiant_enhancer",
+        targetUnitId: unit.uid,
+        targetItemId: MYTHICAL,
+      },
+      prng,
+      gameData
+    );
+    expect(res).toEqual({ ok: false, error: "NOT_TIER_2_ITEM" });
+  });
+
+  it("reforger on an artifact → a different artifact (tier 3 → tier 3)", () => {
+    const { state, unit } = setup(["reforger"], [ARTIFACT_A]);
+    const prng = mulberry32(1);
+    expect(
+      applyCommand(
+        state,
+        0,
+        { type: "USE_CONSUMABLE", consumableId: "reforger", targetUnitId: unit.uid },
+        prng,
+        gameData
+      ).ok
+    ).toBe(true);
+    const result = unit.items[0]!;
+    expect(result).not.toBe(ARTIFACT_A);
+    expect(itemTier(result, gameData.items, gameData.economy)).toBe(
+      gameData.economy.itemTierArtifact
+    );
+    expect(itemKind(gameData.items.find((i) => i.id === result)!)).toBe("artifact");
+  });
+
+  it("reforger on a mythical → a different mythical (tier 5 → tier 5)", () => {
+    const { state, unit } = setup(["reforger"], [MYTHICAL]);
+    const prng = mulberry32(3);
+    expect(
+      applyCommand(
+        state,
+        0,
+        { type: "USE_CONSUMABLE", consumableId: "reforger", targetUnitId: unit.uid },
+        prng,
+        gameData
+      ).ok
+    ).toBe(true);
+    const result = unit.items[0]!;
+    expect(result).not.toBe(MYTHICAL);
+    expect(itemTier(result, gameData.items, gameData.economy)).toBe(
+      gameData.economy.itemTierMythical
+    );
+    expect(itemKind(gameData.items.find((i) => i.id === result)!)).toBe("mythical");
+  });
+
+  it("NO_ALTERNATIVE_ITEM when the only mythical in its tier is the target", () => {
+    // Stub a data set whose only tier-5 item is the equipped mythical, so reforge
+    // has no same-tier alternative to pick.
+    const stub = {
+      ...gameData,
+      items: gameData.items.filter(
+        (i) => i.id === MYTHICAL || itemKind(i) !== "mythical"
+      ),
+    };
+    const { state, unit } = setup(["reforger"], [MYTHICAL]);
+    const prng = mulberry32(1);
+    const res = applyCommand(
+      state,
+      0,
+      { type: "USE_CONSUMABLE", consumableId: "reforger", targetUnitId: unit.uid },
+      prng,
+      stub
+    );
+    expect(res).toEqual({ ok: false, error: "NO_ALTERNATIVE_ITEM" });
+  });
+
+  it("EQUIP a 4th item (artifact) onto a full unit → ITEM_SLOTS_FULL", () => {
+    // Unit already holds 3 items; the artifact has no recipe so it can't
+    // auto-combine in place — the cap rejects it.
+    const { state, player, unit } = setup(
+      [ARTIFACT_B],
+      [FIRST_COMPLETED, SECOND_COMPLETED, THIRD_COMPLETED]
+    );
+    const prng = mulberry32(1);
+    const res = applyCommand(
+      state,
+      0,
+      { type: "EQUIP", unitUid: unit.uid, itemId: ARTIFACT_B },
+      prng,
+      gameData
+    );
+    expect(res).toEqual({ ok: false, error: "ITEM_SLOTS_FULL" });
+    // The artifact stays in inventory; the unit is unchanged.
+    expect(player.items).toContain(ARTIFACT_B);
+    expect(unit.items).toHaveLength(3);
+  });
+});
+
 describe("USE_CONSUMABLE — reforge determinism (single item, regression)", () => {
   it("same seed + same reforge call picks the identical resulting item id", () => {
     const run = () => {
