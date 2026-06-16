@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { gameData } from "../src/loader.js";
+import { gameData, itemKind } from "../src/loader.js";
+
+const CONSUMABLE_EFFECTS = new Set(["remove_item", "reforge", "radiant_upgrade"]);
 
 const VALID_STATS = new Set(["hp", "ad", "as", "armor", "mr", "range", "mana", "abilityDamage"]);
 
@@ -144,8 +146,10 @@ describe("v1 content completeness", () => {
   });
 
   it("items split into 9 components + 36 completed; recipes resolve to component pairs", () => {
-    const components = gameData.items.filter((i) => i.component);
-    const completed = gameData.items.filter((i) => !i.component);
+    const components = gameData.items.filter((i) => itemKind(i) === "component");
+    // Real completed items have a recipe; eagerly-added radiants are also
+    // itemKind "completed" but carry no recipe, so exclude them by recipe.
+    const completed = gameData.items.filter((i) => itemKind(i) === "completed" && i.recipe);
     expect(components.length).toBe(9);
     expect(completed.length).toBe(36);
     const compIds = new Set(components.map((c) => c.id));
@@ -160,6 +164,17 @@ describe("v1 content completeness", () => {
     }
     // 36 distinct unordered pairs of 9 components.
     expect(seenPairs.size).toBe(36);
+  });
+
+  it("has exactly 3 consumables, each with a valid consumableEffect", () => {
+    const consumables = gameData.items.filter((i) => itemKind(i) === "consumable");
+    expect(consumables.length).toBe(3);
+    for (const c of consumables) {
+      expect(
+        CONSUMABLE_EFFECTS.has(c.consumableEffect ?? ""),
+        `${c.id} has a valid consumableEffect`
+      ).toBe(true);
+    }
   });
 
   it("all five tiers have pool counts and a nonzero shop-odds level", () => {

@@ -71,6 +71,12 @@ export type ItemIcon = ComponentIcon | CompletedIcon;
  * glyph; the tests assert this never happens for any real item).
  */
 export function itemIcon(itemId: string, data: GameData): ItemIcon | null {
+  // A radiant variant has no recipe of its own; render its base item's icon.
+  if (itemId.startsWith("radiant_")) {
+    const baseIcon = itemIcon(itemId.slice("radiant_".length), data);
+    return baseIcon ? { ...baseIcon, id: itemId } : null;
+  }
+
   const def: ItemDataDef | undefined = data.items.find((i) => i.id === itemId);
   if (!def) return null;
 

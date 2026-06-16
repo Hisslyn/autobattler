@@ -59,6 +59,12 @@ export type ItemPassiveData =
   | { kind: "burn"; value: number; duration: number }
   | { kind: "shield"; value: number; duration: number };
 
+/** Item classification: stat component, completed item, or a consumable. */
+export type ItemKind = "component" | "completed" | "consumable";
+
+/** The effect a consumable applies when used. */
+export type ConsumableEffect = "remove_item" | "reforge" | "radiant_upgrade";
+
 export interface ItemDataDef {
   id: string;
   name: string;
@@ -69,6 +75,10 @@ export interface ItemDataDef {
   recipe?: [string, string];
   /** At most one passive on a completed item. */
   passive?: ItemPassiveData;
+  /** Explicit kind; when absent, derived from `component` (back-compat). */
+  kind?: ItemKind;
+  /** Set on consumables — the effect applied when the consumable is used. */
+  consumableEffect?: ConsumableEffect;
 }
 
 export interface StreakEntry {
@@ -90,6 +100,12 @@ export interface EconomyData {
   baseIncome: number;
   /** Flat gold awarded to every alive player at the end of a PvE round. */
   pveBaseGold: number;
+  /** Fixed-point (scale 1000) stat multiplier applied to a radiant variant. */
+  radiantStatMultiplier: number;
+  /** Item-tier classification constants (component / completed / radiant). */
+  itemTierComponent: number;
+  itemTierCompleted: number;
+  itemTierRadiant: number;
   streakTable: StreakEntry[];
   damageBase: number;
   damageRoundDivisor: number;
@@ -237,6 +253,76 @@ export function mmrToRank(mmr: number): RankBand {
   return band;
 }
 
+/**
+ * Pure: an item's kind. An explicit `kind` field wins; otherwise it derives
+ * from the legacy `component` flag (component vs completed) so all existing
+ * items resolve unchanged.
+ */
+export function itemKind(item: ItemDataDef): ItemKind {
+  if (item.kind) return item.kind;
+  return item.component ? "component" : "completed";
+}
+
+/** The deterministic radiant item id for a given base item id. */
+export function radiantItemId(baseId: string): string {
+  return "radiant_" + baseId;
+}
+
+const radiantCache = new Map<string, ItemDataDef>();
+
+/**
+ * Pure + deterministic: builds (and memoizes) the radiant tier-4 variant of a
+ * completed item — every stat scaled by `multiplier` (fixed-point scale 1000,
+ * rounded), the same passive carried unchanged, and no recipe/component. The
+ * `items` list is the lookup source for the base item. Returns null when the
+ * base item isn't a `completed` item. The same baseId always returns the
+ * identical (reference-stable) object.
+ */
+export function getOrCreateRadiantItem(
+  baseId: string,
+  items: ItemDataDef[],
+  multiplier: number
+): ItemDataDef | null {
+  const cached = radiantCache.get(baseId);
+  if (cached) return cached;
+  const base = items.find((i) => i.id === baseId);
+  if (!base || itemKind(base) !== "completed") return null;
+
+  const stats: Partial<Record<string, number>> = {};
+  for (const [stat, value] of Object.entries(base.stats)) {
+    if (value === undefined) continue;
+    stats[stat] = Math.round((value * multiplier) / 1000);
+  }
+  const radiant: ItemDataDef = {
+    id: radiantItemId(baseId),
+    name: "Radiant " + base.name,
+    stats,
+    kind: "completed",
+    ...(base.passive ? { passive: base.passive } : {}),
+  };
+  radiantCache.set(baseId, radiant);
+  return radiant;
+}
+
+/**
+ * Pure: an item's tier, driven by economy constants. Radiant variants are the
+ * radiant tier, components/completed map to their constants, consumables and
+ * unknown ids have no tier (null).
+ */
+export function itemTier(
+  itemId: string,
+  items: ItemDataDef[],
+  economy: EconomyData
+): number | null {
+  if (itemId.startsWith("radiant_")) return economy.itemTierRadiant;
+  const item = items.find((i) => i.id === itemId);
+  if (!item) return null;
+  const kind = itemKind(item);
+  if (kind === "component") return economy.itemTierComponent;
+  if (kind === "completed") return economy.itemTierCompleted;
+  return null; // consumable
+}
+
 export const gameData: GameData = {
   units: rawUnits as UnitDataDef[],
   traits: rawTraits as TraitDataDef[],
@@ -246,3 +332,17 @@ export const gameData: GameData = {
   mobs: rawMobs as MobsData,
   loot: rawLoot as LootData,
 };
+
+// Eagerly materialize every completed item's radiant variant into gameData.items
+// so sim/engine.ts `applyItems` (a plain `data.items.find`) resolves radiant_*
+// ids with no sim changes. getOrCreateRadiantItem memoizes, so rules later hit
+// the same cached object already present in the array.
+for (const item of [...gameData.items]) {
+  if (itemKind(item) !== "completed") continue;
+  const radiant = getOrCreateRadiantItem(
+    item.id,
+    gameData.items,
+    gameData.economy.radiantStatMultiplier
+  );
+  if (radiant) gameData.items.push(radiant);
+}

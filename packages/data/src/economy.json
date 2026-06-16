@@ -37,5 +37,9 @@
   "resolutionSeconds": 5,
   "mmrStart": 1000,
   "mmrK": 40,
-  "mmrEloDivisor": 400
+  "mmrEloDivisor": 400,
+  "radiantStatMultiplier": 1750,
+  "itemTierComponent": 1,
+  "itemTierCompleted": 2,
+  "itemTierRadiant": 4
 }

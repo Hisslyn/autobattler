@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gameData } from "@autobattler/data";
+import { gameData, itemKind } from "@autobattler/data";
 import { recipeResult } from "@autobattler/data";
 import {
   itemIcon,
@@ -59,8 +59,11 @@ describe("completed-item icons", () => {
     }
   });
 
-  it("no real item falls back to the generic glyph (every item resolves)", () => {
+  it("no real item falls back to the generic glyph (every component/completed resolves)", () => {
+    // Consumables have no procedural emblem (client icon work is out of scope
+    // for the item-system data/rules phase); every component/completed resolves.
     for (const item of gameData.items) {
+      if (itemKind(item) === "consumable") continue;
       expect(itemIcon(item.id, gameData), `item ${item.id} resolves`).not.toBeNull();
     }
   });

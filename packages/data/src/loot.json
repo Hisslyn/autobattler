@@ -21,7 +21,8 @@
       { "kind": "component", "id": "giants_belt", "weight": 12 },
       { "kind": "component", "id": "sorcerer_rod", "weight": 12 },
       { "kind": "component", "id": "sparring_gloves", "weight": 12 },
-      { "kind": "component", "id": "tear_flask", "weight": 12 }
+      { "kind": "component", "id": "tear_flask", "weight": 12 },
+      { "kind": "item", "id": "item_remover", "weight": 6 }
     ],
     "rare": [
       { "kind": "gold", "amount": 6, "weight": 18 },
@@ -32,7 +33,9 @@
       { "kind": "item", "id": "iron_sword__recurve_bow", "weight": 8 },
       { "kind": "item", "id": "chain_vest__negatron_cloak", "weight": 8 },
       { "kind": "item", "id": "giants_belt__tear_flask", "weight": 8 },
-      { "kind": "item", "id": "mana_crystal__sorcerer_rod", "weight": 6 }
+      { "kind": "item", "id": "mana_crystal__sorcerer_rod", "weight": 6 },
+      { "kind": "item", "id": "item_remover", "weight": 6 },
+      { "kind": "item", "id": "reforger", "weight": 6 }
     ],
     "legendary": [
       { "kind": "gold", "amount": 15, "weight": 14 },
@@ -42,7 +45,9 @@
       { "kind": "item", "id": "recurve_bow__sparring_gloves", "weight": 12 },
       { "kind": "item", "id": "mana_crystal__tear_flask", "weight": 12 },
       { "kind": "item", "id": "giants_belt__sorcerer_rod", "weight": 12 },
-      { "kind": "item", "id": "sorcerer_rod__sparring_gloves", "weight": 14 }
+      { "kind": "item", "id": "sorcerer_rod__sparring_gloves", "weight": 14 },
+      { "kind": "item", "id": "reforger", "weight": 8 },
+      { "kind": "item", "id": "radiant_enhancer", "weight": 6 }
     ]
   },
   "roundDrops": {

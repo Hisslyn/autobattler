@@ -1,5 +1,5 @@
 import type { GameData } from "@autobattler/data";
-import { recipeResult } from "@autobattler/data";
+import { recipeResult, itemKind, itemTier, getOrCreateRadiantItem } from "@autobattler/data";
 import type { MatchState } from "./state.js";
 import type { UnitInstance } from "@autobattler/sim/src/types.js";
 import type { Prng } from "@autobattler/sim/src/prng.js";
@@ -18,7 +18,8 @@ export type Command =
   | { type: "MOVE"; unitUid: number; toBench: boolean; toIndex: number }
   | { type: "EQUIP"; unitUid: number; itemId: string }
   | { type: "UNEQUIP"; unitUid: number; itemId: string }
-  | { type: "COMBINE_ITEMS"; itemIdA: string; itemIdB: string };
+  | { type: "COMBINE_ITEMS"; itemIdA: string; itemIdB: string }
+  | { type: "USE_CONSUMABLE"; consumableId: string; targetUnitId: number; targetItemId?: string };
 
 export type CommandError =
   | "INSUFFICIENT_GOLD"
@@ -30,7 +31,11 @@ export type CommandError =
   | "ITEM_SLOTS_FULL"
   | "NO_RECIPE"
   | "INVALID_POSITION"
-  | "PHASE_INVALID";
+  | "PHASE_INVALID"
+  | "CONSUMABLE_NOT_FOUND"
+  | "ITEM_NOT_EQUIPPED"
+  | "NO_ALTERNATIVE_ITEM"
+  | "NOT_TIER_2_ITEM";
 
 export type CommandResult = { ok: true } | { ok: false; error: CommandError };
 
@@ -211,6 +216,10 @@ export function applyCommand(
       const def = data.units.find((d) => d.id === unit.defId);
       if (!def) return { ok: false, error: "UNIT_NOT_FOUND" };
 
+      // Return the unit's equipped items to inventory (opaque ids, mirroring
+      // UNEQUIP — never decomposed into their source components).
+      player.items.push(...unit.items);
+
       if (found.onBench) {
         player.bench.splice(found.idx, 1);
       } else {
@@ -349,6 +358,75 @@ export function applyCommand(
       player.items.splice(lo, 1);
       player.items.push(combined);
       return { ok: true };
+    }
+
+    case "USE_CONSUMABLE": {
+      // Resolve the consumable in the player's inventory.
+      const consumableIdx = player.items.indexOf(cmd.consumableId);
+      if (consumableIdx < 0) return { ok: false, error: "CONSUMABLE_NOT_FOUND" };
+      const consumableDef = data.items.find((i) => i.id === cmd.consumableId);
+      if (!consumableDef || itemKind(consumableDef) !== "consumable") {
+        return { ok: false, error: "CONSUMABLE_NOT_FOUND" };
+      }
+
+      // Resolve the target unit (board or bench).
+      const found = findUnitAnywhere(state, playerId, cmd.targetUnitId);
+      if (!found) return { ok: false, error: "UNIT_NOT_FOUND" };
+      const unit = found.onBench ? player.bench[found.idx]! : player.board[found.idx]!;
+      if (!unit) return { ok: false, error: "UNIT_NOT_FOUND" };
+
+      switch (consumableDef.consumableEffect) {
+        case "remove_item": {
+          const slot = unit.items.indexOf(cmd.targetItemId ?? "");
+          if (slot < 0) return { ok: false, error: "ITEM_NOT_EQUIPPED" };
+          const removed = unit.items.splice(slot, 1)[0]!;
+          player.items.push(removed);
+          player.items.splice(player.items.indexOf(cmd.consumableId), 1);
+          return { ok: true };
+        }
+
+        case "reforge": {
+          const slot = unit.items.indexOf(cmd.targetItemId ?? "");
+          if (slot < 0) return { ok: false, error: "ITEM_NOT_EQUIPPED" };
+          const currentId = unit.items[slot]!;
+          const tier = itemTier(currentId, data.items, data.economy);
+          const candidates = data.items.filter(
+            (i) =>
+              i.id !== currentId &&
+              itemKind(i) !== "consumable" &&
+              itemTier(i.id, data.items, data.economy) === tier
+          );
+          if (candidates.length === 0) return { ok: false, error: "NO_ALTERNATIVE_ITEM" };
+          const pick = candidates[prng() % candidates.length]!;
+          unit.items[slot] = pick.id;
+          player.items.splice(player.items.indexOf(cmd.consumableId), 1);
+          return { ok: true };
+        }
+
+        case "radiant_upgrade": {
+          const slot = unit.items.indexOf(cmd.targetItemId ?? "");
+          if (slot < 0) return { ok: false, error: "ITEM_NOT_EQUIPPED" };
+          const currentId = unit.items[slot]!;
+          const def = data.items.find((i) => i.id === currentId);
+          // Must be a base completed item (tier 2) — not a component, consumable,
+          // or an already-radiant variant (which derives from a completed item).
+          if (!def || itemKind(def) !== "completed" || currentId.startsWith("radiant_")) {
+            return { ok: false, error: "NOT_TIER_2_ITEM" };
+          }
+          const radiant = getOrCreateRadiantItem(
+            currentId,
+            data.items,
+            data.economy.radiantStatMultiplier
+          );
+          if (!radiant) return { ok: false, error: "NOT_TIER_2_ITEM" };
+          unit.items[slot] = radiant.id;
+          player.items.splice(player.items.indexOf(cmd.consumableId), 1);
+          return { ok: true };
+        }
+
+        default:
+          return { ok: false, error: "CONSUMABLE_NOT_FOUND" };
+      }
     }
   }
 }

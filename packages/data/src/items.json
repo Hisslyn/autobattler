@@ -539,5 +539,26 @@
       "sparring_gloves",
       "tear_flask"
     ]
+  },
+  {
+    "id": "item_remover",
+    "name": "Item Remover",
+    "stats": {},
+    "kind": "consumable",
+    "consumableEffect": "remove_item"
+  },
+  {
+    "id": "reforger",
+    "name": "Reforger",
+    "stats": {},
+    "kind": "consumable",
+    "consumableEffect": "reforge"
+  },
+  {
+    "id": "radiant_enhancer",
+    "name": "Radiant Enhancer",
+    "stats": {},
+    "kind": "consumable",
+    "consumableEffect": "radiant_upgrade"
   }
 ]
