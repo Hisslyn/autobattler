@@ -4,6 +4,7 @@
 // traits.json has an entry in TRAIT_GLYPH (test-enforced); a unit renders its
 // primary class glyph (origins are mapped too, for tooltips/future use).
 import type { Graphics } from "pixi.js";
+import { glyphStrokeWeight } from "./theme.js";
 
 export type GlyphKind =
   | "sword" | "swords" | "dagger" | "axe" | "bow" | "shield" | "crosshair"
@@ -54,6 +55,8 @@ export function glyphForTraits(
 /**
  * Draw `kind` centered at (cx, cy), sized to roughly `size` px across, in
  * `color`. Uses the Pixi v8 path API: build a sub-path, then fill()/stroke().
+ * Stroke weight comes from the shared `glyphStrokeWeight(size)` in theme.ts —
+ * heavier at small sizes so glyphs stay legible on bench/shop tokens at 2× DPR.
  */
 export function drawGlyph(
   g: Graphics,
@@ -64,9 +67,10 @@ export function drawGlyph(
   color: number
 ): void {
   const s = size / 2; // half-extent
-  // Step-based stroke weight so small (chip/rail) and large (panel) glyphs read
-  // with consistent ink rather than the same hairline across sizes 8–12.
-  const lw = size <= 9 ? 1.2 : size <= 13 ? 1.5 : size <= 20 ? 2 : Math.max(2, size * 0.1);
+  // Shared stroke-weight formula (theme.ts: glyphStrokeWeight). Small tokens
+  // (bench ~13px, shop ~14px) now use 1.8px vs the old 1.5px, giving them
+  // heavier relative ink without changing the large-token (≤20→2) band.
+  const lw = glyphStrokeWeight(size);
   const strokeIt = (): void => { g.stroke({ width: lw, color, alpha: 1, cap: "round", join: "round" }); };
   const fillIt = (): void => { g.fill({ color, alpha: 1 }); };
 

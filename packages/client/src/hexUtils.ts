@@ -5,34 +5,42 @@ export const BOARD_COLS = 7;
 export const BOARD_ROWS = 4;
 export const BOARD_SLOTS = BOARD_COLS * BOARD_ROWS;
 
-/** Convert board slot index to pixel center. */
+/**
+ * Convert board slot index to pixel center.
+ * `scale` (default 1) shrinks/grows the grid spacing about (offsetX, offsetY);
+ * landscape renders the fixed 7×4 grid scaled-to-fit its board region while
+ * portrait keeps scale=1 (byte-identical to the original mapping).
+ */
 export function hexToPixel(
   q: number,
   r: number,
   offsetX: number,
-  offsetY: number
+  offsetY: number,
+  scale = 1
 ): { x: number; y: number } {
   return {
-    x: offsetX + q * HEX_W + (r % 2) * HEX_R,
-    y: offsetY + r * HEX_H,
+    x: offsetX + (q * HEX_W + (r % 2) * HEX_R) * scale,
+    y: offsetY + r * HEX_H * scale,
   };
 }
 
 /**
  * Map a pointer position to the nearest board slot index within the player's
- * 4 rows.  Returns -1 if the pointer is farther than HEX_R from every hex center.
+ * 4 rows.  Returns -1 if the pointer is farther than HEX_R*scale from every
+ * hex center. `scale` must match the value passed to hexToPixel.
  */
 export function hexFromPointer(
   px: number,
   py: number,
   offsetX: number,
-  offsetY: number
+  offsetY: number,
+  scale = 1
 ): number {
   let best = -1;
-  let bestDist = HEX_R * HEX_R; // squared threshold
+  let bestDist = (HEX_R * scale) ** 2; // squared threshold (scaled)
   for (let r = 0; r < BOARD_ROWS; r++) {
     for (let q = 0; q < BOARD_COLS; q++) {
-      const { x, y } = hexToPixel(q, r, offsetX, offsetY);
+      const { x, y } = hexToPixel(q, r, offsetX, offsetY, scale);
       const d2 = (px - x) ** 2 + (py - y) ** 2;
       if (d2 < bestDist) {
         bestDist = d2;

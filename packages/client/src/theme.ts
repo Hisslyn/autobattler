@@ -249,6 +249,36 @@ export function rarityColor(rarity: string): number {
   return C[RARITY_COLOR[rarity] ?? "textMuted"];
 }
 
+// ─── Glyph rendering constants (FIX 1: small-token legibility) ──────────────
+/**
+ * Step-based stroke weight for procedural glyphs and item emblems.
+ * Single source shared by glyphs.ts and itemIconDraw.ts.
+ * - size > 20: proportional (10% of size, min 2)
+ * - size 14–20: 2px (standard board token)
+ * - size 10–13: 1.8px (was 1.5 — boosted for bench/shop legibility)
+ * - size ≤ 9:   1.5px (was 1.2 — boosted for chip/rail sizes)
+ *
+ * Intentional change from the prior inline formula:
+ *   Old: ≤9→1.2, ≤13→1.5, ≤20→2, else proportional
+ *   New: ≤9→1.5, ≤13→1.8, ≤20→2, else proportional
+ * The large-token band (≤20, ≤20→2) is byte-identical; only the two small
+ * bands are heavier, improving ink density at 2× DPR without thickening
+ * board or combat tokens.
+ */
+export function glyphStrokeWeight(size: number): number {
+  if (size <= 9)  return 1.5;
+  if (size <= 13) return 1.8;
+  if (size <= 20) return 2;
+  return Math.max(2, size * 0.1);
+}
+
+// ─── Trait-chip text constants (FIX 2: chip label legibility) ───────────────
+// The chip label was 8px monospace — at the legibility floor. Switching to
+// 9px sans-serif makes letterforms cleaner at sub-10px and gains one pixel of
+// cap height for free. Pull these from theme so all call sites stay consistent.
+export const CHIP_TEXT_SIZE = 9;
+export const CHIP_TEXT_FONT = "system-ui, -apple-system, sans-serif";
+
 // ─── CSS bridge ──────────────────────────────────────────────────────────────
 // theme.ts is the single palette source: the same numeric colors the Pixi layer
 // uses are exported to the DOM as CSS custom properties, so menus and canvas

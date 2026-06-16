@@ -96,11 +96,13 @@ export class CombatView {
   private readonly edgeH: number;
 
   private readonly reducedMotion: boolean;
+  /** Board render scale (landscape shrinks the board to fit; portrait = 1). */
+  private readonly scale: number;
 
   constructor(
     private toPixel: HexToPixel,
     bannerPos: { x: number; y: number },
-    opts: { reducedMotion?: boolean; edge?: { w: number; h: number } } = {}
+    opts: { reducedMotion?: boolean; scale?: number; edge?: { w: number; h: number } } = {}
   ) {
     this.container.addChild(this.unitLayer);
     this.container.addChild(this.fxLayer);
@@ -109,6 +111,7 @@ export class CombatView {
     this.edgeW = opts.edge?.w ?? bannerPos.x * 2;
     this.edgeH = opts.edge?.h ?? bannerPos.y * 2;
     this.reducedMotion = opts.reducedMotion ?? false;
+    this.scale = opts.scale ?? 1;
   }
 
   renderFrame(frame: PlaybackFrame, dtMs: number): void {
@@ -171,7 +174,7 @@ export class CombatView {
     const recMs = this.recoil.get(u.uid);
     if (recMs) uc.y -= 3 * (recMs / RECOIL_MS);
     drawUnitToken(uc, u.defId, tier, u.star, 0, 0, {
-      radius: UNIT_R,
+      radius: UNIT_R * this.scale,
       bars: { hpFrac: st.hp, manaFrac: st.mana, hpChipFrac: st.hpChip },
     });
     this.unitLayer.addChild(uc);
@@ -331,7 +334,7 @@ export class CombatView {
       uc.position.set(d.x, d.y + 8 * k);
       uc.scale.set(1 - 0.25 * k);
       uc.alpha = 1 - k;
-      drawUnitToken(uc, d.defId, d.tier, d.star, 0, 0, { radius: UNIT_R });
+      drawUnitToken(uc, d.defId, d.tier, d.star, 0, 0, { radius: UNIT_R * this.scale });
       this.unitLayer.addChild(uc);
     }
   }

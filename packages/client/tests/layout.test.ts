@@ -177,20 +177,36 @@ describe("landscape regions", () => {
     }
   });
 
-  it("board panel is large enough to hold the hex grid", () => {
-    // 7 cols × 48 = 336 wide; 8 rows × 42 + 12 gap = 348 tall.
-    expect(regions.board.w).toBeGreaterThanOrEqual(336);
-    expect(regions.board.h).toBeGreaterThanOrEqual(348);
+  it("board holds the hex grid scaled-to-fit and is the dominant region", () => {
+    // The fixed 7×4 grid is 336w × 348h. Landscape renders it scaled-to-fit the
+    // board region (match.ts boardScale = min(1, (w-16)/336, (h-12)/348)); the
+    // scaled grid must fit inside the region, and the board is the dominant
+    // element — wider than the prior 352px landscape board panel.
+    const gridW = 336;
+    const gridH = 348;
+    const scale = Math.min(1, (regions.board.w - 16) / gridW, (regions.board.h - 12) / gridH);
+    expect(scale).toBeGreaterThan(0);
+    expect(scale).toBeLessThanOrEqual(1);
+    expect(gridW * scale).toBeLessThanOrEqual(regions.board.w);
+    expect(gridH * scale).toBeLessThanOrEqual(regions.board.h);
+    expect(regions.board.w).toBeGreaterThan(352);
   });
 
-  it("board is horizontally centered in the design space", () => {
+  it("board is the dominant top-center element spanning the design center", () => {
+    // Top-center: the board straddles the horizontal midline and its center sits
+    // near it (the asymmetric side columns shift it by under half a column gap).
+    expect(regions.board.x).toBeLessThan(designW / 2);
+    expect(regions.board.x + regions.board.w).toBeGreaterThan(designW / 2);
     const cx = regions.board.x + regions.board.w / 2;
-    expect(cx).toBeCloseTo(designW / 2, 0);
+    expect(Math.abs(cx - designW / 2)).toBeLessThanOrEqual(24);
+    expect(regions.board.y).toBeLessThan(designH / 4); // anchored to the top
   });
 
-  it("statusRow spans the full design width", () => {
-    expect(regions.statusRow.x).toBe(0);
-    expect(regions.statusRow.w).toBe(designW);
+  it("statusRow is a thin band under the board (not full-width)", () => {
+    expect(regions.statusRow.x).toBe(regions.board.x);
+    expect(regions.statusRow.w).toBe(regions.board.w);
+    expect(regions.statusRow.y).toBeGreaterThanOrEqual(regions.board.y + regions.board.h);
+    expect(regions.statusRow.y + regions.statusRow.h).toBeLessThanOrEqual(regions.shop.y);
   });
 
   it("bench has 9 slot positions (3×3 grid) that stay inside the bench rect", () => {
@@ -208,17 +224,61 @@ describe("landscape regions", () => {
     expect(regions.bench.x + regions.bench.w).toBeLessThanOrEqual(regions.board.x);
   });
 
-  it("opponentRail, hud, shop, readyButton are in the right column (x > board right)", () => {
+  it("opponentRail, hud, sellControl, readyButton are in the right-edge column", () => {
     const boardRight = regions.board.x + regions.board.w;
     expect(regions.opponentRail.x).toBeGreaterThanOrEqual(boardRight);
     expect(regions.hud.x).toBeGreaterThanOrEqual(boardRight);
-    expect(regions.shop.x).toBeGreaterThanOrEqual(boardRight);
+    expect(regions.sellControl.x).toBeGreaterThanOrEqual(boardRight);
     expect(regions.readyButton.x).toBeGreaterThanOrEqual(boardRight);
   });
 
-  it("landscape rail tiles are at least 36px tall (2 rows)", () => {
-    // opponentRail holds 2 rows of tiles; each row must be ≥ 36px.
-    expect(regions.opponentRail.h / 2).toBeGreaterThanOrEqual(36);
+  it("shop is a full-width strip pinned to the bottom edge", () => {
+    expect(regions.shop.x).toBe(0);
+    expect(regions.shop.w).toBe(designW);
+    expect(regions.shop.y + regions.shop.h).toBe(designH);
+    expect(regions.shop.h).toBeGreaterThanOrEqual(64); // touch-target floor
+  });
+
+  it("the right-edge column stacks rail → hud → sell → ready without overlap", () => {
+    const stack = [regions.opponentRail, regions.hud, regions.sellControl, regions.readyButton];
+    for (let i = 1; i < stack.length; i++) {
+      const prev = stack[i - 1]!;
+      const cur = stack[i]!;
+      expect(cur.y).toBeGreaterThanOrEqual(prev.y + prev.h);
+    }
+    // Whole stack sits above the bottom shop strip.
+    expect(regions.readyButton.y + regions.readyButton.h).toBeLessThanOrEqual(regions.shop.y);
+  });
+
+  it("sellControl is detached from the bench (it moved to the bottom cluster)", () => {
+    expect(regions.sellControl.x).toBeGreaterThan(regions.bench.x + regions.bench.w);
+    expect(regions.sellControl.y).toBeGreaterThan(regions.hud.y);
+  });
+
+  it("traitRail is a thin vertical strip pinned to the far-left edge", () => {
+    expect(regions.traitRail.x).toBe(0);
+    expect(regions.traitRail.h).toBeGreaterThan(regions.traitRail.w * 3); // tall + thin
+    // bench + itemBar are inboard of the rail (its own region, not a shared col).
+    expect(regions.bench.x).toBeGreaterThanOrEqual(regions.traitRail.x + regions.traitRail.w);
+    expect(regions.itemBar.x).toBeGreaterThanOrEqual(regions.traitRail.x + regions.traitRail.w);
+  });
+
+  it("itemBar sits below the bench in the left column", () => {
+    expect(regions.itemBar.x).toBe(regions.bench.x);
+    expect(regions.itemBar.y).toBeGreaterThanOrEqual(regions.bench.y + regions.bench.h);
+  });
+
+  it("interactive regions meet their touch-target minimums", () => {
+    expect(regions.readyButton.h).toBeGreaterThanOrEqual(44);
+    expect(regions.shop.h).toBeGreaterThanOrEqual(64);
+    expect(regions.itemBar.h).toBeGreaterThanOrEqual(44);
+    expect(regions.bench.h).toBeGreaterThanOrEqual(32);
+    expect(regions.hud.h).toBeGreaterThanOrEqual(32);
+  });
+
+  it("opponentRail stacks seat tiles vertically (4 rows, each ≥ 36px)", () => {
+    // The corner rail holds 8 tiles as a 2-col × 4-row vertical stack.
+    expect(regions.opponentRail.h / 4).toBeGreaterThanOrEqual(36);
   });
 });
 

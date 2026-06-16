@@ -8,7 +8,7 @@ import type { IDriver } from "../driver.js";
 import { CombatPlayer, toDisplayHex } from "../combat/player.js";
 import type { PlaybackSpeed } from "../combat/player.js";
 import { CombatView } from "../combat/view.js";
-import { C, tierColor } from "../theme.js";
+import { C, tierColor, CHIP_TEXT_SIZE, CHIP_TEXT_FONT } from "../theme.js";
 import { drawUnitToken } from "../unitToken.js";
 import { drawGlyph, glyphForTraits } from "../glyphs.js";
 import type { GlyphKind } from "../glyphs.js";
@@ -246,19 +246,50 @@ export class MatchScene {
   private get designH(): number { return this.layout.designH; }
   private get isLandscape(): boolean { return this.layout.orientation === "landscape"; }
 
-  /** Hex-board horizontal offset (centers the 7-col grid inside the board panel). */
+  /**
+   * Board hex-grid scale. Portrait renders the grid at native size (1). The full
+   * 7×4 grid spans BOARD_COLS*HEX_W × (BOARD_ROWS*HEX_H*2+12) = 336×348; in
+   * landscape that won't fit the shorter board region alongside the bottom shop,
+   * so the grid is scaled-to-fit its board region (capped at 1, never enlarged
+   * past native). The scaled mapping is fed to every hex call site + combat view.
+   */
+  private get boardScale(): number {
+    if (!this.isLandscape) return 1;
+    const b = this.layout.regions.board;
+    const gridW = BOARD_COLS * HEX_W;
+    const gridH = BOARD_ROWS * HEX_H * 2 + 12;
+    return Math.min(1, (b.w - 16) / gridW, (b.h - 12) / gridH);
+  }
+  /** Scaled hex radius for drawHex / drag highlight (portrait = HEX_R). */
+  private get hexR(): number {
+    return HEX_R * this.boardScale;
+  }
+  /** Scaled unit-token radius on the board (portrait = 16). */
+  private get boardTokenR(): number {
+    return Math.round(16 * this.boardScale);
+  }
+
+  /** Hex-board horizontal offset (centers the scaled 7-col grid in the board panel). */
   private get boardOffsetX(): number {
     const b = this.layout.regions.board;
-    return b.x + (b.w - BOARD_COLS * HEX_W) / 2 + HEX_R;
+    const s = this.boardScale;
+    return b.x + (b.w - BOARD_COLS * HEX_W * s) / 2 + HEX_R * s;
   }
   /** Player-zone top hex row center y (lower half of the board panel). */
   private get boardOffsetY(): number {
     const b = this.layout.regions.board;
-    return b.y + b.h / 2 + 6;
+    const s = this.boardScale;
+    // Portrait keeps the original half-gap nudge (its board region is tall
+    // enough). Landscape scales the grid to fit, so center the full scaled grid
+    // (both 4-row halves + the 12px inter-zone gap) vertically in the board
+    // region — the +6 nudge alone would ride the opponent back row off the top.
+    if (!this.isLandscape) return b.y + b.h / 2 + 6;
+    return b.y + b.h / 2 + (HEX_H + 12) * s / 2;
   }
   /** Opponent-zone top hex row center y (mirrored above the player zone). */
   private get oppBoardOffsetY(): number {
-    return this.boardOffsetY - BOARD_ROWS * HEX_H - 12;
+    const s = this.boardScale;
+    return this.boardOffsetY - BOARD_ROWS * HEX_H * s - 12 * s;
   }
 
   /** Item bar geometry derived from the itemBar region (chips offset past bag glyph). */
@@ -327,6 +358,23 @@ export class MatchScene {
     size: number, fill: number, anchor: [number, number] = [0, 0]
   ): PIXI.Text {
     const t = new PIXI.Text(str, { fontSize: size, fill, fontFamily: "monospace" });
+    t.anchor.set(anchor[0], anchor[1]);
+    t.x = x; t.y = y;
+    t.eventMode = "none";
+    layer.addChild(t);
+    return t;
+  }
+
+  /**
+   * Trait-chip label text: 9px sans (CHIP_TEXT_SIZE/FONT) instead of the 8px
+   * monospace `text()` — cleaner letterforms at sub-10px and one more pixel of
+   * cap height, so the diamond+glyph+count chip stays legible without clipping.
+   */
+  private chipText(
+    layer: PIXI.Container, str: string, x: number, y: number,
+    fill: number, anchor: [number, number] = [0, 0]
+  ): PIXI.Text {
+    const t = new PIXI.Text(str, { fontSize: CHIP_TEXT_SIZE, fill, fontFamily: CHIP_TEXT_FONT });
     t.anchor.set(anchor[0], anchor[1]);
     t.x = x; t.y = y;
     t.eventMode = "none";
@@ -505,6 +553,9 @@ export class MatchScene {
     const offX = this.boardOffsetX;
     const playerY = this.boardOffsetY;
     const oppY = this.oppBoardOffsetY;
+    const s = this.boardScale;
+    const hexR = this.hexR - 2 * s;
+    const tokR = this.boardTokenR;
 
     // Only a UNIT drag (not an item drag) makes player hexes valid drop targets.
     const unitDragging = this.isDragging && this.dragItem === null;
@@ -513,9 +564,9 @@ export class MatchScene {
     // dragging a unit, dim it so it reads as "not a valid drop zone".
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
-        const { x, y } = hexToPixel(q, r, offX, oppY);
+        const { x, y } = hexToPixel(q, r, offX, oppY, s);
         const g = new PIXI.Graphics();
-        drawHex(g, x, y, HEX_R - 2, C.enemyHex, unitDragging ? 0.4 : 1, {
+        drawHex(g, x, y, hexR, C.enemyHex, unitDragging ? 0.4 : 1, {
           border: { color: C.boardBorder, width: 1, alpha: unitDragging ? 0.4 : 0.8 },
         });
         this.boardLayer.addChild(g);
@@ -527,14 +578,14 @@ export class MatchScene {
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
         const slotIdx = r * BOARD_COLS + q;
-        const { x, y } = hexToPixel(q, r, offX, playerY);
+        const { x, y } = hexToPixel(q, r, offX, playerY, s);
         const isSelected = this.selectedBoardIdx === slotIdx && me.board[slotIdx] != null;
         const occupied = me.board[slotIdx] != null;
         const fill = isSelected
           ? C.bgBoardSel
           : unitDragging && occupied ? C.bgBoardDragOver : C.myHex;
         const g = new PIXI.Graphics();
-        drawHex(g, x, y, HEX_R - 2, fill, 1, {
+        drawHex(g, x, y, hexR, fill, 1, {
           border: unitDragging
             ? { color: C.hpGreen, width: 2, alpha: 0.6 }
             : { color: C.boardBorder, width: 1, alpha: 0.8 },
@@ -553,12 +604,12 @@ export class MatchScene {
       if (this.dragUnit?.uid === unit.uid) continue; // being dragged
       const q = idx % BOARD_COLS;
       const r = Math.floor(idx / BOARD_COLS);
-      const { x, y } = hexToPixel(q, r, offX, playerY);
+      const { x, y } = hexToPixel(q, r, offX, playerY, s);
       // Selected (tap-to-move) unit gets a halo ring OUTSIDE its tier ring so it
       // reads as "this unit is selected" — the hex fill alone is hidden behind it.
       if (this.selectedBoardIdx === idx && !this.isDragging) {
         const halo = new PIXI.Graphics();
-        halo.circle(x, y, 20).stroke({ width: 2, color: C.tier3, alpha: 0.75 });
+        halo.circle(x, y, tokR + 4).stroke({ width: 2, color: C.tier3, alpha: 0.75 });
         halo.eventMode = "none";
         this.boardLayer.addChild(halo);
       }
@@ -568,7 +619,7 @@ export class MatchScene {
       uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBoard(idx, unit, e));
       uc.on("pointerup", () => this.clearPress());
       uc.on("pointerupoutside", () => this.clearPress());
-      drawUnit(uc, unit, x, y, 16, this.selectedBenchIdx !== null || (this.selectedBoardIdx !== null && this.selectedBoardIdx !== idx));
+      drawUnit(uc, unit, x, y, tokR, this.selectedBenchIdx !== null || (this.selectedBoardIdx !== null && this.selectedBoardIdx !== idx));
       this.boardLayer.addChild(uc);
     }
   }
@@ -864,7 +915,7 @@ export class MatchScene {
     const midY = this.itemBar.y + ITEM_SLOT / 2;
 
     // 1) Dropped on a board hex with a unit → EQUIP.
-    const boardSlot = hexFromPointer(px, py, this.boardOffsetX, this.boardOffsetY);
+    const boardSlot = hexFromPointer(px, py, this.boardOffsetX, this.boardOffsetY, this.boardScale);
     if (boardSlot >= 0 && me.board[boardSlot]) {
       this.tryEquip(me.board[boardSlot]!.uid);
       return;
@@ -927,7 +978,7 @@ export class MatchScene {
     if (!me) return null;
     const bIdx = me.board.findIndex((x) => x?.uid === uid);
     if (bIdx >= 0) {
-      return hexToPixel(bIdx % BOARD_COLS, Math.floor(bIdx / BOARD_COLS), this.boardOffsetX, this.boardOffsetY);
+      return hexToPixel(bIdx % BOARD_COLS, Math.floor(bIdx / BOARD_COLS), this.boardOffsetX, this.boardOffsetY, this.boardScale);
     }
     const benchIdx = me.bench.findIndex((x) => x.uid === uid);
     if (benchIdx >= 0) {
@@ -1308,7 +1359,8 @@ export class MatchScene {
     const active = c.activeBreakpoint !== null;
     const countStr = active ? `${c.count}` : `${c.count}/${c.nextBreakpoint ?? c.count}`;
     const label = `${c.name} ${countStr}`;
-    return 26 + label.length * 5.4;
+    // Width budgeted from the chip-label type size so the chip never clips.
+    return 26 + label.length * (CHIP_TEXT_SIZE * 0.6);
   }
 
   /**
@@ -1348,7 +1400,7 @@ export class MatchScene {
     layer.addChild(diamond);
     this.glyph(layer, this.traitGlyph(c.traitId), dcx, cy, 8, active ? c.color : C.textMuted);
 
-    this.text(layer, label, x + 22, cy, 8, active ? C.textPrimary : C.textMuted, [0, 0.5]);
+    this.chipText(layer, label, x + 22, cy, active ? C.textPrimary : C.textMuted, [0, 0.5]);
     return chipW;
   }
 
@@ -1465,7 +1517,7 @@ export class MatchScene {
     if (!me) { this.dragUnit = null; return; }
 
     // Check if dropped on board area
-    const boardSlot = hexFromPointer(px, py, this.boardOffsetX, this.boardOffsetY);
+    const boardSlot = hexFromPointer(px, py, this.boardOffsetX, this.boardOffsetY, this.boardScale);
     if (boardSlot >= 0) {
       const result = this.driver.playerCommand({
         type: "MOVE",
@@ -1650,7 +1702,7 @@ export class MatchScene {
     for (let idx = 0; idx < me.board.length; idx++) {
       const u = me.board[idx];
       if (u && u.star >= 2 && (before.get(u.uid) ?? 0) < u.star) {
-        const { x, y } = hexToPixel(idx % BOARD_COLS, Math.floor(idx / BOARD_COLS), this.boardOffsetX, this.boardOffsetY);
+        const { x, y } = hexToPixel(idx % BOARD_COLS, Math.floor(idx / BOARD_COLS), this.boardOffsetX, this.boardOffsetY, this.boardScale);
         return { x, y };
       }
     }
@@ -1970,19 +2022,22 @@ export class MatchScene {
     const offX = this.boardOffsetX;
     const playerY = this.boardOffsetY;
     const oppY = this.oppBoardOffsetY;
+    const s = this.boardScale;
+    const hexR = this.hexR - 2 * s;
+    const tokR = this.boardTokenR;
     const enemyZone = isPve ? C.mobZone : C.enemyHex;
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
-        const opp = hexToPixel(q, r, offX, oppY);
+        const opp = hexToPixel(q, r, offX, oppY, s);
         const og = new PIXI.Graphics();
-        drawHex(og, opp.x, opp.y, HEX_R - 2, enemyZone, 1, {
+        drawHex(og, opp.x, opp.y, hexR, enemyZone, 1, {
           border: { color: C.boardBorder, width: 1, alpha: 0.8 },
         });
         this.combatLayer.addChild(og);
 
-        const own = hexToPixel(q, r, offX, playerY);
+        const own = hexToPixel(q, r, offX, playerY, s);
         const g = new PIXI.Graphics();
-        drawHex(g, own.x, own.y, HEX_R - 2, C.myHex, 1, {
+        drawHex(g, own.x, own.y, hexR, C.myHex, 1, {
           border: { color: C.boardBorder, width: 1, alpha: 0.8 },
         });
         this.combatLayer.addChild(g);
@@ -2001,9 +2056,9 @@ export class MatchScene {
         if (!unit) continue;
         const q = idx % BOARD_COLS;
         const r = Math.floor(idx / BOARD_COLS);
-        const { x, y } = hexToPixel(q, r, offX, playerY);
+        const { x, y } = hexToPixel(q, r, offX, playerY, s);
         const uc = new PIXI.Container();
-        drawUnit(uc, unit, x, y);
+        drawUnit(uc, unit, x, y, tokR);
         this.combatLayer.addChild(uc);
       }
       this.driver.combatPlaybackDone();
@@ -2035,11 +2090,12 @@ export class MatchScene {
     const offX = this.boardOffsetX;
     const playerY = this.boardOffsetY;
     const oppY = this.oppBoardOffsetY;
+    const s = this.boardScale;
     const toPixel = (hex: HexCoord): { x: number; y: number } => {
       const d = toDisplayHex(hex, side);
       return d.r < BOARD_ROWS
-        ? hexToPixel(d.q, d.r, offX, oppY)
-        : hexToPixel(d.q, d.r - BOARD_ROWS, offX, playerY);
+        ? hexToPixel(d.q, d.r, offX, oppY, s)
+        : hexToPixel(d.q, d.r - BOARD_ROWS, offX, playerY, s);
     };
 
     const reducedMotion = this.opts.settings.get().reducedMotion;
@@ -2047,8 +2103,8 @@ export class MatchScene {
     player.setSpeed(this.playbackSpeed);
     const view = new CombatView(toPixel, {
       x: this.designW / 2,
-      y: playerY - BOARD_ROWS * HEX_H + 10,
-    }, { reducedMotion, edge: { w: this.designW, h: this.designH } });
+      y: playerY - BOARD_ROWS * HEX_H * s + 10,
+    }, { reducedMotion, scale: s, edge: { w: this.designW, h: this.designH } });
     this.combatLayer.addChild(view.container);
 
     const tickerFn = (ticker: PIXI.Ticker): void => {

@@ -277,40 +277,46 @@ function portraitLayout(viewportW: number, viewportH: number, safe: SafeInsets):
 
 // ── Landscape layout ─────────────────────────────────────────────────────────
 //
-// Three-column design on 844×390:
+// Edge-anchored design on 844×390 — the board is the dominant top-center
+// element; every other region is a small cluster pinned to whichever screen
+// edge/corner matches its function, rather than three even columns:
 //
-//  ┌─ LEFT (w≈240) ──────┬─ CENTER (w=352) ──────────┬─ RIGHT (w≈234) ──────┐
-//  │ statusRow (h=22)    │ statusRow (h=22)           │ statusRow (h=22)     │
-//  ├─────────────────────┤                             ├──────────────────────┤
-//  │ traitRail           │  BOARD PANEL               │ opponentRail         │
-//  │ (vertical chips)    │  enemy zone  (4 rows)      │  (8 tiles 4×2)       │
-//  │ (h=172)             │  ──────────────────        │  (h=64)              │
-//  │                     │  player zone (4 rows)      ├──────────────────────┤
-//  ├─────────────────────┤                             │ hud (gold/xp/streak) │
-//  │ bench (3×3 grid)    │                             │  (h=46)              │
-//  │  (h=108, 36/slot)   │                             ├──────────────────────┤
-//  │                     │                             │ shop (5 cards, tall) │
-//  ├─────────────────────┤                             │  (h≈152)             │
-//  │ sellControl (h=32)  │                             ├──────────────────────┤
-//  ├─────────────────────┤                             │ readyButton (h=32)   │
-//  │ itemBar (h=36)      │                             │                      │
-//  └─────────────────────┴────────────────────────────┴──────────────────────┘
+//  ┌─┬─────────┬──────────────────────────┬──────────────┐
+//  │t│ bench    │                           │ opponentRail │
+//  │R│ (3×3)    │       BOARD (dominant)    │   (2×4)      │
+//  │ │          │       top-center,         ├──────────────┤
+//  │ ├─────────┤       scaled-to-fit 8 rows │ hud cluster  │
+//  │ │ itemBar  │                           ├──────────────┤
+//  │ │          │       statusRow (under)   │ sellControl  │
+//  │ │          │                           │ readyButton  │
+//  ├─┴──────────┴──────────────────────────┴──────────────┤
+//  │              shop (5 cards, full width, h=64)          │
+//  └───────────────────────────────────────────────────────┘
 //
-// Board panel: needs to fit 7 cols × 48 = 336w, 8 rows × 42 + 12 = 348h.
-// In landscape dH=390.  Board panel h=358 (6px margin top+bottom), w=352 (8px side).
-// Board is horizontally centered in the center column.
+// tR = traitRail (far-left edge, x=0, thin vertical strip — icon+count chips
+//      stacked top-to-bottom; its OWN region, not inset into a shared column).
+// bench (3×3 grid) + itemBar = left column INBOARD of the trait-rail strip
+//      (x starts past the rail), shrunk vs the prior 3-even-column design since
+//      the board now claims the dominant center-top position.
 //
-// Left col: trait rail (vertical) + 9-slot bench (3 rows × 3 cols) + sell + item bar.
-// Bench slots are 36px tall (vs 32 before) so a r=13 unit token has breathing room.
-// Stack sums to exactly dH-contentTop (364px) — fills the column top-to-bottom.
+// Board: the dominant element — wider than the prior 352px panel. The full 7×4
+// hex grid spans 336×348 at native HEX size; a full 348px grid plus a full-width
+// 64px bottom shop exceeds the 390px design height, so the LANDSCAPE board grid
+// is rendered SCALED-TO-FIT its board region (match.ts derives the scale from
+// `board.w/h` vs the native grid span and feeds the same scaled mapping +
+// token radius to combat/view.ts). Portrait stays scale=1. The board region is
+// sized so the scaled 8-row grid + radius fits inside it with no clipping.
 //
-// Right col: opponent rail (8 tiles 4×2, 32px tall each) + HUD + shop + ready.
-// Shop height fills remaining right-column space after other elements so the
-// column does not leave a large empty gap at the bottom.
+// opponentRail: top-right corner, a 2-col × 4-row vertical stack of small seat
+// tiles (match.ts passes cols=2, rows=4 to opponentRailTile) — a compact corner
+// cluster, not a column-spanning horizontal grid.
 //
-// Items (itemBar) appear on the LEFT so the dominant planning gesture (drag item
-// onto board units) stays entirely on the left side of the screen.
-// The Ready button + shop cards stay on the RIGHT, thumb-reachable with the right hand.
+// shop: bottom edge, full design width (844), h=64 (touch-target floor) — 5
+// cards run the full width, anchored to the bottom edge.
+//
+// sellControl: detached from bench — relocated into the right-edge cluster
+// (just above readyButton, near the bottom shop) per the brief's "near the
+// shop / bottom HUD cluster" guidance, rather than sitting beside bench.
 
 function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets): MatchLayout {
   const dW = LANDSCAPE_W;
@@ -327,130 +333,90 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
   const canvasOffsetX = safe.left  + (usableW - scaledW) / 2;
   const canvasOffsetY = safe.top   + (usableH - scaledH) / 2;
 
-  // ── Column geometry ───────────────────────────────────────────────────────
-  const margin = 6;
+  // ── Bottom edge: shop (full-width strip) ──────────────────────────────────
+  const shopH = 64;            // touch-target floor, exactly met
+  const shopY = dH - shopH;    // 326
 
-  // Center column: wide enough for the board grid + 2×8 side margins.
-  const boardPanelW = BOARD_GRID_W + 16;   // 336 + 16 = 352
-  const boardPanelH = BOARD_GRID_H + 10;   // 348 + 10 = 358
+  // ── Far-left edge: traitRail (its own thin vertical strip) ───────────────
+  const traitRailX = 0;
+  const traitRailW = 28;
+  const traitRailY = 6;
+  const traitRailH = shopY - traitRailY - 4;   // 316 — spans almost the full column
 
-  // Board panel centered vertically in dH.
-  const boardPanelX = Math.round((dW - boardPanelW) / 2);   // ~246
-  const boardPanelY = Math.round((dH - boardPanelH) / 2);   // ~16
+  // ── Left column, INBOARD of traitRail: bench (3×3) + itemBar ─────────────
+  const leftColX = traitRailX + traitRailW + 4;  // 32
+  const leftColW = 150;                          // shrunk vs the prior 240
+  const leftGap  = 6;
 
-  // Left column: from x=0 to the left edge of the board panel.
-  const leftColW  = boardPanelX - margin;    // ~240
-  const leftColX  = margin;
+  const benchX = leftColX;
+  const benchY = 6;
+  const benchW = leftColW;
+  const benchH = 200;                            // 3 rows × ~66.7px/slot
 
-  // Right column: from the right edge of the board panel to dW.
-  const rightColX = boardPanelX + boardPanelW + margin;
-  const rightColW = dW - rightColX - margin;
+  const itemBarX = leftColX;
+  const itemBarY = benchY + benchH + leftGap;    // 212
+  const itemBarW = leftColW;
+  const itemBarH = shopY - itemBarY - 4;         // 106 — ≥ 44 floor
 
-  // ── Status row (all three columns share the same y=0 band) ───────────────
-  const statusH = 22;
-  const contentTop = statusH + 4;  // y where column content begins
+  // ── Top-center: board (dominant element, grid scaled-to-fit by match.ts) ──
+  const boardX = leftColX + leftColW + 8;        // 198
+  const boardY = 6;
+  // Right column reserved before computing board width.
+  const rightColW = 158;
+  const rightColX = dW - rightColW;              // 686
+  const boardW = rightColX - 8 - boardX;         // 480 — dominant, well above 352
+  // Board height fills down to a thin status band above the shop.
+  const statusGap = 2;
+  const statusH = 16;
+  const boardH = shopY - boardY - statusH - statusGap; // 300
 
-  // ── Left column regions ───────────────────────────────────────────────────
-  // Trait rail: vertical strip of chips.
-  // The four left-column regions + three inter-gaps must sum to dH-contentTop (364px):
-  //   traitRailH(172) + 4 + benchH(108) + 4 + sellH(32) + 4 + itemBarH(36) = 360px
-  //   leaving a 4px bottom margin — fills cleanly without overflow.
-  const traitRailH = 172;
-  const traitRailY = contentTop;
+  // Status row: thin band directly under the board (same x/w as the board),
+  // filling the small gap between the board's bottom and the shop's top edge.
+  const statusY = boardY + boardH + statusGap;   // 308
 
-  // Bench: 9 slots arranged 3 cols × 3 rows in the left column.
-  // Each slot is leftColW/3 wide × 36px tall — 36 gives a r=13 token 5px top/bottom
-  // breathing room vs the 3px margin the previous 32px produced.
-  const benchSlotCols = 3;
-  const benchSlotRows = 3;  // 9 slots
-  const benchSlotW   = Math.floor(leftColW / benchSlotCols);
-  const benchSlotH   = 36;
-  const benchH       = benchSlotRows * benchSlotH; // 108
-  const benchY       = traitRailY + traitRailH + 4;
+  // ── Right edge: opponentRail (2×4) → hud → sellControl → readyButton ──────
+  const rightGap = 6;
 
-  // Sell control: full-width strip below bench.
-  const sellH        = 32;
-  const sellY        = benchY + benchH + 4;
+  const railY = 6;
+  const railH = 156;        // 2 cols × 4 rows of small seat tiles (≥36px/row)
 
-  // Item bar: full-width strip, bottom of left column.
-  const itemBarH     = 36;
-  const itemBarY     = sellY + sellH + 4;
+  const hudY = railY + railH + rightGap;   // 168
+  const hudH = 64;
 
-  // ── Right column regions ──────────────────────────────────────────────────
-  // Opponent rail: 8 tiles in a 4×2 grid (4 wide, 2 tall).
-  // Tile height raised from 28→32: avatar (r=8, span=18px) + HP bar bottom at 22px
-  // from tile top — 32px gives 10px breathing vs the previous 6px.
-  const railTileW   = Math.floor(rightColW / 4);
-  // Raised 32→36 so the seat number + the level label (now below the disc) +
-  // the HP bar all fit without overlapping inside one tile.
-  const railTileH   = 36;
-  const railCols    = 4;
-  const railRows    = 2;
-  const railH       = railRows * railTileH;   // 72
-  const railY       = contentTop;
+  const readyH = 44;                       // fixed touch target, never compressed
+  const readyY = shopY - readyH - 6;       // 276 — sits just above the shop
+  const sellH  = readyY - (hudY + hudH) - 2 * rightGap; // fills the remaining gap
+  const sellY  = hudY + hudH + rightGap;   // 238
 
-  // HUD row: gold + xp + streak + buttons.
-  const hudH        = 46;
-  const hudY        = railY + railH + 6;
-
-  // Shop: 5 cards — in landscape they run in a single wide row.
-  // shopCardH fills remaining right-column space after the fixed elements so the
-  // right column does not leave a large empty gap at the bottom.
-  // Fixed overhead: statusH(22) + gap(4) + railH(64) + gap(6) + hudH(46) + gap(6)
-  //                 + readyH(32) + gap(6) + gap(6, shop-to-ready) = 192px
-  // Available for shop: dH - 192 = 198px, capped at 152 for visual balance.
-  const shopCardW   = Math.floor(rightColW / 5) - 2;
-  const shopY       = hudY + hudH + 6;
-  const readyH      = 32;
-  // Compute max shop height that leaves room for the ready button and a bottom margin.
-  const shopCardH   = Math.min(152, dH - shopY - readyH - 6 - 6);
-  const shopH       = shopCardH;
-
-  // Ready button: below shop.
-  const readyY      = shopY + shopH + 6;
-
-  // Item bar on right: secondary location (items primarily on the left;
-  // this slot is reserved but visually redundant — kept for API parity).
-  // We repurpose it as extra HUD overflow / hidden (w=0 sentinel) so the
-  // existing right-side layout math stays clean.
-  // For the spec, itemBar refers to the LEFT column bar.
-
-  // ── Assemble regions ─────────────────────────────────────────────────────
   const regions: MatchRegions = {
+    board: {
+      x: boardX,
+      y: boardY,
+      w: boardW,
+      h: boardH,
+    },
     statusRow: {
-      x: 0,
-      y: 0,
-      w: dW,
+      x: boardX,
+      y: statusY,
+      w: boardW,
       h: statusH,
     },
-    board: {
-      x: boardPanelX,
-      y: boardPanelY,
-      w: boardPanelW,
-      h: boardPanelH,
-    },
     traitRail: {
-      x: leftColX,
+      x: traitRailX,
       y: traitRailY,
-      w: leftColW,
+      w: traitRailW,
       h: traitRailH,
     },
     bench: {
-      x: leftColX,
+      x: benchX,
       y: benchY,
-      w: leftColW,
+      w: benchW,
       h: benchH,
     },
-    sellControl: {
-      x: leftColX,
-      y: sellY,
-      w: leftColW,
-      h: sellH,
-    },
     itemBar: {
-      x: leftColX,
+      x: itemBarX,
       y: itemBarY,
-      w: leftColW,
+      w: itemBarW,
       h: itemBarH,
     },
     opponentRail: {
@@ -465,17 +431,23 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
       w: rightColW,
       h: hudH,
     },
-    shop: {
+    sellControl: {
       x: rightColX,
-      y: shopY,
+      y: sellY,
       w: rightColW,
-      h: shopH,
+      h: sellH,
     },
     readyButton: {
       x: rightColX,
       y: readyY,
       w: rightColW,
       h: readyH,
+    },
+    shop: {
+      x: 0,
+      y: shopY,
+      w: dW,
+      h: shopH,
     },
   };
 
@@ -516,7 +488,7 @@ export function resolveLayout(input: ResolveLayoutInput): MatchLayout {
  * @param layout  - active MatchLayout
  * @param contentW - desired modal width in design space
  * @param contentH - desired modal height in design space
- * @param pad      - minimum padding from the safe-area edges (design units, default 20)
+ * @param pad      - minimum padding from the design edges
  */
 export function centeredModal(
   layout: MatchLayout,

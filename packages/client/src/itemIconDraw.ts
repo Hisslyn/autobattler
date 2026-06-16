@@ -7,7 +7,7 @@
 // sweep that is reduced-motion gated (static frame stays).
 import * as PIXI from "pixi.js";
 import { gameData } from "@autobattler/data";
-import { C, rarityColor } from "./theme.js";
+import { C, rarityColor, glyphStrokeWeight } from "./theme.js";
 import {
   itemIcon,
   resolveItemTexture,
@@ -67,9 +67,9 @@ function drawEmblem(
   color: number
 ): void {
   const s = size / 2;
-  // Same step-based stroke weight as glyphs.ts so item emblems and class glyphs
-  // are visually interchangeable at the same render size.
-  const lw = size <= 9 ? 1.2 : size <= 13 ? 1.5 : size <= 20 ? 2 : Math.max(2, size * 0.1);
+  // Shared stroke-weight formula from theme.ts (same as glyphs.ts) so item
+  // emblems and class glyphs are visually interchangeable at the same render size.
+  const lw = glyphStrokeWeight(size);
   const stroke = (alpha = 1, w = lw): void => {
     g.stroke({ width: w, color, alpha, cap: "round", join: "round" });
   };
