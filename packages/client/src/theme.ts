@@ -163,6 +163,17 @@ export const C = {
   mobZone:         0x1f1714,  // PvE creep board zone fill (warm-dark)
   pveLabel:        0xd0a060,  // "Creeps" stage label accent
 
+  // ─── Phase 2: consumables (item_remover / reforger / radiant_enhancer) ────
+  // Consumables must read as visually distinct from equippable item chips
+  // (neither component nor completed-item fill); reuses no existing key since
+  // none signals "not equippable onto an item, only onto a unit".
+  itemConsumable:     0x2a1f3a,  // consumable chip fill (cool violet, distinct from itemComponent/itemCompleted)
+  itemConsumableRim:  0x6a4ad0,  // consumable chip border accent (reuses the abyssal/summoner family hue)
+  // Radiant (tier-4) badge tint — reuses the legendary loot rarity color so a
+  // radiant item's "highest tier" reading matches the loot-rarity language
+  // already established (no new tint invented for the radiant badge itself).
+  radiantBadge:       0xf0a830,  // = lootLegendary
+
   // Trait tracker
   traitActive:  0x3a6a3a,
   traitPending: 0x1e2830,

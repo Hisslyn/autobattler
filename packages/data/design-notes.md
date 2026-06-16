@@ -27,36 +27,48 @@ trait: `[2]`, `[2,4]`, or `[2,4,6]` so every trait's top breakpoint is reachable
 Item passives reuse the same primitives: `burn` (on basic-attack hit) and
 `shield` (granted at start of combat).
 
-## Consumables (item-system phase 1)
+## Consumables (item-system phase 2)
 
 A third `ItemDataDef.kind`, alongside `component`/`completed` (an item with
 neither `component: true` nor a `recipe` defaults to `completed` for back-compat —
 see loader notes). Consumables are **not equippable** (never occupy a unit's
 item slot), **not shop-purchasable**, and **not craftable** from components —
-the only way to acquire one is PvE loot. They are used via the new
+the only way to acquire one is PvE loot. They are used via the
 `USE_CONSUMABLE` rules command against a held inventory id, are single-use
-(removed from the player's `items` inventory on resolution), and target a
-specific unit's equipped item.
+(removed from the player's `items` inventory on resolution), and target a unit.
 
-Three v1 consumables (`consumableEffect` discriminates behavior):
+Three consumables (`consumableEffect` discriminates behavior):
 
-- `item_remover` (`remove_item`) — strips one named item off a unit and returns
-  it to inventory unchanged (mirrors `UNEQUIP`). No randomness.
-- `reforger` (`reforge`) — replaces one named item on a unit with a different
-  random item of the **same tier** (component tier 1, completed tier 2),
-  excluding the original id. Tier-restricted so a reforge never changes a
-  component into a completed item or vice versa. Deterministic: resolved
-  through the match's seeded prng, never `Math.random`, so the same seed +
-  same call always yields the same replacement.
-- `radiant_enhancer` (`radiant_upgrade`) — upgrades one named **completed**
-  (tier-2) item on a unit into its tier-4 "radiant" variant: every stat in the
-  base item's stat bundle scaled by `economy.radiantStatMultiplier` (1750,
-  i.e. ×1.75 in the project's scale-1000 fixed-point convention). Radiant
-  items are never hand-authored in `items.json`; the loader derives
+- `item_remover` (`remove_item`) — strips **every** item equipped on the
+  target unit and returns each one to inventory unchanged (mirrors
+  `UNEQUIP`, looped over all slots). No randomness. If the target unit holds
+  zero items, this is a normal **no-op success** (not a typed error): the
+  consumable is not consumed and no state changes.
+- `reforger` (`reforge`) — reforges **every** item equipped on the target
+  unit, each one independently replaced with a different random item of its
+  **own same tier** (component tier 1, completed tier 2), excluding its own
+  original id. Each equipped slot gets its own prng draw, processed in
+  equipped-slot order, off the match's seeded prng (never `Math.random`), so
+  the same seed + same call always yields the same set of replacements. The
+  reforger is consumed exactly once regardless of how many items it touched.
+  Tier-restricted per item so a reforge never changes a component into a
+  completed item or vice versa. If the target unit holds zero items, this is
+  a normal **no-op success** (not consumed, no state change). If any
+  equipped item has no same-tier alternative, the whole command fails with
+  `NO_ALTERNATIVE_ITEM` (no partial reforge).
+- `radiant_enhancer` (`radiant_upgrade`) — still targets exactly **one**
+  named **completed** (tier-2) item on a unit (explicit `targetItemId`,
+  required), upgrading it into its tier-4 "radiant" variant: every stat in
+  the base item's stat bundle scaled by `economy.radiantStatMultiplier`
+  (1750, i.e. ×1.75 in the project's scale-1000 fixed-point convention).
+  Radiant items are never hand-authored in `items.json`; the loader derives
   `radiant_<baseId>` lazily/once the same way `recipeResult` derives recipe
-  pairs — pure, deterministic, generated from the base item's own data. A
-  base item with no completed counterpart (i.e. not tier 2) cannot be
-  radiant-upgraded.
+  pairs — pure, deterministic, generated from the base item's own data. If
+  the target unit holds **no** tier-2 (completed, non-radiant) items at all,
+  the command fails with `NO_TIER_2_ITEMS_EQUIPPED`. If the unit does hold a
+  tier-2 item but the given `targetItemId` isn't one (a component, a
+  consumable, or an already-radiant variant), it fails with
+  `NOT_TIER_2_ITEM`.
 
 **Rounding rule** (applies everywhere a stat is scaled, e.g. the radiant
 multiply): multiply the raw integer stat by the fixed-point multiplier (scale
@@ -75,9 +87,15 @@ inventory before removing the unit (previously they were destroyed with the
 unit) — same transfer `UNEQUIP` already performs, just folded into `SELL` so
 nothing is lost on sale.
 
-This phase is rules/data/protocol only: no client UI renders consumables or
-the `USE_CONSUMABLE` command yet (no inventory affordance to pick a consumable
-+ target unit + target item). That is deferred to a later phase.
+Client UI is wired (no longer deferred): consumable chips read distinct in the
+inventory bar (own fill/rim + per-effect glyph, never the gilded equippable
+rim) and drag only onto a unit. `item_remover`/`reforger` send `USE_CONSUMABLE`
+with no `targetItemId`; the renderer reports "changed" vs the no-op success
+purely from a state diff around the command (renderer-is-dumb — it never
+pre-inspects the unit's items to decide). `radiant_enhancer` opens a tier-2
+item picker when the unit holds completed items (pick → send with
+`targetItemId`; dismiss → cancel, chip returns to the bar), else sends and lets
+the server reject with `NO_TIER_2_ITEMS_EQUIPPED`.
 
 ## future: deferred behaviors (NOT implemented — do not encode in JSON)
 
@@ -94,9 +112,6 @@ left out of v1 content so the engine stays within its spec'd behavior set:
 - // future: full scripted tutorial match (a guided first game with forced
   moves). Phase 9 ships only dismissable, once-shown coachmarks on the first
   Practice match (client `onboarding.ts`); a scripted tutorial is out of scope.
-- // future: client UI for consumables (inventory affordance to select a
-  consumable + target unit + target item and send `USE_CONSUMABLE`) — phase 1
-  of the item-system expansion is rules/data/protocol only (see above)
 - // future: Artifacts / Mythical items and the full Radiant item catalog
-  beyond the single generic upgrade path shipped in phase 1 (out of scope for
+  beyond the single generic upgrade path shipped to date (out of scope for
   this phase; tracked for a later item-system phase)

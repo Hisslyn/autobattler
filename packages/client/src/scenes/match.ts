@@ -17,10 +17,11 @@ import type { TraitChip } from "../hudModel.js";
 import { inspectModel } from "../inspectModel.js";
 import { traitDetailModel } from "../traitDetailModel.js";
 import { sellValue } from "../sellValue.js";
-import { renderUnitInspect, renderTraitDetail, renderItemDetail } from "../inspectPanel.js";
+import { renderUnitInspect, renderTraitDetail, renderItemDetail, renderItemPicker } from "../inspectPanel.js";
 import { inventoryModel, itemModel } from "../itemModel.js";
-import type { InventoryEntry } from "../itemModel.js";
+import type { InventoryEntry, ItemModel } from "../itemModel.js";
 import { combinePreview } from "../combinePreview.js";
+import { radiantDropRoute } from "../consumablePicker.js";
 import { lootRevealModel } from "../lootReveal.js";
 import type { RevealStep } from "../lootReveal.js";
 import { onUnitArtReady } from "../sprites.js";
@@ -821,7 +822,7 @@ export class MatchScene {
   /** Draw one item chip centered at (cx, cy); wires tap (info) + drag start. */
   private drawItemChip(
     layer: PIXI.Container,
-    entry: { id: string; name: string; component: boolean; color: number },
+    entry: InventoryEntry,
     cx: number,
     cy: number,
     size: number,
@@ -830,12 +831,20 @@ export class MatchScene {
   ): void {
     const half = size / 2;
     const g = new PIXI.Graphics();
+    // Consumables read distinct from equippable items: their own fill (set by
+    // itemModel) + the consumable rim color, never the gilded finished-item rim.
+    const rim = entry.consumable ? C.itemConsumableRim : C.itemBorder;
     g.roundRect(cx - half, cy - half, size, size, 6).fill({ color: entry.color, alpha: 0.95 });
-    g.roundRect(cx - half, cy - half, size, size, 6).stroke({ width: 1.5, color: C.itemBorder, alpha: 0.95 });
-    // Completed items carry the gilded inner rim (same motif as the full icon
-    // frame) so the chip reads as a finished item, not a loose component.
-    if (!entry.component) {
+    g.roundRect(cx - half, cy - half, size, size, 6).stroke({ width: 1.5, color: rim, alpha: 0.95 });
+    // Completed/radiant items carry the gilded inner rim (same motif as the full
+    // icon frame) so the chip reads as a finished item, not a loose component;
+    // consumables are not equippable, so they never get the gild.
+    if (!entry.component && !entry.consumable) {
       g.roundRect(cx - half + 2, cy - half + 2, size - 4, size - 4, 4).stroke({ width: 1, color: C.itemFrame, alpha: 0.55 });
+    }
+    // Radiant (tier-4) items get a small corner badge so they read as top tier.
+    if (entry.tier === "radiant") {
+      g.circle(cx + half - 4, cy - half + 4, 2.5).fill({ color: C.radiantBadge, alpha: 0.95 });
     }
     // Only the inventory chips are interactive; the floating drag sprite (no
     // onDragStart) is display-only so it never captures the pointer.
@@ -914,6 +923,16 @@ export class MatchScene {
     this.closeCombineHint();
     const midY = this.itemBar.y + ITEM_SLOT / 2;
 
+    // 0) Consumables target a UNIT only (board/bench) — never combine onto another
+    // item. If dropped anywhere but a unit, the consumable stays put (no-op).
+    if (itemModel(drag.id, gameData)?.consumable) {
+      const cBoard = hexFromPointer(px, py, this.boardOffsetX, this.boardOffsetY, this.boardScale);
+      if (cBoard >= 0 && me.board[cBoard]) { this.useConsumableOnUnit(drag.id, me.board[cBoard]!); return; }
+      const cBench = this.benchSlotAt(px, py);
+      if (cBench !== null && me.bench[cBench]) { this.useConsumableOnUnit(drag.id, me.bench[cBench]!); return; }
+      return;
+    }
+
     // 1) Dropped on a board hex with a unit → EQUIP.
     const boardSlot = hexFromPointer(px, py, this.boardOffsetX, this.boardOffsetY, this.boardScale);
     if (boardSlot >= 0 && me.board[boardSlot]) {
@@ -962,6 +981,71 @@ export class MatchScene {
     this.opts.audio.play(combined ? "starUp" : "buy");
     const pos = this.unitPixel(unitUid);
     if (pos) this.spawnPlanningPop(pos.x, pos.y, combined ? C.itemCombineOk : C.starGold);
+  }
+
+  /**
+   * Apply a consumable dropped on `unit` (board/bench). Renderer-is-dumb: the
+   * command is ALWAYS sent — the no-op-success vs real-effect distinction is read
+   * from a state diff AROUND the command (mirrors tryEquip's slot-count snapshot),
+   * never from pre-inspecting the unit's items. radiant_enhancer needs an explicit
+   * target, so when the unit has tier-2 items it opens the picker first; with zero
+   * tier-2 items it still sends and lets the server reject (NO_TIER_2_ITEMS_EQUIPPED).
+   */
+  private useConsumableOnUnit(consumableId: string, unit: UnitInstance): void {
+    const cons = itemModel(consumableId, gameData);
+    if (cons?.consumableEffect === "radiant_upgrade") {
+      const route = radiantDropRoute(unit, gameData);
+      if (route.kind === "picker") {
+        this.openConsumablePicker(consumableId, unit.uid, route.items);
+        return;
+      }
+    }
+    // item_remover / reforger (and radiant with no tier-2 items): no targetItemId.
+    this.sendConsumable(consumableId, unit.uid);
+  }
+
+  /** Send a USE_CONSUMABLE and pick feedback from the resulting state diff. */
+  private sendConsumable(consumableId: string, targetUnitId: number, targetItemId?: string): void {
+    const before = this.consumableStateSig(targetUnitId);
+    const result = this.driver.playerCommand(
+      targetItemId !== undefined
+        ? { type: "USE_CONSUMABLE", consumableId, targetUnitId, targetItemId }
+        : { type: "USE_CONSUMABLE", consumableId, targetUnitId }
+    );
+    if (!result.ok) { this.showToast(result.error); return; }
+    const after = this.consumableStateSig(targetUnitId);
+    if (after === before) {
+      // No-op success: the rules consumed nothing and changed nothing (e.g. a
+      // remover/reforger on a unit with no items). Neutral cue, not a reward.
+      this.showToast("Nothing to change");
+      return;
+    }
+    this.opts.audio.play("buy");
+    const pos = this.unitPixel(targetUnitId);
+    if (pos) this.spawnPlanningPop(pos.x, pos.y, C.itemCombineOk);
+  }
+
+  /** Snapshot of a unit's items + my inventory, to detect whether a consumable
+   *  actually changed state (vs a no-op success). */
+  private consumableStateSig(uid: number): string {
+    const me = this.driver.getState().players[this.driver.seatIndex];
+    if (!me) return "";
+    const u = me.board.find((x) => x?.uid === uid) ?? me.bench.find((x) => x.uid === uid);
+    return `${u?.items.join(",") ?? ""}|${me.items.join(",")}`;
+  }
+
+  /** Open the radiant_enhancer item picker; pick → send with that target, cancel
+   *  → nothing (the dragged chip is already back in the inventory bar). */
+  private openConsumablePicker(consumableId: string, targetUnitId: number, items: ItemModel[]): void {
+    this.opts.audio.play("tap");
+    renderItemPicker(
+      this.inspectLayer,
+      items,
+      (itemId) => { this.closeInspect(); this.sendConsumable(consumableId, targetUnitId, itemId); },
+      () => this.closeInspect(),
+      this.layout,
+      this.opts.settings.get().reducedMotion
+    );
   }
 
   /** Current equipped-item count for a unit on my board/bench (0 if not found). */
@@ -1025,6 +1109,9 @@ export class MatchScene {
   private combineHint: PIXI.Container | null = null;
   private updateCombineHint(px: number, py: number, me: PlayerState): void {
     if (!this.dragItem) return;
+    // Consumables only drop onto units (never combine onto another item), so a
+    // combine-preview hint never applies while one is being dragged.
+    if (itemModel(this.dragItem.id, gameData)?.consumable) { this.closeCombineHint(); return; }
     const inv = inventoryModel(me.items, gameData);
     const overIdx = this.itemSlotAtBar(px, py, inv.length);
     this.closeCombineHint();

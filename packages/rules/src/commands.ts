@@ -35,7 +35,8 @@ export type CommandError =
   | "CONSUMABLE_NOT_FOUND"
   | "ITEM_NOT_EQUIPPED"
   | "NO_ALTERNATIVE_ITEM"
-  | "NOT_TIER_2_ITEM";
+  | "NOT_TIER_2_ITEM"
+  | "NO_TIER_2_ITEMS_EQUIPPED";
 
 export type CommandResult = { ok: true } | { ok: false; error: CommandError };
 
@@ -377,33 +378,47 @@ export function applyCommand(
 
       switch (consumableDef.consumableEffect) {
         case "remove_item": {
-          const slot = unit.items.indexOf(cmd.targetItemId ?? "");
-          if (slot < 0) return { ok: false, error: "ITEM_NOT_EQUIPPED" };
-          const removed = unit.items.splice(slot, 1)[0]!;
-          player.items.push(removed);
+          // Acts on ALL items equipped on the target unit. Zero items is a
+          // normal no-op outcome (not a typed error) — the consumable is not
+          // consumed and no state changes.
+          if (unit.items.length === 0) return { ok: true };
+          player.items.push(...unit.items);
+          unit.items = [];
           player.items.splice(player.items.indexOf(cmd.consumableId), 1);
           return { ok: true };
         }
 
         case "reforge": {
-          const slot = unit.items.indexOf(cmd.targetItemId ?? "");
-          if (slot < 0) return { ok: false, error: "ITEM_NOT_EQUIPPED" };
-          const currentId = unit.items[slot]!;
-          const tier = itemTier(currentId, data.items, data.economy);
-          const candidates = data.items.filter(
-            (i) =>
-              i.id !== currentId &&
-              itemKind(i) !== "consumable" &&
-              itemTier(i.id, data.items, data.economy) === tier
-          );
-          if (candidates.length === 0) return { ok: false, error: "NO_ALTERNATIVE_ITEM" };
-          const pick = candidates[prng() % candidates.length]!;
-          unit.items[slot] = pick.id;
+          // Reforges EACH equipped item independently to a different random
+          // item of the same tier, processed in equipped-slot order (one
+          // prng draw per item, off the shared match prng, so determinism
+          // holds). Zero items is a no-op (not consumed).
+          if (unit.items.length === 0) return { ok: true };
+          for (let slot = 0; slot < unit.items.length; slot++) {
+            const currentId = unit.items[slot]!;
+            const tier = itemTier(currentId, data.items, data.economy);
+            const candidates = data.items.filter(
+              (i) =>
+                i.id !== currentId &&
+                itemKind(i) !== "consumable" &&
+                itemTier(i.id, data.items, data.economy) === tier
+            );
+            if (candidates.length === 0) return { ok: false, error: "NO_ALTERNATIVE_ITEM" };
+            const pick = candidates[prng() % candidates.length]!;
+            unit.items[slot] = pick.id;
+          }
           player.items.splice(player.items.indexOf(cmd.consumableId), 1);
           return { ok: true };
         }
 
         case "radiant_upgrade": {
+          if (unit.items.length === 0) return { ok: false, error: "NO_TIER_2_ITEMS_EQUIPPED" };
+          const hasTier2 = unit.items.some((id) => {
+            const def = data.items.find((i) => i.id === id);
+            return def && itemKind(def) === "completed" && !id.startsWith("radiant_");
+          });
+          if (!hasTier2) return { ok: false, error: "NO_TIER_2_ITEMS_EQUIPPED" };
+
           const slot = unit.items.indexOf(cmd.targetItemId ?? "");
           if (slot < 0) return { ok: false, error: "ITEM_NOT_EQUIPPED" };
           const currentId = unit.items[slot]!;

@@ -10,6 +10,7 @@ import { drawItemIcon } from "./itemIconDraw.js";
 import type { InspectModel } from "./inspectModel.js";
 import type { TraitDetailModel } from "./traitDetailModel.js";
 import type { ItemModel } from "./itemModel.js";
+import { consumableDescription } from "./itemModel.js";
 import { centeredModal } from "./layout.js";
 import type { MatchLayout } from "./layout.js";
 
@@ -242,7 +243,28 @@ export function renderUnitInspect(
   }
 }
 
-/** Render the item-detail panel (identity + stat bundle + passive line). */
+/** Human-readable tier/kind label for the item-detail header. */
+function itemKindLabel(m: ItemModel): string {
+  switch (m.tier) {
+    case "component": return "Component";
+    case "completed": return "Completed Item";
+    case "radiant": return "Radiant Item";
+    case "consumable": return "Consumable";
+  }
+}
+
+/** Header accent color for the item-detail panel, by tier. */
+function itemKindAccent(m: ItemModel): number {
+  switch (m.tier) {
+    case "component": return C.itemComponent;
+    case "completed": return C.accentGold;
+    case "radiant": return C.radiantBadge;
+    case "consumable": return C.itemConsumableRim;
+  }
+}
+
+/** Render the item-detail panel (identity + stat bundle + passive line, or the
+ *  consumable effect line for the three consumables). */
 export function renderItemDetail(
   layer: PIXI.Container,
   m: ItemModel,
@@ -257,15 +279,18 @@ export function renderItemDetail(
   const d = dims(layout);
   const statLines = m.stats.length;
   const passiveH = m.passive ? 44 : 0;
-  const contentH = 96 + statLines * 24 + passiveH + 16;
+  // Consumables show one effect-description block instead of stats/passive.
+  const effectH = m.consumable ? 48 : 0;
+  const contentH = 96 + statLines * 24 + passiveH + effectH + 16;
   const rect = panelRect(layout, d.w - 90, contentH, (PORTRAIT_H - contentH) / 2 - 20);
   const w = rect.w, x = rect.x, y = rect.y;
-  const accent = m.component ? C.itemComponent : C.accentGold;
+  const accent = itemKindAccent(m);
   panelBox(panel, x, y, w, rect.h, accent);
   closeButton(panel, x + w - 32, y + 8, onClose);
 
-  // Header: item icon disc (distinct procedural emblem / composed completed icon)
-  // + name + kind.
+  // Header: item icon disc (distinct procedural emblem / composed completed icon,
+  // or the consumable glyph — see drawItemIcon's consumable fallback, specced
+  // FOR UI-DESIGNER below) + name + kind.
   const disc = new PIXI.Graphics();
   disc.circle(x + 32, y + 34, 20).fill({ color: C.bgInspectRow, alpha: 0.95 });
   disc.circle(x + 32, y + 34, 20).stroke({ width: 1.5, color: C.itemBorder });
@@ -276,10 +301,11 @@ export function renderItemDetail(
   g.eventMode = "none";
   panel.addChild(g);
   text(panel, m.name, x + 60, y + 22, 13, C.textPrimary, [0, 0]);
-  text(panel, m.component ? "Component" : "Completed Item", x + 60, y + 42, 9, accent, [0, 0]);
+  text(panel, itemKindLabel(m), x + 60, y + 42, 9, accent, [0, 0]);
 
-  // Stat bundle rows
   let ry = y + 70;
+
+  // Stat bundle rows (components/completed/radiant only — consumables carry none)
   for (const s of m.stats) {
     const row = new PIXI.Graphics();
     row.roundRect(x + 14, ry, w - 28, 20, 5).fill({ color: C.bgInspectRow, alpha: 0.8 });
@@ -290,7 +316,7 @@ export function renderItemDetail(
     ry += 24;
   }
 
-  // Passive line (completed items only)
+  // Passive line (completed/radiant items only)
   if (m.passive) {
     const pb = new PIXI.Graphics();
     pb.roundRect(x + 14, ry, w - 28, 38, 6).fill({ color: C.bgInspectRow, alpha: 0.9 });
@@ -299,7 +325,69 @@ export function renderItemDetail(
     panel.addChild(pb);
     text(panel, "Passive", x + 22, ry + 8, 9, accent, [0, 0]);
     wrapText(panel, m.passive, x + 22, ry + 20, w - 44, 9, C.textMuted);
+    ry += 44;
   }
+
+  // Effect line (consumables only) — same row treatment as a passive block.
+  if (m.consumable && m.consumableEffect) {
+    const eb = new PIXI.Graphics();
+    eb.roundRect(x + 14, ry, w - 28, 42, 6).fill({ color: C.bgInspectRow, alpha: 0.9 });
+    eb.roundRect(x + 14, ry, w - 28, 42, 6).stroke({ width: 1, color: accent, alpha: 0.6 });
+    eb.eventMode = "none";
+    panel.addChild(eb);
+    text(panel, "Effect", x + 22, ry + 8, 9, accent, [0, 0]);
+    wrapText(panel, consumableDescription(m.consumableEffect), x + 22, ry + 20, w - 44, 9, C.textMuted);
+  }
+}
+
+/**
+ * Render the radiant_enhancer item-picker overlay: lists the unit's equipped
+ * tier-2 (completed, non-radiant) items; tapping one calls `onPick(itemId)`.
+ * Same modal pattern as renderItemDetail (scrim-dismiss + ✕ → onCancel). Pure
+ * presentation — the caller decides what picking/cancelling means (send the
+ * command / return the chip to the inventory bar).
+ */
+export function renderItemPicker(
+  layer: PIXI.Container,
+  items: ItemModel[],
+  onPick: (itemId: string) => void,
+  onCancel: () => void,
+  layout?: MatchLayout,
+  reducedMotion = false
+): void {
+  layer.removeChildren();
+  scrim(layer, onCancel, layout);
+  const panel = makePanelContainer(layer, reducedMotion);
+
+  const d = dims(layout);
+  const rowH = 40;
+  const headerH = 44;
+  const contentH = headerH + items.length * (rowH + 6) + 16;
+  const rect = panelRect(layout, d.w - 70, contentH, (PORTRAIT_H - contentH) / 2 - 20);
+  const w = rect.w, x = rect.x, y = rect.y, h = rect.h;
+  const accent = C.radiantBadge;
+  panelBox(panel, x, y, w, h, accent);
+  closeButton(panel, x + w - 32, y + 8, onCancel);
+
+  text(panel, "Choose an item to upgrade", x + 16, y + 18, 12, C.textPrimary, [0, 0]);
+
+  items.forEach((item, i) => {
+    const ry = y + headerH + i * (rowH + 6);
+    const row = new PIXI.Graphics();
+    row.roundRect(x + 14, ry, w - 28, rowH, 6).fill({ color: C.bgInspectRow, alpha: 0.95 });
+    row.roundRect(x + 14, ry, w - 28, rowH, 6).stroke({ width: 1, color: C.itemFrame, alpha: 0.5 });
+    row.eventMode = "static";
+    row.cursor = "pointer";
+    row.hitArea = new PIXI.Rectangle(x + 14, ry, w - 28, rowH);
+    row.on("pointerdown", () => onPick(item.id));
+    panel.addChild(row);
+
+    const ig = new PIXI.Container();
+    drawItemIcon(ig, item.id, x + 14 + 18, ry + rowH / 2, { radius: 12, reducedMotion: true });
+    ig.eventMode = "none";
+    panel.addChild(ig);
+    text(panel, item.name, x + 14 + 38, ry + rowH / 2, 11, C.textPrimary, [0, 0.5]);
+  });
 }
 
 /** Render the trait-detail panel (breakpoints + what each grants). */

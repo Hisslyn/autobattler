@@ -15,6 +15,16 @@ import {
   type ItemEmblem,
   type ItemIcon,
 } from "./itemIcon.js";
+import { drawGlyph, type GlyphKind } from "./glyphs.js";
+
+// Consumables carry no recipe/emblem (itemIcon → null), so they'd otherwise draw
+// nothing. Each effect maps to a distinct glyph so the chip always reads as a
+// consumable (further distinguished by the consumable fill/rim at the call site).
+const CONSUMABLE_GLYPH: Record<string, GlyphKind> = {
+  remove_item: "bag",
+  reforge: "refresh",
+  radiant_upgrade: "sun",
+};
 
 // ─── Runtime art cache (mirrors sprites.ts) ──────────────────────────────────
 // Empty by default → every item draws its procedural emblem. Populated lazily
@@ -226,8 +236,17 @@ export function drawItemIcon(
   requestItemArt(itemId); // lazy drop-in load; emblem stays until/unless it lands
 
   if (!icon) {
-    // Unknown id (should not happen for real items): leave to the caller's
-    // generic glyph. We draw nothing so the fallback is visible.
+    // Consumables resolve to no emblem; draw their per-effect glyph so the chip
+    // never renders empty. (Other unknown ids — should not happen for real
+    // items — leave to the caller's generic glyph: we draw nothing.)
+    const def = gameData.items.find((it) => it.id === itemId);
+    const glyph = def?.consumableEffect ? CONSUMABLE_GLYPH[def.consumableEffect] : undefined;
+    if (glyph) {
+      const g = new PIXI.Graphics();
+      drawGlyph(g, glyph, x, y, r * 1.4, C.textPrimary);
+      g.alpha = baseA;
+      parent.addChild(g);
+    }
     return frameTint;
   }
 

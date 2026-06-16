@@ -4,7 +4,8 @@
 // models. The authoritative inventory + equip/combine all live in rules; this
 // only describes what's already there. Raw fixed-point never leaks: stat values
 // route through statFormat.
-import type { GameData, ItemDataDef, ItemPassiveData } from "@autobattler/data";
+import type { GameData, ItemDataDef, ItemPassiveData, ConsumableEffect } from "@autobattler/data";
+import { itemKind } from "@autobattler/data";
 import type { UnitInstance } from "@autobattler/sim/src/types.js";
 import { C } from "./theme.js";
 import { formatStatDelta } from "./statFormat.js";
@@ -24,17 +25,30 @@ export interface ItemStatLine {
   value: string;
 }
 
+/** Item tier classification (phase 2): a component, a completed (tier-2) item,
+ *  a radiant (tier-4) upgrade, or a consumable. Mirrors rules' itemKind/itemTier
+ *  but flattens "completed vs radiant" into one tier axis for display. */
+export type ItemTier = "component" | "completed" | "radiant" | "consumable";
+
 export interface ItemModel {
   id: string;
   name: string;
-  /** A loose base component (no recipe) vs a completed item. */
+  /** A loose base component (no recipe) vs a completed item. Kept for existing
+   *  call sites; equivalent to `tier === "component"`. */
   component: boolean;
-  /** Display tint (cooler for components, richer for completed items). */
+  /** Display tint (cooler for components, richer for completed items, distinct
+   *  for radiant/consumable — see `tier`). */
   color: number;
   /** Stat bundle in display order, fixed-point safe. */
   stats: ItemStatLine[];
   /** Human-readable passive line, or null for stat-only items. */
   passive: string | null;
+  /** Full tier classification (component/completed/radiant/consumable). */
+  tier: ItemTier;
+  /** True for the three consumable items (item_remover/reforger/radiant_enhancer). */
+  consumable: boolean;
+  /** Set when `consumable` is true — which effect it applies when used. */
+  consumableEffect: ConsumableEffect | null;
 }
 
 /** One-line, readable description of a completed item's passive. */
@@ -44,6 +58,18 @@ export function passiveDescription(passive: ItemPassiveData): string {
       return `On hit: burn the target for ${passive.value} over ${passive.duration} ticks.`;
     case "shield":
       return `Start of combat: gain a ${passive.value} shield for ${passive.duration} ticks.`;
+  }
+}
+
+/** One-line, readable description of a consumable's effect (for chips/detail). */
+export function consumableDescription(effect: ConsumableEffect): string {
+  switch (effect) {
+    case "remove_item":
+      return "Removes all items from a unit back to your inventory.";
+    case "reforge":
+      return "Reforges each of a unit's items into a different item of the same tier.";
+    case "radiant_upgrade":
+      return "Upgrades one completed item on a unit into its radiant (tier-4) version.";
   }
 }
 
@@ -57,22 +83,52 @@ export function itemStatLines(stats: ItemDataDef["stats"]): ItemStatLine[] {
     }));
 }
 
+/** Tier classification for an item def (component/completed/radiant/consumable). */
+function tierOf(def: ItemDataDef): ItemTier {
+  if (itemKind(def) === "consumable") return "consumable";
+  if (itemKind(def) === "component") return "component";
+  // "completed" kind covers both base completed items and radiant variants
+  // (loader gives radiant_* the literal kind "completed"); the id prefix is
+  // the only signal distinguishing them.
+  return def.id.startsWith("radiant_") ? "radiant" : "completed";
+}
+
+/**
+ * Display tint for a tier. Components/completed reuse the existing item
+ * theme keys unchanged; radiant uses the gilded item-frame gold (already the
+ * "completed item, upgraded" motif via itemIconDraw's frame); consumable uses
+ * the new `itemConsumable` key so it never reads as an equippable chip.
+ */
+function colorForTier(tier: ItemTier): number {
+  switch (tier) {
+    case "component": return C.itemComponent;
+    case "completed": return C.itemCompleted;
+    case "radiant": return C.itemFrame;
+    case "consumable": return C.itemConsumable;
+  }
+}
+
 /**
  * Build the display model for an item id, or null for an unknown id. A loose
  * component reads cooler/plainer; a completed item reads richer and carries its
- * passive line when it has one.
+ * passive line when it has one; a radiant item reads as the gilded tier-4
+ * upgrade; a consumable carries no stats/passive but flags its effect kind.
  */
 export function itemModel(itemId: string, data: GameData): ItemModel | null {
   const def: ItemDataDef | undefined = data.items.find((i) => i.id === itemId);
   if (!def) return null;
-  const component = def.component === true;
+  const tier = tierOf(def);
+  const consumable = tier === "consumable";
   return {
     id: def.id,
     name: def.name,
-    component,
-    color: component ? C.itemComponent : C.itemCompleted,
+    component: tier === "component",
+    color: colorForTier(tier),
     stats: itemStatLines(def.stats),
     passive: def.passive ? passiveDescription(def.passive) : null,
+    tier,
+    consumable,
+    consumableEffect: consumable ? (def.consumableEffect ?? null) : null,
   };
 }
 
@@ -120,4 +176,17 @@ export function equippedSlots(
     .filter((m): m is ItemModel => m !== null);
   const free = Math.max(0, max - unit.items.length);
   return { items, max, free, full: unit.items.length >= max };
+}
+
+/**
+ * Tier-2 (completed, non-radiant) items currently equipped on a unit — the
+ * exact set radiant_enhancer is allowed to target. Pure UI-routing helper: used
+ * ONLY to decide whether to open the item-picker overlay (1+ results) or send
+ * USE_CONSUMABLE with no targetItemId and let the server reject it (0 results).
+ * Never used to block/branch the command itself.
+ */
+export function tier2EquippedItems(unit: UnitInstance, data: GameData): ItemModel[] {
+  return unit.items
+    .map((id) => itemModel(id, data))
+    .filter((m): m is ItemModel => m !== null && m.tier === "completed");
 }

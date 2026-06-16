@@ -8,6 +8,7 @@ import {
   validateNameMap,
   validateRoundResult,
   validateMatchStatsMap,
+  validateUseConsumableCmd,
   isValidName,
   PROTOCOL_VERSION,
 } from "../src/index.js";
@@ -179,6 +180,42 @@ describe("validateC2S", () => {
     expect(validateC2S({ type: "CMD" })).toBeNull();
   });
 
+  it("CMD USE_CONSUMABLE remove_item without targetItemId", () => {
+    const cmd = { type: "USE_CONSUMABLE", consumableId: "item_remover", targetUnitId: 5 };
+    expect(validateC2S({ type: "CMD", cmd })).toEqual({ type: "CMD", cmd });
+  });
+
+  it("CMD USE_CONSUMABLE reforge without targetItemId", () => {
+    const cmd = { type: "USE_CONSUMABLE", consumableId: "reforger", targetUnitId: 5 };
+    expect(validateC2S({ type: "CMD", cmd })).toEqual({ type: "CMD", cmd });
+  });
+
+  it("CMD USE_CONSUMABLE remove_item/reforge accept (and ignore) a present targetItemId", () => {
+    const cmd = { type: "USE_CONSUMABLE", consumableId: "reforger", targetUnitId: 5, targetItemId: "iron_sword" };
+    expect(validateC2S({ type: "CMD", cmd })).toEqual({ type: "CMD", cmd });
+  });
+
+  it("CMD USE_CONSUMABLE radiant_upgrade requires targetItemId", () => {
+    const missing = { type: "USE_CONSUMABLE", consumableId: "radiant_enhancer", targetUnitId: 5 };
+    expect(validateC2S({ type: "CMD", cmd: missing })).toBeNull();
+    const present = { type: "USE_CONSUMABLE", consumableId: "radiant_enhancer", targetUnitId: 5, targetItemId: "iron_sword" };
+    expect(validateC2S({ type: "CMD", cmd: present })).toEqual({ type: "CMD", cmd: present });
+  });
+
+  it("CMD USE_CONSUMABLE rejects missing consumableId/targetUnitId or wrong types", () => {
+    expect(validateC2S({ type: "CMD", cmd: { type: "USE_CONSUMABLE", targetUnitId: 5 } })).toBeNull();
+    expect(validateC2S({ type: "CMD", cmd: { type: "USE_CONSUMABLE", consumableId: "reforger" } })).toBeNull();
+    expect(
+      validateC2S({ type: "CMD", cmd: { type: "USE_CONSUMABLE", consumableId: "reforger", targetUnitId: "5" } })
+    ).toBeNull();
+    expect(
+      validateC2S({
+        type: "CMD",
+        cmd: { type: "USE_CONSUMABLE", consumableId: "reforger", targetUnitId: 5, targetItemId: 7 },
+      })
+    ).toBeNull();
+  });
+
   it("unknown type", () => {
     expect(validateC2S({ type: "HACK" })).toBeNull();
   });
@@ -187,6 +224,27 @@ describe("validateC2S", () => {
     expect(validateC2S("hello")).toBeNull();
     expect(validateC2S(null)).toBeNull();
     expect(validateC2S(42)).toBeNull();
+  });
+});
+
+describe("validateUseConsumableCmd", () => {
+  it("accepts remove_item/reforge with or without targetItemId", () => {
+    expect(validateUseConsumableCmd({ consumableId: "item_remover", targetUnitId: 1 })).toBe(true);
+    expect(validateUseConsumableCmd({ consumableId: "reforger", targetUnitId: 1, targetItemId: "x" })).toBe(true);
+  });
+
+  it("requires targetItemId for radiant_enhancer", () => {
+    expect(validateUseConsumableCmd({ consumableId: "radiant_enhancer", targetUnitId: 1 })).toBe(false);
+    expect(validateUseConsumableCmd({ consumableId: "radiant_enhancer", targetUnitId: 1, targetItemId: "x" })).toBe(
+      true
+    );
+  });
+
+  it("rejects malformed base fields", () => {
+    expect(validateUseConsumableCmd({ targetUnitId: 1 })).toBe(false);
+    expect(validateUseConsumableCmd({ consumableId: "reforger" })).toBe(false);
+    expect(validateUseConsumableCmd({ consumableId: "reforger", targetUnitId: "1" })).toBe(false);
+    expect(validateUseConsumableCmd({ consumableId: "reforger", targetUnitId: 1, targetItemId: 9 })).toBe(false);
   });
 });
 
@@ -208,5 +266,26 @@ describe("decodeC2S envelope", () => {
   it("unknown message type in payload", () => {
     const raw = JSON.stringify({ v: 1, t: "X", p: { type: "X" } });
     expect(decodeC2S(raw)).toBeNull();
+  });
+
+  it("rejects a USE_CONSUMABLE CMD envelope missing targetItemId for radiant_enhancer", () => {
+    const raw = JSON.stringify({
+      v: PROTOCOL_VERSION,
+      t: "CMD",
+      p: { type: "CMD", cmd: { type: "USE_CONSUMABLE", consumableId: "radiant_enhancer", targetUnitId: 5 } },
+    });
+    expect(decodeC2S(raw)).toBeNull();
+  });
+
+  it("accepts a USE_CONSUMABLE CMD envelope for reforge without targetItemId", () => {
+    const raw = JSON.stringify({
+      v: PROTOCOL_VERSION,
+      t: "CMD",
+      p: { type: "CMD", cmd: { type: "USE_CONSUMABLE", consumableId: "reforger", targetUnitId: 5 } },
+    });
+    expect(decodeC2S(raw)).toEqual({
+      type: "CMD",
+      cmd: { type: "USE_CONSUMABLE", consumableId: "reforger", targetUnitId: 5 },
+    });
   });
 });

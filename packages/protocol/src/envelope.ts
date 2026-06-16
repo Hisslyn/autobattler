@@ -68,6 +68,23 @@ export function validateMatchStatsMap(value: unknown): Record<number, MatchStats
   return value as Record<number, MatchStats>;
 }
 
+/**
+ * Validates a USE_CONSUMABLE command's payload shape. `consumableId` and
+ * `targetUnitId` are always required; `targetItemId` is required only for
+ * `radiant_upgrade` (it targets exactly one tier-2 item) — `remove_item` and
+ * `reforge` now act on every item equipped on the target unit, so they accept
+ * `targetItemId` omitted (and ignore it if present, for client back-compat).
+ */
+export function validateUseConsumableCmd(cmd: Record<string, unknown>): boolean {
+  if (typeof cmd["consumableId"] !== "string") return false;
+  if (typeof cmd["targetUnitId"] !== "number") return false;
+  if (cmd["targetItemId"] !== undefined && typeof cmd["targetItemId"] !== "string") return false;
+  if (cmd["consumableId"] === "radiant_enhancer" && cmd["targetItemId"] === undefined) {
+    return false;
+  }
+  return true;
+}
+
 export interface Envelope {
   v: number;  // protocol version
   t: string;  // message type
@@ -148,6 +165,8 @@ export function validateC2S(p: unknown): C2SMessage | null {
       if (typeof msg["cmd"] !== "object" || msg["cmd"] === null) return null;
       const cmd = msg["cmd"] as Record<string, unknown>;
       if (typeof cmd["type"] !== "string") return null;
+      // Field-level validation for command payloads needing extra checks.
+      if (cmd["type"] === "USE_CONSUMABLE" && !validateUseConsumableCmd(cmd)) return null;
       return { type: "CMD", cmd: cmd as { type: string; [key: string]: unknown } };
     }
 
