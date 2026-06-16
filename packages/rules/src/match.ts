@@ -1,7 +1,8 @@
 import type { GameData } from "@autobattler/data";
 import type { MatchState, PlayerState } from "./state.js";
+import type { UnitInstance } from "@autobattler/sim/src/types.js";
 import { mulberry32 } from "@autobattler/sim/src/prng.js";
-import { buildInitialPool, returnToPool } from "./pool.js";
+import { buildInitialPool, drawFromPool, returnToPool } from "./pool.js";
 import { rollShop } from "./shop.js";
 import { runCombatPhase, distributeIncome } from "./rounds.js";
 
@@ -50,6 +51,46 @@ export function createMatch(seed: number, data: GameData): MatchState {
     lastLootOrbs: new Map(),
     lastRoundResult: new Map(),
   };
+
+  // Give every player one starting unit on bench slot 0, drawn from the pool.
+  // Pool conservation: drawFromPool decrements the pool count so the total
+  // (pool + all player holdings) remains constant.
+  const startUnitId = gp.startingUnitId;
+  const startUnitDef = data.units.find((u) => u.id === startUnitId);
+  if (startUnitDef) {
+    for (const player of state.players) {
+      const drew = drawFromPool(pool, startUnitId);
+      if (!drew) {
+        // Pool exhausted for this unit — return what we drew so far and stop.
+        // In practice the pool has 29 tier-1 copies and there are only 8 players,
+        // so this branch should never fire in a normal 8-player game.
+        break;
+      }
+      const unit: UnitInstance = {
+        uid: state.nextUid++,
+        defId: startUnitDef.id,
+        tier: startUnitDef.tier,
+        star: 1,
+        team: 0,
+        pos: { q: 0, r: 0 },
+        hp: startUnitDef.hp,
+        maxHp: startUnitDef.hp,
+        ad: startUnitDef.ad,
+        as: startUnitDef.as,
+        armor: startUnitDef.armor,
+        mr: startUnitDef.mr,
+        range: startUnitDef.range,
+        mana: startUnitDef.manaStart,
+        maxMana: startUnitDef.mana,
+        abilityDamage: startUnitDef.abilityDamage,
+        attackCooldown: 0,
+        statusEffects: [],
+        items: [],
+        ...(startUnitDef.ability ? { ability: startUnitDef.ability } : {}),
+      };
+      player.bench.push(unit);
+    }
+  }
 
   // Roll initial shops
   const shopPrng = mulberry32(state.prngState);

@@ -125,11 +125,178 @@
         "manaCost": 120,
         "effect": { "kind": "shield", "amount": 500, "duration": 120 }
       }
+    },
+    {
+      "id": "krug_smasher",
+      "name": "Krug Smasher",
+      "campType": "krugs",
+      "tier": 2,
+      "isMob": true,
+      "hp": 750,
+      "ad": 65,
+      "as": 580,
+      "armor": 25,
+      "mr": 15,
+      "range": 1,
+      "mana": 90,
+      "manaStart": 0,
+      "abilityDamage": 120,
+      "traits": [],
+      "ability": {
+        "name": "Boulder Bash",
+        "manaCost": 90,
+        "effect": { "kind": "magic_damage" }
+      }
+    },
+    {
+      "id": "krug_pup",
+      "name": "Krug Pup",
+      "campType": "krugs",
+      "tier": 1,
+      "isMob": true,
+      "hp": 320,
+      "ad": 42,
+      "as": 680,
+      "armor": 10,
+      "mr": 8,
+      "range": 1,
+      "mana": 80,
+      "manaStart": 0,
+      "abilityDamage": 80,
+      "traits": []
+    },
+    {
+      "id": "dire_wolf",
+      "name": "Dire Wolf",
+      "campType": "wolves",
+      "tier": 2,
+      "isMob": true,
+      "hp": 680,
+      "ad": 70,
+      "as": 750,
+      "armor": 20,
+      "mr": 15,
+      "range": 1,
+      "mana": 60,
+      "manaStart": 10,
+      "abilityDamage": 100,
+      "traits": [],
+      "ability": {
+        "name": "Savage Lunge",
+        "manaCost": 60,
+        "effect": { "kind": "buff", "stat": "ad", "value": 80, "duration": 120 }
+      }
+    },
+    {
+      "id": "wolf_cub",
+      "name": "Wolf Cub",
+      "campType": "wolves",
+      "tier": 1,
+      "isMob": true,
+      "hp": 260,
+      "ad": 48,
+      "as": 720,
+      "armor": 8,
+      "mr": 8,
+      "range": 1,
+      "mana": 100,
+      "manaStart": 0,
+      "abilityDamage": 70,
+      "traits": []
+    },
+    {
+      "id": "razorbeak",
+      "name": "Razorbeak",
+      "campType": "raptors",
+      "tier": 3,
+      "isMob": true,
+      "hp": 880,
+      "ad": 85,
+      "as": 800,
+      "armor": 20,
+      "mr": 20,
+      "range": 2,
+      "mana": 70,
+      "manaStart": 0,
+      "abilityDamage": 200,
+      "traits": [],
+      "ability": {
+        "name": "Talon Strike",
+        "manaCost": 70,
+        "effect": { "kind": "magic_damage" }
+      }
+    },
+    {
+      "id": "raptor_scout",
+      "name": "Raptor Scout",
+      "campType": "raptors",
+      "tier": 2,
+      "isMob": true,
+      "hp": 520,
+      "ad": 60,
+      "as": 750,
+      "armor": 12,
+      "mr": 12,
+      "range": 2,
+      "mana": 80,
+      "manaStart": 0,
+      "abilityDamage": 140,
+      "traits": [],
+      "ability": {
+        "name": "Dive Shot",
+        "manaCost": 80,
+        "effect": { "kind": "magic_damage" }
+      }
+    },
+    {
+      "id": "ember_drake",
+      "name": "Ember Drake",
+      "campType": "dragons",
+      "tier": 4,
+      "isMob": true,
+      "hp": 2400,
+      "ad": 140,
+      "as": 600,
+      "armor": 50,
+      "mr": 50,
+      "range": 2,
+      "mana": 80,
+      "manaStart": 0,
+      "abilityDamage": 320,
+      "traits": [],
+      "ability": {
+        "name": "Flame Breath",
+        "manaCost": 80,
+        "effect": { "kind": "burn", "burn": 40, "duration": 100 }
+      }
+    },
+    {
+      "id": "dragon_whelp",
+      "name": "Dragon Whelp",
+      "campType": "dragons",
+      "tier": 3,
+      "isMob": true,
+      "hp": 1200,
+      "ad": 100,
+      "as": 650,
+      "armor": 35,
+      "mr": 35,
+      "range": 2,
+      "mana": 90,
+      "manaStart": 0,
+      "abilityDamage": 220,
+      "traits": [],
+      "ability": {
+        "name": "Ember Burst",
+        "manaCost": 90,
+        "effect": { "kind": "magic_damage" }
+      }
     }
   ],
   "stages": [
     {
-      "round": 1,
+      "stage": 1,
+      "roundInStage": 1,
       "name": "Wandering Pack",
       "units": [
         { "mobId": "melee_grunt", "slot": 17, "star": 1 },
@@ -139,7 +306,8 @@
       ]
     },
     {
-      "round": 2,
+      "stage": 1,
+      "roundInStage": 2,
       "name": "Raiding Party",
       "units": [
         { "mobId": "melee_grunt", "slot": 17, "star": 1 },
@@ -150,7 +318,8 @@
       ]
     },
     {
-      "round": 4,
+      "stage": 1,
+      "roundInStage": 3,
       "name": "Den Guardians",
       "units": [
         { "mobId": "armored_boar", "slot": 17, "star": 1 },
@@ -158,6 +327,85 @@
         { "mobId": "stone_golem", "slot": 19, "star": 1 },
         { "mobId": "hex_imp", "slot": 10, "star": 2 },
         { "mobId": "hex_imp", "slot": 12, "star": 1 }
+      ]
+    },
+    {
+      "stage": 2,
+      "roundInStage": 4,
+      "name": "Krug Camp",
+      "campType": "krugs",
+      "units": [
+        { "mobId": "krug_smasher", "slot": 17, "star": 1 },
+        { "mobId": "krug_smasher", "slot": 21, "star": 1 },
+        { "mobId": "krug_pup", "slot": 10, "star": 1 },
+        { "mobId": "krug_pup", "slot": 12, "star": 1 },
+        { "mobId": "krug_pup", "slot": 14, "star": 1 }
+      ]
+    },
+    {
+      "stage": 2,
+      "roundInStage": 7,
+      "name": "Wolf Pack",
+      "campType": "wolves",
+      "units": [
+        { "mobId": "dire_wolf", "slot": 17, "star": 1 },
+        { "mobId": "dire_wolf", "slot": 21, "star": 1 },
+        { "mobId": "wolf_cub", "slot": 10, "star": 1 },
+        { "mobId": "wolf_cub", "slot": 12, "star": 1 },
+        { "mobId": "wolf_cub", "slot": 14, "star": 1 },
+        { "mobId": "wolf_cub", "slot": 16, "star": 1 }
+      ]
+    },
+    {
+      "stage": 3,
+      "roundInStage": 4,
+      "name": "Raptor Flock",
+      "campType": "raptors",
+      "units": [
+        { "mobId": "razorbeak", "slot": 17, "star": 1 },
+        { "mobId": "razorbeak", "slot": 21, "star": 1 },
+        { "mobId": "raptor_scout", "slot": 10, "star": 1 },
+        { "mobId": "raptor_scout", "slot": 12, "star": 1 },
+        { "mobId": "raptor_scout", "slot": 14, "star": 1 }
+      ]
+    },
+    {
+      "stage": 3,
+      "roundInStage": 7,
+      "name": "Dragon Brood",
+      "campType": "dragons",
+      "units": [
+        { "mobId": "ember_drake", "slot": 19, "star": 1 },
+        { "mobId": "dragon_whelp", "slot": 10, "star": 1 },
+        { "mobId": "dragon_whelp", "slot": 14, "star": 1 },
+        { "mobId": "dragon_whelp", "slot": 21, "star": 1 }
+      ]
+    },
+    {
+      "stage": 4,
+      "roundInStage": 4,
+      "name": "Krug Warband",
+      "campType": "krugs",
+      "units": [
+        { "mobId": "krug_smasher", "slot": 17, "star": 2 },
+        { "mobId": "krug_smasher", "slot": 21, "star": 2 },
+        { "mobId": "krug_pup", "slot": 10, "star": 2 },
+        { "mobId": "krug_pup", "slot": 12, "star": 2 },
+        { "mobId": "krug_pup", "slot": 14, "star": 1 },
+        { "mobId": "armored_boar", "slot": 19, "star": 2 }
+      ]
+    },
+    {
+      "stage": 4,
+      "roundInStage": 7,
+      "name": "Ancient Dragon",
+      "campType": "dragons",
+      "units": [
+        { "mobId": "ember_drake", "slot": 19, "star": 2 },
+        { "mobId": "dragon_whelp", "slot": 10, "star": 2 },
+        { "mobId": "dragon_whelp", "slot": 14, "star": 2 },
+        { "mobId": "dragon_whelp", "slot": 21, "star": 1 },
+        { "mobId": "razorbeak", "slot": 12, "star": 2 }
       ]
     }
   ]

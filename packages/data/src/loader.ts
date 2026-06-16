@@ -157,7 +157,8 @@ export interface GameplayData {
   boardSlots: number;
   copiesPerStar: Record<string, number>;
   sellValueMultiplier: number;
-  pveRounds: number[];
+  /** Unit id placed in every player's bench slot 0 at match creation. Tier 1. */
+  startingUnitId: string;
   manaPerAttack: number;
   manaPerDamageTaken: number;
   starMultipliers: Record<string, number>;
@@ -174,6 +175,8 @@ export interface GameplayData {
 export interface MobDataDef {
   id: string;
   name: string;
+  /** Cosmetic grouping tag for client labeling; absent on stage-1 mobs. */
+  campType?: string;
   tier: number;
   isMob: true;
   hp: number;
@@ -196,10 +199,17 @@ export interface MobPlacement {
   star: 1 | 2 | 3;
 }
 
-/** A PvE stage: the creep board fought on a designated PvE round. */
+/**
+ * A PvE stage: the creep board fought when {stage, roundInStage} matches.
+ * stage 1 has roundInStage 1/2/3 (all PvE).
+ * stage 2+ have roundInStage 4 and 7 as PvE rounds.
+ */
 export interface MobStageDef {
-  round: number;
+  stage: number;
+  roundInStage: number;
   name: string;
+  /** Cosmetic camp type for client labeling; absent on stage-1 entries. */
+  campType?: string;
   units: MobPlacement[];
 }
 

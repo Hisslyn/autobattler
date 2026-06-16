@@ -65,9 +65,30 @@
       { "rarity": "common", "count": 1 },
       { "rarity": "uncommon", "count": 1 }
     ],
-    "4": [
+    "3": [
       { "rarity": "uncommon", "count": 1 },
       { "rarity": "rare", "count": 1 }
+    ],
+    "7": [
+      { "rarity": "uncommon", "count": 2 }
+    ],
+    "10": [
+      { "rarity": "uncommon", "count": 1 },
+      { "rarity": "rare", "count": 1 }
+    ],
+    "14": [
+      { "rarity": "rare", "count": 2 }
+    ],
+    "17": [
+      { "rarity": "rare", "count": 1 },
+      { "rarity": "legendary", "count": 1 }
+    ],
+    "21": [
+      { "rarity": "rare", "count": 2 },
+      { "rarity": "legendary", "count": 1 }
+    ],
+    "24": [
+      { "rarity": "legendary", "count": 2 }
     ]
   }
 }

@@ -27,6 +27,85 @@ trait: `[2]`, `[2,4]`, or `[2,4,6]` so every trait's top breakpoint is reachable
 Item passives reuse the same primitives: `burn` (on basic-attack hit) and
 `shield` (granted at start of combat).
 
+## Stage formula and PvE schedule
+
+Rounds follow a two-regime formula implemented in `packages/rules/src/rounds.ts`
+(`stageForRound`, `isPveRound`). All tuning (breakpoints, camp assignments) lives
+in `mobs.json` and `loot.json`; the formula itself is structural code.
+
+**Stage 1 (rounds 1–3):** every round is PvE. Players fight creep camps to learn
+the game and build items before facing opponents.
+
+**Stage 2+ (rounds 4–N):** each stage spans exactly 7 rounds. Within every stage,
+`roundInStage` 4 and 7 are PvE; the remaining 5 rounds are PvP.
+
+```
+Stage 1:  R1  R2  R3
+           P   P   P   (all PvE)
+
+Stage 2:  R4  R5  R6  R7  R8  R9  R10
+           -   -   -   P   -   -   P   (ris 4 and 7 are PvE)
+
+Stage 3:  R11 R12 R13 R14 R15 R16 R17
+           -   -   -   P   -   -   P
+
+Stage 4:  R18 R19 R20 R21 R22 R23 R24
+           -   -   -   P   -   -   P
+```
+
+Where `P` = PvE and `-` = PvP.
+
+`stageForRound(round)` returns `{ stage, roundInStage }`:
+- rounds 1–3: stage 1, roundInStage = round
+- round 4+: stage = 2 + floor((round − 4) / 7), roundInStage = ((round − 4) % 7) + 1
+
+`isPveRound(round)` returns true for stage 1 (all) and for roundInStage 4 or 7 in
+stage 2+. Accepts an ignored optional second argument for call-site backward compatibility.
+
+## mobs.json schema
+
+`stages[]` entries use `{ stage, roundInStage, name, campType?, units }` — not a
+flat `round` number. `pveStageForRound` derives `{ stage, roundInStage }` from the
+absolute round and looks up by those two fields.
+
+`campType` is a cosmetic display tag (shown in the combat header). It has no effect
+on game logic. Mob defs (`mobs[]`) carry `isMob: true`, are never drawn from the
+unit pool, and never contribute to or receive player trait bonuses.
+
+## Camp assignment table
+
+| Stage | roundInStage | campType       | name            | Notes                     |
+|-------|--------------|----------------|-----------------|---------------------------|
+| 1     | 1            | —              | Wandering Pack  | Intro wolves/beasts       |
+| 1     | 2            | —              | Raiding Party   | Harder beasts             |
+| 1     | 3            | —              | Den Guardians   | Tier-2 boss camp          |
+| 2     | 4            | Krugs          | Krug Camp       | Stone golems, all 1-star  |
+| 2     | 7            | Wolves         | Wolf Pack       | Fast packs, all 1-star    |
+| 3     | 4            | Raptors        | Raptor Flock    | High-attack birds         |
+| 3     | 7            | Dragons        | Dragon Brood    | Burn + magic damage       |
+| 4     | 4            | Krugs          | Krug Warband    | 2-star krugs              |
+| 4     | 7            | Dragons        | Ancient Dragon  | 2-star ember_drake        |
+
+Dragon camp mobs use engine-supported ability effects only: `ember_drake` (tier 4)
+has a `burn` ability; `dragon_whelp` (tier 3) has `magic_damage`.
+
+Difficulty scales via mob tier + star level in `stages[].units`. Stage 4 camps use
+2-star mobs to provide a meaningful late-game PvE challenge.
+
+## Default starting bench unit
+
+Every player begins each match with one 1-star `warrior` on bench slot 0, drawn
+from the unit pool via `drawFromPool` in `createMatch`. The unit id is read from
+`gameplay.startingUnitId` — not hard-coded in `match.ts`.
+
+Pool conservation is maintained: the 8 starting-unit draws are reflected in the
+pool deficit, and `totalInMatch` (pool + all bench/board/shop copies) still equals
+`initialTotal()` at match start.
+
+The warrior is drawn as a normal pool unit: if the pool is exhausted for that tier
+(edge case), no unit is placed (the loop breaks). In practice tier-1 warrior has 29
+pool copies; with 8 players one draw each leaves 21 in the pool.
+
 ## Consumables (item-system phase 2)
 
 A third `ItemDataDef.kind`, alongside `component`/`completed` (an item with

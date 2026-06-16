@@ -6,7 +6,7 @@
   "boardSlots": 28,
   "copiesPerStar": { "1": 1, "2": 3, "3": 9 },
   "sellValueMultiplier": 1,
-  "pveRounds": [1, 2, 4],
+  "startingUnitId": "warrior",
   "manaPerAttack": 10,
   "manaPerDamageTaken": 7,
   "starMultipliers": { "1": 1000, "2": 1800, "3": 3240 },

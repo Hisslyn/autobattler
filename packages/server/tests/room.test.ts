@@ -167,16 +167,20 @@ describe("server combat protocol (in-process room)", () => {
     const b = makeFakeSession("d");
     room = createRoom([a.session, b.session], 42);
 
-    // Rounds 1 and 2 are PvE: COMBAT_START must carry no stale pairings
-    playFullRound(room);
+    // Rounds 1-3 are PvE: COMBAT_START must carry no stale pairings
+    playFullRound(room); // round 1
     let cs = a.messages.filter((m): m is S2C_CombatStart => m.type === "COMBAT_START");
     expect(cs[cs.length - 1]!.pairings).toEqual([]);
 
-    playFullRound(room);
+    playFullRound(room); // round 2
     cs = a.messages.filter((m): m is S2C_CombatStart => m.type === "COMBAT_START");
     expect(cs[cs.length - 1]!.pairings).toEqual([]);
 
-    // Round 3 is PvP: pairings must cover all 8 alive players
+    playFullRound(room); // round 3
+    cs = a.messages.filter((m): m is S2C_CombatStart => m.type === "COMBAT_START");
+    expect(cs[cs.length - 1]!.pairings).toEqual([]);
+
+    // Round 4 is the first PvP round: pairings must cover all 8 alive players
     readyAll(room);
     cs = a.messages.filter((m): m is S2C_CombatStart => m.type === "COMBAT_START");
     const pvp = cs[cs.length - 1]!;

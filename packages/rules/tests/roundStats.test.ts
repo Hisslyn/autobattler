@@ -19,11 +19,11 @@ function makeUnit(uid: number, defId: string, team: 0 | 1, q: number, r: number)
 /**
  * Leaves only `a` and `b` alive (so buildPairings pairs them together), gives
  * `a` a stacked board and `b` an empty board so `a` deterministically wins.
- * Sets a PvP round (3 is the first non-PvE round).
+ * Sets a PvP round (round 4 = stage 2, roundInStage 1 = first PvP round).
  */
 function twoPlayerWin(seed: number, a: number, b: number): MatchState {
   const state = createMatch(seed, gameData);
-  state.round = 3; // PvP (PvE rounds are 1,2,4)
+  state.round = 4; // PvP (stage 2, roundInStage 1; stage 1 rounds 1-3 are all PvE)
   for (const p of state.players) p.alive = p.id === a || p.id === b;
   const pa = state.players[a]!;
   pa.level = 5;
@@ -94,7 +94,7 @@ describe("match-stat accumulation", () => {
     expect(dmg1Dealt).toBe(dmg1Taken);
 
     // Run another PvP round with the same setup; stats should add, not reset.
-    state.round = 5; // still PvP
+    state.round = 5; // still PvP (stage 2, roundInStage 2)
     runCombatPhase(state, gameData);
     expect(winner.roundWins).toBe(2);
     expect(loser.roundLosses).toBe(2);
@@ -118,7 +118,7 @@ describe("lastRoundResult correctness", () => {
     // 3 alive → buildPairings makes one pairing + one ghost fight; the alive
     // player serving only as a ghost source is never paired this round.
     const state = createMatch(99, gameData);
-    state.round = 3;
+    state.round = 4; // PvP round (stage 2, roundInStage 1)
     for (const p of state.players) p.alive = p.id < 3;
     runCombatPhase(state, gameData);
 
@@ -137,7 +137,7 @@ describe("lastRoundResult correctness", () => {
   it("a draw leaves both players at the bye-equivalent 0/0 (no W/L credited)", () => {
     // Two empty boards draw: no survivors on either side.
     const state = createMatch(3, gameData);
-    state.round = 3;
+    state.round = 4; // PvP round (stage 2, roundInStage 1)
     for (const p of state.players) {
       p.alive = p.id === 0 || p.id === 1;
       if (p.id === 0 || p.id === 1) p.board = new Array(28).fill(null);
@@ -155,7 +155,7 @@ describe("lastRoundResult correctness", () => {
 
   it("PvE marks every alive player as pve with 0/0 and no W/L", () => {
     const state = createMatch(11, gameData);
-    state.round = 1; // a PvE round
+    state.round = 1; // a PvE round (stage 1, all PvE)
     for (let i = 0; i < state.players.length; i++) {
       state.players[i]!.board[0] = makeUnit(7000 + i, "warrior", 0, 0, 0);
     }
@@ -181,7 +181,8 @@ describe("lastRoundResult correctness", () => {
     expect(state.lastRoundResult.get(0)!.status).toBe("won");
 
     // A subsequent PvE round overwrites the prior PvP results with pve 0/0.
-    state.round = 4; // PvE
+    // Round 7 = stage 2, roundInStage 4 = PvE.
+    state.round = 7; // PvE (stage 2, roundInStage 4)
     const prng = mulberry32(state.prngState);
     runPveRound(state, prng, gameData);
     for (const id of [0, 1]) {

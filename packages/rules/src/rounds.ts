@@ -9,13 +9,69 @@ import { calcIncome } from "./economy.js";
 import { returnUnitsToPool, returnToPool } from "./pool.js";
 import { generateLoot, applyLootOrb } from "./loot.js";
 
-export function isPveRound(round: number, data: GameData): boolean {
-  return data.gameplay.pveRounds.includes(round);
+// ---------------------------------------------------------------------------
+// Stage formula — structural constants (not tuning numbers)
+// ---------------------------------------------------------------------------
+
+/** Stage 1 is 3 rounds long (all PvE). Stages 2+ are 7 rounds each. */
+const STAGE1_LEN = 3; // magic-ok: stage-1 length is structural (3 PvE-only rounds)
+/** Round at which stage 2 begins. */
+const STAGE2_START = 4; // magic-ok: stage 2 starts at round 4, structural
+/** Number of rounds in each stage 2+ cycle. */
+const STAGE_LEN = 7; // magic-ok: 7 rounds per stage 2+, structural
+/** The two roundInStage positions that are PvE in every stage 2+ cycle. */
+const PVE_RIS_A = 4; // magic-ok: roundInStage 4 is PvE in stage 2+, structural
+const PVE_RIS_B = 7; // magic-ok: roundInStage 7 is PvE in stage 2+, structural
+
+/**
+ * Pure: derives the stage number and position-within-stage for a given round.
+ *
+ * Stage 1 = rounds 1-3 (3 rounds, all PvE).
+ * Stage 2+ = 7 rounds each, starting at round 4.
+ *   Within a stage (X >= 2): roundInStage 1-3 = PvP, 4 = PvE, 5-6 = PvP, 7 = PvE.
+ *
+ * Round mapping examples:
+ *   round 1  → stage 1, roundInStage 1
+ *   round 2  → stage 1, roundInStage 2
+ *   round 3  → stage 1, roundInStage 3
+ *   round 4  → stage 2, roundInStage 1
+ *   round 10 → stage 2, roundInStage 7
+ *   round 11 → stage 3, roundInStage 1
+ *   round 17 → stage 3, roundInStage 7
+ */
+export function stageForRound(round: number): { stage: number; roundInStage: number } {
+  if (round <= STAGE1_LEN) {
+    return { stage: 1, roundInStage: round };
+  }
+  // Rounds STAGE2_START+ map into stages 2, 3, 4, ... each STAGE_LEN rounds long.
+  const offset = round - STAGE2_START; // 0-based within stages 2+
+  const stage = 2 + Math.floor(offset / STAGE_LEN);
+  const roundInStage = (offset % STAGE_LEN) + 1;
+  return { stage, roundInStage };
 }
 
-/** The PvE stage fought on a given round, if any. */
+/**
+ * Pure: returns true if the given round is a PvE round under the stage formula.
+ * Stage 1: all rounds (1-3) are PvE.
+ * Stage 2+: roundInStage 4 and 7 are PvE.
+ *
+ * The second argument is accepted but ignored — it exists only for call-site
+ * backward compatibility with the old `isPveRound(round, data)` signature.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function isPveRound(round: number, _data?: unknown): boolean {
+  const { stage, roundInStage } = stageForRound(round);
+  if (stage === 1) return true;
+  return roundInStage === PVE_RIS_A || roundInStage === PVE_RIS_B;
+}
+
+/** The PvE stage fought on a given round, if any. Returns null on non-PvE rounds. */
 export function pveStageForRound(round: number, data: GameData): MobStageDef | null {
-  return data.mobs.stages.find((s) => s.round === round) ?? null;
+  if (!isPveRound(round)) return null;
+  const { stage, roundInStage } = stageForRound(round);
+  return (
+    data.mobs.stages.find((s) => s.stage === stage && s.roundInStage === roundInStage) ?? null
+  );
 }
 
 /**
@@ -310,7 +366,7 @@ export function runCombatPhase(
   const prng = mulberry32(state.prngState);
   state.prngState = prng();
 
-  if (isPveRound(state.round, data)) {
+  if (isPveRound(state.round)) {
     runPveRound(state, prng, data);
     return;
   }

@@ -3,6 +3,7 @@ import { gameData } from "@autobattler/data";
 import { createMatch, advancePhase, isMatchOver } from "@autobattler/rules";
 import { applyAiCommands } from "@autobattler/rules/src/ai.js";
 import { mulberry32 } from "@autobattler/sim/src/prng.js";
+import { isPveRound } from "@autobattler/rules/src/rounds.js";
 import { LocalDriver } from "../src/driver.js";
 import type { DriverEvent } from "../src/driver.js";
 
@@ -136,8 +137,8 @@ describe("LocalDriver phase flow", () => {
   });
 
   it("PvE round (round 1): exposes the stage, a PvE combat result, and seeded loot orbs", () => {
-    // Rounds 1/2/4 are PvE in the data. Round 1 is PvE on a fresh match.
-    expect(gameData.gameplay.pveRounds).toContain(1);
+    // Round 1 is PvE under the stage formula (stage 1, all rounds PvE).
+    expect(isPveRound(1)).toBe(true);
     const driver = new LocalDriver(21);
     driver.startPlanning();
     expect(driver.isPveRound()).toBe(true);

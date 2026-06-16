@@ -51,14 +51,33 @@ describe("pool conservation", () => {
     expect(totalInPool(pool)).toBe(before);
   });
 
-  it("initial shop rolls draw from the pool", () => {
+  it("initial shop rolls and starting bench units draw from the pool, total stays constant", () => {
     const state = createMatch(1, gameData);
     const shopCount = state.players.reduce(
       (n, p) => n + p.shop.filter((s) => s !== null).length,
       0
     );
+    // Starting bench: one unit per player (1-star = 1 pool copy each)
+    const benchCount = state.players.reduce((n, p) => n + p.bench.length, 0);
     expect(shopCount).toBeGreaterThan(0);
-    expect(totalInPool(state.pool)).toBe(initialTotal() - shopCount);
+    // Pool is depleted by both shop draws and starting bench draws
+    expect(totalInPool(state.pool)).toBe(initialTotal() - shopCount - benchCount);
+    // But totalInMatch (pool + bench + board + shop) always equals the initial total
+    expect(totalInMatch(state)).toBe(initialTotal());
+  });
+
+  it("every player starts with exactly 1 bench unit of the configured startingUnitId", () => {
+    const state = createMatch(1, gameData);
+    const startId = gameData.gameplay.startingUnitId;
+    for (const p of state.players) {
+      expect(p.bench.length).toBe(1);
+      expect(p.bench[0]!.defId).toBe(startId);
+      expect(p.bench[0]!.star).toBe(1);
+    }
+  });
+
+  it("pool conservation holds at match start: pool copies + bench + board + shop = initialTotal", () => {
+    const state = createMatch(42, gameData);
     expect(totalInMatch(state)).toBe(initialTotal());
   });
 
@@ -181,9 +200,19 @@ describe("merge cascade", () => {
   it("3x 1-star -> 2-star on bench", () => {
     const state = createMatch(1, gameData);
     const prng = mulberry32(1);
-    const defId = gameData.units[0]!.id;
+    const defId = gameData.units[0]!.id; // "warrior" (same as startingUnitId)
     const player = state.players[0]!;
     player.gold = 1000;
+
+    // Clear the starting bench unit so this test is self-contained.
+    // Return the copy to the pool to keep conservation.
+    for (const u of player.bench) {
+      const copies = gameData.gameplay.copiesPerStar[String(u.star)] ?? 1;
+      for (let i = 0; i < copies; i++) {
+        returnToPool(state.pool, u.defId);
+      }
+    }
+    player.bench = [];
 
     // Force shop to have 3 copies of same unit (treated as already drawn)
     player.shop = [
@@ -237,6 +266,7 @@ describe("merge cascade", () => {
       };
     };
 
+    // Override bench entirely (the starting unit is discarded from bench)
     player.bench = [makeUnit(1, 2), makeUnit(2, 2)];
     player.board[0] = makeUnit(3, 2);
 
@@ -288,7 +318,7 @@ describe("merge cascade", () => {
       };
     };
 
-    // 3 units with 2 items each -> 6 items total
+    // 3 units with 2 items each -> 6 items total (override bench entirely)
     player.bench = [
       makeUnit(1, ["iron_sword", "chain_vest"]),
       makeUnit(2, ["mana_crystal", "iron_sword"]),

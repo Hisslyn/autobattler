@@ -59,7 +59,9 @@ describe("command validation", () => {
     const player = state.players[0]!;
     player.gold = 100;
     player.level = 1;
-    // Fill bench to max with 9 distinct units so no merge is possible
+    // Clear the default starting unit, then fill bench to max with 9 distinct
+    // units so no merge is possible.
+    player.bench = [];
     for (let i = 0; i < 9; i++) {
       player.bench.push(makeUnit(9000 + i, gameData.units[i]!.id));
     }
@@ -78,7 +80,9 @@ describe("command validation", () => {
     player.gold = 100;
     player.level = 1;
     const defId = gameData.units[0]!.id;
-    // Bench: 2 copies of defId + 7 distinct fillers = full
+    // Clear the default starting unit, then build a full bench:
+    // 2 copies of defId + 7 distinct fillers.
+    player.bench = [];
     player.bench.push(makeUnit(9000, defId));
     player.bench.push(makeUnit(9001, defId));
     for (let i = 0; i < 7; i++) {
