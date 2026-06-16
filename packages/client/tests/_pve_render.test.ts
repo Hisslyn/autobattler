@@ -9,7 +9,7 @@ describe("pve combat result renders mobs", () => {
   it("init event includes mob units (side 1)", () => {
     const state = createMatch(42, gameData);
     const d: any = gameData.units[0]!;
-    state.players[0].board[24] = {
+    state.players[0]!.board[24] = {
       uid: state.nextUid++, defId: d.id, tier: d.tier, star: 1, team: 0,
       pos: { q: 0, r: 0 }, hp: d.hp, maxHp: d.hp, ad: d.ad, as: d.as, armor: d.armor,
       mr: d.mr, range: d.range, mana: 0, maxMana: d.mana, abilityDamage: d.abilityDamage,

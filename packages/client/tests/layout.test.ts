@@ -12,6 +12,7 @@ import {
   LANDSCAPE_W, LANDSCAPE_H,
 } from "../src/layout.js";
 import type { Rect, MatchLayout } from "../src/layout.js";
+import { landscapeHudControls } from "../src/hudControlsLayout.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -609,4 +610,43 @@ describe("landscapeBenchSlotAt", () => {
     expect(landscapeBenchSlotAt(bench.x + bench.w / 2, bench.y - 5, bench)).toBeNull();
     expect(landscapeBenchSlotAt(bench.x + bench.w / 2, bench.y + bench.h + 5, bench)).toBeNull();
   });
+});
+
+// ── landscape HUD controls (BUG 2: reroll/buy-xp must fit the hud region) ──────
+
+describe("landscapeHudControls fits the hud region", () => {
+  /** True if `inner` is fully contained in `outer` (inclusive edges). */
+  const within = (inner: Rect, outer: Rect): boolean =>
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.w <= outer.x + outer.w &&
+    inner.y + inner.h <= outer.y + outer.h;
+
+  // Range of supported landscape viewports (design + a wider/taller phone).
+  const viewports = [
+    { viewportW: 844, viewportH: 390 },
+    { viewportW: 1688, viewportH: 780 },
+    { viewportW: 640, viewportH: 360 },
+  ];
+
+  for (const vp of viewports) {
+    it(`reroll + buy-xp stay inside the hud region at ${vp.viewportW}×${vp.viewportH}`, () => {
+      const layout = resolveLayout(vp);
+      const hud = layout.regions.hud;
+      const { reroll, buyXp } = landscapeHudControls(hud);
+
+      expect(within(reroll, hud), "reroll within hud region").toBe(true);
+      expect(within(buyXp, hud), "buy-xp within hud region").toBe(true);
+
+      // And inside the overall design bounds (the off-screen symptom of BUG 2).
+      expect(withinBounds(reroll, layout.designW, layout.designH)).toBe(true);
+      expect(withinBounds(buyXp, layout.designW, layout.designH)).toBe(true);
+
+      // The two buttons must not overlap each other.
+      expect(rectsOverlap(reroll, buyXp)).toBe(false);
+      // Both remain at least a usable touch width.
+      expect(reroll.w).toBeGreaterThanOrEqual(40);
+      expect(buyXp.w).toBeGreaterThanOrEqual(40);
+    });
+  }
 });

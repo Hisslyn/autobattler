@@ -28,6 +28,7 @@ import { onUnitArtReady } from "../sprites.js";
 import { drawItemIcon, onItemArtReady } from "../itemIconDraw.js";
 import { Z_COMBAT_HEADER, Z_RESOLUTION_BUTTON, Z_RESOLUTION_CONTROL } from "../combatLayout.js";
 import { benchGeom, benchSlotAtX } from "../benchLayout.js";
+import { landscapeHudControls } from "../hudControlsLayout.js";
 import type { SettingsStore } from "../settings.js";
 import type { AudioManager } from "../audio/manager.js";
 import { phaseToMusicState } from "../audio/director.js";
@@ -1322,27 +1323,30 @@ export class MatchScene {
       this.text(this.shopLayer, `${streak > 0 ? "+" : ""}${streak}`, x0 + 120, y + 11, 11, C.streakOrange, [0, 0.5]);
     }
 
-    // ── Sub-row B: reroll | XP buttons (each half the remaining width) ───────
-    const btnY = y + 26, btnH = 20, btnW = 106;
-    const rrX = x0;
+    // ── Sub-row B: reroll | XP buttons. Geometry is the pure, region-fitted
+    // landscapeHudControls (splits hud.w) — never the old fixed 106px-each
+    // layout which overflowed the 158px right-column hud region (BUG 2). ──
+    const ctrl = landscapeHudControls(hud);
+    const btnY = ctrl.reroll.y, btnH = ctrl.reroll.h, btnW = ctrl.reroll.w;
+    const rrX = ctrl.reroll.x;
     const rr = this.chip(this.shopLayer, rrX, btnY, btnW, btnH, { fill: C.bgReroll });
     rr.eventMode = "static";
     rr.hitArea = new PIXI.Rectangle(rrX, btnY, btnW, btnH);
     rr.cursor = "pointer";
     this.pressFeedback(rr, () => this.onReroll(), { cx: rrX + btnW / 2, cy: btnY + btnH / 2 });
-    this.glyph(this.shopLayer, "refresh", rrX + 12, btnY + btnH / 2, 11, C.textPrimary);
-    this.glyph(this.shopLayer, "coin", rrX + 28, btnY + btnH / 2, 8, C.accentGold);
-    this.text(this.shopLayer, `${gameData.economy.rerollCost}g`, rrX + 36, btnY + btnH / 2, 10, C.textGold, [0, 0.5]);
+    this.glyph(this.shopLayer, "refresh", rrX + 10, btnY + btnH / 2, 11, C.textPrimary);
+    this.glyph(this.shopLayer, "coin", rrX + 26, btnY + btnH / 2, 8, C.accentGold);
+    this.text(this.shopLayer, `${gameData.economy.rerollCost}g`, rrX + 34, btnY + btnH / 2, 10, C.textGold, [0, 0.5]);
 
-    const xpX = x0 + 110;
+    const xpX = ctrl.buyXp.x;
     const xpBtn = this.chip(this.shopLayer, xpX, btnY, btnW, btnH, { fill: C.bgXp });
     xpBtn.eventMode = "static";
     xpBtn.hitArea = new PIXI.Rectangle(xpX, btnY, btnW, btnH);
     xpBtn.cursor = "pointer";
     this.pressFeedback(xpBtn, () => this.onBuyXp(), { cx: xpX + btnW / 2, cy: btnY + btnH / 2 });
     this.text(this.shopLayer, "XP", xpX + 8, btnY + btnH / 2, 10, C.textPrimary, [0, 0.5]);
-    this.glyph(this.shopLayer, "coin", xpX + 30, btnY + btnH / 2, 8, C.accentGold);
-    this.text(this.shopLayer, `${gameData.economy.xpBuyCost}g`, xpX + 38, btnY + btnH / 2, 10, C.textGold, [0, 0.5]);
+    this.glyph(this.shopLayer, "coin", xpX + 28, btnY + btnH / 2, 8, C.accentGold);
+    this.text(this.shopLayer, `${gameData.economy.xpBuyCost}g`, xpX + 36, btnY + btnH / 2, 10, C.textGold, [0, 0.5]);
   }
 
   /** Portrait HUD: the prior single horizontal band (unchanged). */

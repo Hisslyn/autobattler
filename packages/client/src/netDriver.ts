@@ -5,7 +5,7 @@ import type { MatchStats } from "@autobattler/protocol";
 import type { UnitInstance, CombatResult } from "@autobattler/sim/src/types.js";
 import { simulateCombat } from "@autobattler/sim";
 import { applyCommand } from "@autobattler/rules/src/commands.js";
-import { derivePairingSeed, boardToCombatState, ghostToCombatState, isPveRound, pveStageForRound } from "@autobattler/rules/src/rounds.js";
+import { derivePairingSeed, boardToCombatState, ghostToCombatState, isPveRound, pveStageForRound, buildMobBoard } from "@autobattler/rules/src/rounds.js";
 import { NetClient } from "./net.js";
 import type { IDriver, DriverEvent, Outcome } from "./driver.js";
 
@@ -106,6 +106,28 @@ export class NetDriver implements IDriver {
           this._myPairing = null;
           this._myOpponentBoard = null;
           this._myCombatResult = null;
+
+          if (isPveRound(this._state.round, gameData)) {
+            // PvE rounds carry no pairing (lastPairings is empty server-side), so
+            // the mob board never arrives in opponentSnapshots and no local sim
+            // would run here. Build the creep board + combat locally (deterministic
+            // from the round seed, mirroring rules' runPveRound) so the mob board
+            // renders the instant we enter COMBAT — the later COMBAT_RESULT is
+            // still authoritative and overwrites _myCombatResult below.
+            const stage = pveStageForRound(this._state.round, gameData);
+            if (stage) {
+              try {
+                const myPlayer = this._state.players[this.mySeat]!;
+                const boardA = boardToCombatState(myPlayer.board, 0);
+                const mobBoard = buildMobBoard(this._state, stage, gameData);
+                this._myOpponentBoard = mobBoard.units.map((u) => ({ ...u }));
+                const seed = derivePairingSeed(e.roundSeed, this.mySeat);
+                this._myCombatResult = simulateCombat(boardA, mobBoard, seed, gameData);
+              } catch {
+                // local sim failed; wait for COMBAT_RESULT
+              }
+            }
+          }
 
           const pairingIndex = e.pairings.findIndex(([a, b]) => a === this.mySeat || b === this.mySeat);
           if (pairingIndex >= 0) {

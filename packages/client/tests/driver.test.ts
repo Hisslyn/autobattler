@@ -3,7 +3,15 @@ import { gameData } from "@autobattler/data";
 import { createMatch, advancePhase, isMatchOver } from "@autobattler/rules";
 import { applyAiCommands } from "@autobattler/rules/src/ai.js";
 import { mulberry32 } from "@autobattler/sim/src/prng.js";
-import { isPveRound } from "@autobattler/rules/src/rounds.js";
+import {
+  isPveRound,
+  pveStageForRound,
+  buildMobBoard,
+  boardToCombatState,
+  derivePairingSeed,
+} from "@autobattler/rules/src/rounds.js";
+import { simulateCombat } from "@autobattler/sim";
+import { stateAtTick } from "../src/combat/reducer.js";
 import { LocalDriver } from "../src/driver.js";
 import type { DriverEvent } from "../src/driver.js";
 
@@ -160,6 +168,56 @@ describe("LocalDriver phase flow", () => {
     d2.startPlanning();
     d2.ready();
     expect(JSON.stringify(d2.getMyLootOrbs())).toBe(JSON.stringify(orbs));
+  });
+
+  it("PvE round: mob board reaching the driver is non-empty and renders (regression: empty PvE board)", () => {
+    // Regression for: PvE mobs not rendering. LocalDriver must expose a populated
+    // opponent (mob) board AND a combat result whose event log carries side-1
+    // (mob) units, so the combat-playback render draws the creeps.
+    const driver = new LocalDriver(33);
+    driver.startPlanning();
+    expect(driver.isPveRound()).toBe(true);
+    driver.ready();
+
+    const oppBoard = driver.getMyOpponentBoard();
+    expect(oppBoard, "PvE opponent (mob) board must reach the driver").not.toBeNull();
+    expect(oppBoard!.filter((u) => u != null).length).toBeGreaterThan(0);
+
+    const result = driver.getMyCombatResult()!;
+    expect(result.events.length).toBeGreaterThan(0);
+    const mobsAtStart = [...stateAtTick(result.events, 0).units.values()].filter((u) => u.side === 1);
+    expect(mobsAtStart.length).toBeGreaterThan(0);
+
+    // Mob defIds must be absent from data.units (so UnitToken picks the mob ring)
+    // and present in data.mobs after the {stage, roundInStage} re-key.
+    const unitIds = new Set(gameData.units.map((u) => u.id));
+    const mobIds = new Set(gameData.mobs.mobs.map((m) => m.id));
+    for (const u of mobsAtStart) {
+      expect(unitIds.has(u.defId)).toBe(false);
+      expect(mobIds.has(u.defId)).toBe(true);
+    }
+  });
+
+  it("PvE round: NetDriver-equivalent local derivation (COMBAT_START) yields a non-empty mob board", () => {
+    // Mirrors the NetDriver COMBAT_START PvE branch: online a PvE round carries no
+    // pairing, so the client must derive the mob board itself from the round seed.
+    // Asserts that derivation (the exact shared helpers NetDriver now uses) is
+    // populated for every PvE stage under the re-keyed mobs.json schema.
+    for (const round of [1, 2, 3, 4, 7, 10]) {
+      if (!isPveRound(round)) continue;
+      const stage = pveStageForRound(round, gameData);
+      expect(stage, `round ${round} must resolve a PvE stage`).not.toBeNull();
+      const state = createMatch(1234, gameData);
+      state.round = round;
+      const mobBoard = buildMobBoard(state, stage!, gameData);
+      expect(mobBoard.units.length, `round ${round} mob board`).toBeGreaterThan(0);
+
+      // The combat the client sims for rendering must contain the mob init events.
+      const boardA = boardToCombatState(state.players[0]!.board, 0);
+      const result = simulateCombat(boardA, mobBoard, derivePairingSeed(state.lastRoundSeed, 0), gameData);
+      const mobs = [...stateAtTick(result.events, 0).units.values()].filter((u) => u.side === 1);
+      expect(mobs.length, `round ${round} mob init events`).toBeGreaterThan(0);
+    }
   });
 
   it("RESOLUTION is held until combatPlaybackDone; duplicate calls are no-ops", () => {
