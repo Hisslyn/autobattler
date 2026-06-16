@@ -206,8 +206,11 @@ export class LocalDriver implements IDriver {
 
     // Hold RESOLUTION until the scene finishes event-log playback. The cap
     // uses 1x duration (speed only shortens playback) so a missing scene
-    // can never stall the match.
-    const result = getPairingFor(this.state, HUMAN_PLAYER_ID)?.result ?? null;
+    // can never stall the match. Use the PvE-aware accessor: a PvE round has
+    // no pairing but still produces a combat result whose log the scene plays
+    // back, so the cap must reflect that duration (else capMs=0 would fire
+    // combatPlaybackDone immediately and tear the mob board down on frame 1).
+    const result = this.getMyCombatResult();
     const capMs = result
       ? Math.ceil((result.ticks * 1000) / gameData.gameplay.ticksPerSec) + PLAYBACK_CAP_BUFFER_MS
       : 0;

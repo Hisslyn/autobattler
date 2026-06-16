@@ -170,6 +170,42 @@ describe("LocalDriver phase flow", () => {
     expect(JSON.stringify(d2.getMyLootOrbs())).toBe(JSON.stringify(orbs));
   });
 
+  it("PvE round: playback is HELD (cap reflects PvE combat duration, not a 0ms cap that fires instantly)", () => {
+    // Regression for: PvE mob board flashes and vanishes in Practice. PvE has no
+    // pairing, so the OLD cap used getPairingFor(...).result === null → capMs=0,
+    // firing combatPlaybackDone() on the next macrotask and tearing the combat
+    // view down on frame 1. The cap must use the PvE-aware combat result so the
+    // RESOLUTION phase_change is NOT emitted until the scene reports playback
+    // done (or the real 1x-duration cap elapses).
+    const driver = new LocalDriver(21);
+    expect(driver.isPveRound()).toBe(true);
+    const phases: string[] = [];
+    driver.on((e: DriverEvent) => {
+      if (e.type === "phase_change") phases.push(e.phase);
+    });
+    driver.startPlanning();
+    driver.ready();
+
+    // COMBAT was emitted; RESOLUTION must NOT yet be emitted.
+    expect(phases).toEqual(["PLANNING", "COMBAT"]);
+
+    // A PvE round must still produce a playable combat result (mob init events).
+    const result = driver.getMyCombatResult()!;
+    expect(result.events.length).toBeGreaterThan(0);
+
+    // The cap timer must NOT have fired synchronously / on the next macrotask
+    // (the old bug: getPairingFor(...).result === null → capMs=0 → instant
+    // teardown of the mob board). Flushing the microtask/macrotask queue at 0ms
+    // must not emit RESOLUTION; only the scene's combatPlaybackDone() (or the
+    // real >0 cap) may release it.
+    vi.advanceTimersByTime(0);
+    expect(phases).not.toContain("RESOLUTION");
+
+    // The scene reporting playback done releases RESOLUTION (normal path).
+    driver.combatPlaybackDone();
+    expect(phases[phases.length - 1]).toBe("RESOLUTION");
+  });
+
   it("PvE round: mob board reaching the driver is non-empty and renders (regression: empty PvE board)", () => {
     // Regression for: PvE mobs not rendering. LocalDriver must expose a populated
     // opponent (mob) board AND a combat result whose event log carries side-1
