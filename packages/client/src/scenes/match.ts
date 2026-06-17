@@ -12,7 +12,7 @@ import { C, tierColor, CHIP_TEXT_SIZE, CHIP_TEXT_FONT } from "../theme.js";
 import { drawUnitToken } from "../unitToken.js";
 import { drawGlyph, glyphForTraits } from "../glyphs.js";
 import type { GlyphKind } from "../glyphs.js";
-import { traitStripModel, xpProgress } from "../hudModel.js";
+import { traitStripModel, xpProgress, levelBadgeGeom } from "../hudModel.js";
 import type { TraitChip } from "../hudModel.js";
 import { inspectModel } from "../inspectModel.js";
 import { traitDetailModel } from "../traitDetailModel.js";
@@ -28,7 +28,7 @@ import { onUnitArtReady } from "../sprites.js";
 import { drawItemIcon, onItemArtReady } from "../itemIconDraw.js";
 import { Z_COMBAT_HEADER, Z_RESOLUTION_OVERLAY, Z_RESOLUTION_BUTTON, Z_RESOLUTION_CONTROL } from "../combatLayout.js";
 import { benchGeom, benchSlotAtX } from "../benchLayout.js";
-import { landscapeHudControls } from "../hudControlsLayout.js";
+import { landscapeHudControls, HUD_BTN_Y_OFFSET } from "../hudControlsLayout.js";
 import type { SettingsStore } from "../settings.js";
 import type { AudioManager } from "../audio/manager.js";
 import { phaseToMusicState } from "../audio/director.js";
@@ -1250,6 +1250,43 @@ export class MatchScene {
 
   // ─── D. HUD row: level / gold / streak / reroll / buy-xp ──────────────────────
 
+  /**
+   * Circular level badge + arced xp progress + numeric label, drawn at the
+   * bottom-left of the hud region (the band just above the shop). Replaces the
+   * former level chip + straight xp bar. Pure geometry comes from
+   * `levelBadgeGeom`; this only paints — no game logic (renderer-is-dumb).
+   * Returns the badge's right edge so the caller lays out gold/streak after it.
+   */
+  private renderLevelBadge(me: PlayerState, region?: { x: number; y: number; w: number; h: number }): number {
+    const hud = region ?? this.layout.regions.hud;
+    const g = levelBadgeGeom(hud);
+    const xp = xpProgress(me.xp, me.level, gameData.economy.levelXpThresholds);
+
+    const gfx = new PIXI.Graphics();
+    // Disc.
+    gfx.circle(g.cx, g.cy, g.badgeR).fill({ color: C.tokenBg });
+    gfx.circle(g.cx, g.cy, g.badgeR).stroke({ width: 1, color: C.chipBorder });
+    // XP progress arc: full track + filled sweep, clockwise from 12 o'clock.
+    const start = -Math.PI / 2;
+    const track = Math.max(0.0001, g.arcR);
+    gfx.arc(g.cx, g.cy, track, start, start + Math.PI * 2)
+      .stroke({ width: g.arcW, color: C.bgShopEmpty, cap: "round" });
+    if (xp.frac > 0) {
+      gfx.arc(g.cx, g.cy, track, start, start + Math.PI * 2 * xp.frac)
+        .stroke({ width: g.arcW, color: C.xpPurple, cap: "round" });
+    }
+    gfx.eventMode = "none";
+    this.shopLayer.addChild(gfx);
+
+    // Level number, centered in the disc.
+    this.text(this.shopLayer, `${me.level}`, g.cx, g.cy, 13, C.textPrimary, [0.5, 0.5]);
+    // Numeric "current/threshold" label under the arc (∞ when maxed).
+    const label = xp.maxed ? "MAX" : `${xp.inLevel}/${xp.needed}`;
+    this.text(this.shopLayer, label, g.cx, g.labelY, 9, C.textMuted, [0.5, 0]);
+
+    return g.cx + g.arcR;
+  }
+
   private renderControls(me: PlayerState): void {
     if (this.isLandscape) { this.renderControlsLandscape(me); return; }
     this.renderControlsPortrait(me);
@@ -1265,28 +1302,21 @@ export class MatchScene {
     const x0 = hud.x;
     const y = hud.y;
 
-    // ── Sub-row A: level chip | gold | streak (compressed) ──────────────────
-    // Level chip + xp bar
-    const levelW = 50, levelH = 22;
-    this.chip(this.shopLayer, x0, y, levelW, levelH);
-    this.text(this.shopLayer, `Lv ${me.level}`, x0 + 6, y + 8, 10, C.textPrimary, [0, 0.5]);
-    const xp = xpProgress(me.xp, me.level, gameData.economy.levelXpThresholds);
-    const xpBarX = x0 + 6, xpBarW = levelW - 12, xpBarY = y + levelH - 5;
-    const xpb = new PIXI.Graphics();
-    xpb.rect(xpBarX, xpBarY, xpBarW, 3).fill({ color: C.bgShopEmpty });
-    xpb.rect(xpBarX, xpBarY, Math.round(xpBarW * xp.frac), 3).fill({ color: C.xpPurple });
-    xpb.eventMode = "none";
-    this.shopLayer.addChild(xpb);
+    // ── Sub-row A: level badge | gold | streak (compressed) ─────────────────
+    // Circular level badge + arced xp progress (replaces the old chip + bar),
+    // confined to the top economy sub-row so it never collides with the
+    // reroll/XP buttons of sub-row B (which start at HUD_BTN_Y_OFFSET).
+    const badgeRight = this.renderLevelBadge(me, { x: x0, y, w: hud.w, h: HUD_BTN_Y_OFFSET });
 
     // Gold (coin glyph + compressed number)
-    this.glyph(this.shopLayer, "coin", x0 + 52, y + 11, 10, C.accentGold);
-    this.text(this.shopLayer, `${me.gold}`, x0 + 64, y + 11, 15, C.textGold, [0, 0.5]);
+    this.glyph(this.shopLayer, "coin", badgeRight + 8, y + 11, 10, C.accentGold);
+    this.text(this.shopLayer, `${me.gold}`, badgeRight + 20, y + 11, 15, C.textGold, [0, 0.5]);
 
     // Streak (flame + signed value)
     const streak = me.winStreak > 0 ? me.winStreak : me.loseStreak > 0 ? -me.loseStreak : 0;
     if (streak !== 0) {
-      this.glyph(this.shopLayer, "flame", x0 + 110, y + 11, 11, C.streakOrange);
-      this.text(this.shopLayer, `${streak > 0 ? "+" : ""}${streak}`, x0 + 120, y + 11, 11, C.streakOrange, [0, 0.5]);
+      this.glyph(this.shopLayer, "flame", badgeRight + 66, y + 11, 11, C.streakOrange);
+      this.text(this.shopLayer, `${streak > 0 ? "+" : ""}${streak}`, badgeRight + 76, y + 11, 11, C.streakOrange, [0, 0.5]);
     }
 
     // ── Sub-row B: reroll | XP buttons. Geometry is the pure, region-fitted
@@ -1323,18 +1353,9 @@ export class MatchScene {
     const x0 = hud.x;
     const off = { goldG: 83, goldT: 95, streakG: 147, streakT: 159, rrX: 233, rrW: 62, xpX: 303, xpW: 70, levelW: 66 };
 
-    // Level chip + xp-purple progress bar
-    this.chip(this.shopLayer, x0, y, off.levelW, h);
-    this.text(this.shopLayer, `Lv ${me.level}`, x0 + 8, y + 12, 11, C.textPrimary, [0, 0.5]);
-    const xp = xpProgress(me.xp, me.level, gameData.economy.levelXpThresholds);
-    const xpBarX = x0 + 8;
-    const xpBarW = off.levelW - 16;
-    const xpBarY = y + h - 10;
-    const xpb = new PIXI.Graphics();
-    xpb.rect(xpBarX, xpBarY, xpBarW, 4).fill({ color: C.bgShopEmpty });
-    xpb.rect(xpBarX, xpBarY, Math.round(xpBarW * xp.frac), 4).fill({ color: C.xpPurple });
-    xpb.eventMode = "none";
-    this.shopLayer.addChild(xpb);
+    // Circular level badge + arced xp progress (replaces the old chip + bar),
+    // anchored bottom-left of the hud band (the strip just above the shop).
+    void this.renderLevelBadge(me);
 
     // Gold (large, gold + coin glyph)
     this.glyph(this.shopLayer, "coin", x0 + off.goldG, y + h / 2, 13, C.accentGold);

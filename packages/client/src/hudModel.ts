@@ -120,9 +120,12 @@ export interface LevelBadgeGeom {
 export function levelBadgeGeom(hud: { x: number; y: number; w: number; h: number }): LevelBadgeGeom {
   // Badge radius scales with hud height but is capped (≈18 portrait / ≈14 short
   // landscape); the arc is slightly larger; the label tucks just below the arc.
-  const badgeR = Math.max(10, Math.min(18, Math.round(hud.h * 0.42)));
   const arcW = 5;
-  const arcR = Math.min(badgeR + 8, hud.h / 2 - arcW / 2);
+  // The arc is the outer bound; it must fit vertically within the region. Derive
+  // it first, then size the badge disc strictly inside it so the invariant
+  // arcR ≥ badgeR holds for every hud height (tall portrait → short landscape).
+  const arcR = Math.max(8, Math.min(18, hud.h / 2 - arcW / 2));
+  const badgeR = Math.max(7, arcR - 3);
   // Center the badge a little in from the left edge, vertically centered with a
   // small lift so the label fits under the arc within the region.
   const cx = hud.x + arcR + 2;
