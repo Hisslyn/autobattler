@@ -48,6 +48,27 @@ describe("inspectModel", () => {
     expect(m.stats.find((s) => s.label === "Mana")!.value).toBe(`3/${def.mana}`);
   });
 
+  it("resolves a PvE mob defId via the mob fallback (no traits, no cost)", () => {
+    const mob = gameData.mobs.mobs[0]!;
+    const m = inspectModel(mob.id, null, gameData)!;
+    expect(m).not.toBeNull();
+    expect(m.name).toBe(mob.name);
+    expect(m.tier).toBe(mob.tier);
+    // mobs carry no traits and have no shop cost
+    expect(m.origin).toBeNull();
+    expect(m.classes).toEqual([]);
+    expect(m.cost).toBe(0);
+    expect(m.items).toEqual([]);
+    // the core stat rows still render from the mob def
+    const labels = m.stats.map((s) => s.label);
+    for (const l of ["HP", "AD", "AS", "Armor", "MR", "Range", "Mana"]) {
+      expect(labels).toContain(l);
+    }
+    expect(m.stats.find((s) => s.label === "HP")!.value).toBe(`${mob.hp}`);
+    // ability is present only when the mob defines one
+    expect(m.ability === null || typeof m.ability.name === "string").toBe(true);
+  });
+
   it("describes every ability effect kind", () => {
     expect(abilityDescription("x", { kind: "magic_damage" }, 100)).toMatch(/100 magic/);
     expect(abilityDescription("x", { kind: "burn", burn: 20, duration: 40 }, 80)).toMatch(/burns for 20/);

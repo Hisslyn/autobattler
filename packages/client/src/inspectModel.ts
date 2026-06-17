@@ -3,7 +3,7 @@
 // the data definitions (units.json via the loader) plus a live UnitInstance when
 // one exists (board/bench show current hp/mana; shop shows base stats).
 import type { UnitInstance } from "@autobattler/sim/src/types.js";
-import type { GameData, UnitDataDef, AbilityEffectData } from "@autobattler/data";
+import type { GameData, UnitDataDef, AbilityEffectData, MobDataDef } from "@autobattler/data";
 import { formatStat, formatStatDelta } from "./statFormat.js";
 import { itemModel } from "./itemModel.js";
 import type { ItemModel } from "./itemModel.js";
@@ -25,11 +25,11 @@ export interface InspectModel {
   tier: number;
   /** Star to render (1 for a shop preview, the live star for an owned unit). */
   star: number;
-  /** Buy cost in gold (= tier). */
+  /** Buy cost in gold (= tier for units; 0 for mobs — they have no shop cost). */
   cost: number;
   origin: InspectTrait | null;
   classes: InspectTrait[];
-  ability: { name: string; manaCost: number; description: string };
+  ability: { name: string; manaCost: number; description: string } | null;
   /** Glanceable stat rows in display order. */
   stats: InspectStat[];
   /** Items the unit currently holds (empty for a shop preview / no items). */
@@ -64,7 +64,11 @@ function traitRef(id: string, data: GameData): InspectTrait | null {
 /**
  * Build the inspect model from a unit def id, an optional live instance (for
  * owned units showing current hp/mana/star), and the game data. Returns null if
- * the def id is unknown.
+ * the def id is unknown in both units and mobs.
+ *
+ * Mob fallback: when the defId is absent from data.units, searches data.mobs.mobs.
+ * Mob defs carry no traits (empty origin/classes), may have an optional ability,
+ * and have no shop cost.
  */
 export function inspectModel(
   defId: string,
@@ -72,8 +76,24 @@ export function inspectModel(
   data: GameData
 ): InspectModel | null {
   const def: UnitDataDef | undefined = data.units.find((u) => u.id === defId);
-  if (!def) return null;
+  if (def) {
+    return _modelFromUnit(def, instance, data);
+  }
 
+  // Mob fallback: PvE mob defIds are absent from data.units.
+  const mob: MobDataDef | undefined = data.mobs.mobs.find((m) => m.id === defId);
+  if (mob) {
+    return _modelFromMob(mob, instance);
+  }
+
+  return null;
+}
+
+function _modelFromUnit(
+  def: UnitDataDef,
+  instance: UnitInstance | null,
+  data: GameData
+): InspectModel {
   const star = instance?.star ?? 1;
   const hp = instance ? `${instance.hp}/${instance.maxHp}` : `${def.hp}`;
   const mana = instance
@@ -110,5 +130,50 @@ export function inspectModel(
     items: (instance?.items ?? [])
       .map((id) => itemModel(id, data))
       .filter((m): m is ItemModel => m !== null),
+  };
+}
+
+function _modelFromMob(
+  mob: MobDataDef,
+  instance: UnitInstance | null
+): InspectModel {
+  const star = instance?.star ?? 1;
+  const hp = instance ? `${instance.hp}/${instance.maxHp}` : `${mob.hp}`;
+  const mana = instance
+    ? `${instance.mana}/${instance.maxMana}`
+    : `${mob.manaStart}/${mob.mana}`;
+
+  const stats: InspectStat[] = [
+    { label: "HP", value: hp },
+    { label: "AD", value: formatStat("ad", instance?.ad ?? mob.ad) },
+    { label: "AS", value: formatStat("as", instance?.as ?? mob.as) },
+    { label: "Armor", value: formatStat("armor", instance?.armor ?? mob.armor) },
+    { label: "MR", value: formatStat("mr", instance?.mr ?? mob.mr) },
+    { label: "Range", value: formatStat("range", instance?.range ?? mob.range) },
+    { label: "Mana", value: mana },
+    ...(mob.ability ? [{ label: "Ability", value: `${mob.ability.manaCost}` }] : []),
+  ];
+
+  const ability = mob.ability
+    ? {
+        name: mob.ability.name,
+        manaCost: mob.ability.manaCost,
+        description: abilityDescription(mob.ability.name, mob.ability.effect, mob.abilityDamage),
+      }
+    : null;
+
+  return {
+    defId: mob.id,
+    name: mob.name,
+    tier: mob.tier,
+    star,
+    // Mobs have no shop cost — omit by using 0 (rendered as tier-only in panel)
+    cost: 0,
+    origin: null,
+    classes: [],
+    ability,
+    stats,
+    // Mobs never hold items
+    items: [],
   };
 }

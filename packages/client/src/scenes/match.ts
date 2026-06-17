@@ -451,6 +451,21 @@ export class MatchScene {
     this.glyph(this.hudLayer, "swords", 17, sy + 10, 13, C.starGold);
     this.text(this.hudLayer, `Stage ${stage}-${sub}`, 28, sy + 10, 10, C.textPrimary, [0, 0.5]);
 
+    // PvE preview affordance: a PvE round has no opponent to scout, but its
+    // upcoming creep board IS previewable. Reuse the eye-badge scout language as
+    // a compact tappable chip beside the stage chip (only when the upcoming
+    // round is PvE during planning).
+    if (state.phase === "PLANNING" && this.driver.getUpcomingPveBoard()) {
+      const px = 6 + stageW + 6;
+      const pw = 58;
+      const pchip = this.chip(this.hudLayer, px, sy, pw, 20, { fillAlpha: 0.9, border: C.tier3 });
+      pchip.eventMode = "static";
+      pchip.cursor = "pointer";
+      pchip.on("pointerdown", () => this.openPvePreview());
+      this.glyph(this.hudLayer, "eye", px + 12, sy + 10, 7, C.tier3);
+      this.text(this.hudLayer, "Scout", px + 22, sy + 10, 9, C.tier3, [0, 0.5]);
+    }
+
     // Planning timer (center): m:ss, muted; tint toward hp-low under 5s.
     const timeLeft = this.driver.getPlanningTimeLeft();
     if (state.phase === "PLANNING" && timeLeft > 0) {
@@ -1965,6 +1980,79 @@ export class MatchScene {
   private closeScout(): void {
     this.scoutTargetId = null;
     this.scoutLayer.removeChildren();
+  }
+
+  /**
+   * Pre-combat PvE preview: renders the upcoming creep board (real BoardState
+   * from rules via the driver) into the same overlay layer as the PvP scout.
+   * Mobs carry no traits, so there's no trait strip; long-pressing a creep token
+   * opens the same unit-inspect panel (inspectModel resolves mob defIds). Torn
+   * down by closeScout on dismiss / phase change.
+   */
+  private openPvePreview(): void {
+    const board = this.driver.getUpcomingPveBoard();
+    if (!board) return;
+    this.scoutLayer.removeChildren();
+    this.opts.audio.play("tap");
+
+    const { designW, designH, regions } = this.layout;
+    const pad = 20;
+    const panelX = pad;
+    const panelY = regions.statusRow.h + pad;
+    const panelW = designW - 2 * pad;
+    const panelH = designH - panelY - pad;
+
+    // Scrim — tap outside to dismiss (consistent with the scout/inspect overlays).
+    const scrim = new PIXI.Graphics();
+    scrim.rect(0, 0, designW, designH).fill({ color: C.bgScrim, alpha: 0.001 });
+    scrim.eventMode = "static";
+    scrim.cursor = "pointer";
+    scrim.on("pointerdown", () => this.closeScout());
+    this.scoutLayer.addChild(scrim);
+
+    const overlay = new PIXI.Graphics();
+    overlay.roundRect(panelX, panelY, panelW, panelH, 8).fill({ color: C.bgScout, alpha: 0.92 });
+    overlay.eventMode = "static"; // swallow taps so they don't dismiss via the scrim
+    this.scoutLayer.addChild(overlay);
+
+    // Header mirrors the combat-phase PvE label ("PvE · <stage> · Creeps").
+    const stageName = this.driver.getPveStageName();
+    const header = stageName ? `PvE · ${stageName} · Creeps` : "PvE · Creeps";
+    this.text(this.scoutLayer, header, panelX + 10, panelY + 10, 12, C.pveLabel, [0, 0]);
+
+    // Creep board — each mob sits on the enemy half (rows BOARD_ROWS..2*BOARD_ROWS-1);
+    // map those down to a 0-based mini-board so the formation reads top-down like
+    // the PvP scout. Long-press a token → the shared unit-inspect panel.
+    const boardOffX = panelX + (panelW - BOARD_COLS * HEX_W) / 2 + HEX_R;
+    const boardOffY = panelY + 50;
+    for (const unit of board.units) {
+      const displayRow = unit.pos.r - BOARD_ROWS; // enemy-half row → 0..BOARD_ROWS-1
+      const { x, y } = hexToPixel(unit.pos.q, displayRow, boardOffX, boardOffY);
+      const uc = new PIXI.Container();
+      uc.eventMode = "static";
+      uc.cursor = "pointer";
+      const u = unit;
+      uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.armInspect(u.defId, u, e));
+      uc.on("pointerup", () => this.clearPress());
+      uc.on("pointerupoutside", () => this.clearPress());
+      drawUnit(uc, unit, x, y, 14);
+      this.scoutLayer.addChild(uc);
+    }
+    // (No trait strip: mobs carry no traits, unlike a scouted PvP board.)
+
+    // Close button — visual 30×24, hit area expanded to the 44px min target.
+    const closeBtn = new PIXI.Graphics();
+    closeBtn.roundRect(panelX + panelW - 30, panelY + 4, 30, 24, 4).fill({ color: C.bgCloseBtn, alpha: 0.9 });
+    closeBtn.eventMode = "static";
+    closeBtn.cursor = "pointer";
+    closeBtn.hitArea = new PIXI.Rectangle(panelX + panelW - 44, panelY, 44, 36);
+    closeBtn.on("pointerdown", () => this.closeScout());
+    this.scoutLayer.addChild(closeBtn);
+    const closeX = new PIXI.Text("X", { fontSize: 11, fill: C.textMuted, fontFamily: "monospace" });
+    closeX.anchor.set(0.5, 0.5);
+    closeX.x = panelX + panelW - 15;
+    closeX.y = panelY + 16;
+    this.scoutLayer.addChild(closeX);
   }
 
   // ─── INSPECT (unit + trait detail panels) ────────────────────────────────

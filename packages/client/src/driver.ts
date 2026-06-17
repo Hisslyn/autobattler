@@ -1,12 +1,12 @@
 import { gameData } from "@autobattler/data";
 import type { MatchState, RoundResult } from "@autobattler/rules/src/state.js";
-import type { UnitInstance, CombatResult } from "@autobattler/sim/src/types.js";
+import type { UnitInstance, CombatResult, BoardState } from "@autobattler/sim/src/types.js";
 import type { LootOrb } from "@autobattler/rules/src/loot.js";
 import type { MatchStats } from "@autobattler/protocol";
 import { createMatch, advancePhase, isMatchOver } from "@autobattler/rules";
 import { applyCommand } from "@autobattler/rules/src/commands.js";
 import { applyAiCommands } from "@autobattler/rules/src/ai.js";
-import { getPairingFor, isPveRound, pveStageForRound } from "@autobattler/rules/src/rounds.js";
+import { getPairingFor, isPveRound, pveStageForRound, previewPveStage } from "@autobattler/rules/src/rounds.js";
 import { mulberry32 } from "@autobattler/sim/src/prng.js";
 
 export type Outcome = "win" | "loss" | "draw";
@@ -33,6 +33,13 @@ export interface IDriver {
   getMyRoundResult(): RoundResult | null;
   /** Per-seat accumulated match stats (round W/L, total damage), or null until known. */
   getMatchStats(): Record<number, MatchStats> | null;
+  /**
+   * Returns the upcoming PvE mob board for the current round during PLANNING,
+   * or null when not in PLANNING phase or the round is not a PvE round. The
+   * returned BoardState uses negative uids (never collides with real combat uids)
+   * and is display-only — never feed to the sim.
+   */
+  getUpcomingPveBoard(): BoardState | null;
   /**
    * Scene → driver: combat playback finished (or was skipped). LocalDriver
    * holds the RESOLUTION phase until this is called (capped); NetDriver is
@@ -155,6 +162,13 @@ export class LocalDriver implements IDriver {
       };
     }
     return out;
+  }
+
+  getUpcomingPveBoard(): BoardState | null {
+    // Only meaningful during PLANNING — outside this phase the "upcoming" board
+    // is either already the active combat board (COMBAT) or stale (RESOLUTION).
+    if (this.state.phase !== "PLANNING") return null;
+    return previewPveStage(this.state, gameData);
   }
 
   getPlanningTimeLeft(): number {

@@ -9,10 +9,12 @@ import {
   buildMobBoard,
   boardToCombatState,
   derivePairingSeed,
+  previewPveStage,
 } from "@autobattler/rules/src/rounds.js";
 import { simulateCombat } from "@autobattler/sim";
 import { stateAtTick } from "../src/combat/reducer.js";
 import { LocalDriver } from "../src/driver.js";
+import { NetDriver } from "../src/netDriver.js";
 import type { DriverEvent } from "../src/driver.js";
 
 describe("headless AI match", () => {
@@ -277,5 +279,86 @@ describe("LocalDriver phase flow", () => {
     expect(phases[phases.length - 1]).toBe("RESOLUTION");
     driver.combatPlaybackDone();
     expect(phases.filter((p) => p === "RESOLUTION").length).toBe(1);
+  });
+});
+
+// Minimal WebSocket stub so a NetDriver can be constructed without a real
+// connection — onopen never fires, so the driver stays inert and we inject its
+// _state directly (getUpcomingPveBoard only reads state.round + state.phase).
+class FakeWebSocket {
+  static OPEN = 1;
+  readyState = 0;
+  onopen: (() => void) | null = null;
+  onmessage: ((ev: MessageEvent) => void) | null = null;
+  onclose: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  constructor(_url: string) {}
+  send(): void {}
+  close(): void {}
+}
+
+describe("getUpcomingPveBoard (PvE planning preview)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("LocalDriver exposes the upcoming creep board during a PvE planning phase", () => {
+    // Round 1 is PvE; the driver opens in PLANNING.
+    const driver = new LocalDriver(21);
+    driver.startPlanning();
+    expect(driver.isPveRound()).toBe(true);
+
+    const board = driver.getUpcomingPveBoard();
+    expect(board).not.toBeNull();
+    expect(board!.units.length).toBeGreaterThan(0);
+    // Preview uses disposable negative uids (never collides with real combat uids).
+    expect(board!.units.every((u) => u.uid < 0)).toBe(true);
+    // It is exactly what the pure rules accessor produces for this state.
+    expect(JSON.stringify(board)).toBe(
+      JSON.stringify(previewPveStage(driver.getState(), gameData))
+    );
+  });
+
+  it("LocalDriver returns null once out of the planning phase", () => {
+    const driver = new LocalDriver(21);
+    driver.startPlanning();
+    driver.ready(); // PvE round → COMBAT phase
+    expect(driver.getState().phase).not.toBe("PLANNING");
+    expect(driver.getUpcomingPveBoard()).toBeNull();
+  });
+
+  it("NetDriver derives the same preview client-side (no protocol round-trip)", () => {
+    const local = new LocalDriver(21);
+    local.startPlanning();
+    const localBoard = local.getUpcomingPveBoard();
+    expect(localBoard).not.toBeNull();
+
+    const net = new NetDriver("ws://test");
+    // Inject the minimal state the accessor reads (round + phase).
+    (net as unknown as { _state: unknown })._state = { round: 1, phase: "PLANNING" };
+    const netBoard = net.getUpcomingPveBoard();
+
+    // Both drivers compute from the same pure rules accessor → identical boards.
+    expect(JSON.stringify(netBoard)).toBe(JSON.stringify(localBoard));
+  });
+
+  it("NetDriver returns null on a non-PvE round and outside planning", () => {
+    const net = new NetDriver("ws://test");
+    const inject = (s: unknown): void => {
+      (net as unknown as { _state: unknown })._state = s;
+    };
+
+    inject({ round: 4, phase: "PLANNING" }); // round 4 is PvP
+    expect(isPveRound(4)).toBe(false);
+    expect(net.getUpcomingPveBoard()).toBeNull();
+
+    inject({ round: 1, phase: "COMBAT" }); // PvE round, wrong phase
+    expect(net.getUpcomingPveBoard()).toBeNull();
+
+    inject(null); // no state yet
+    expect(net.getUpcomingPveBoard()).toBeNull();
   });
 });

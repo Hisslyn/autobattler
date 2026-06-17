@@ -136,7 +136,9 @@ function traitDiamond(layer: PIXI.Container, traitId: string, cx: number, cy: nu
   layer.addChild(g);
 }
 
-/** Render the unit-inspect panel (identity + traits + ability + full stats). */
+/** Render the unit-inspect panel (identity + traits + ability + full stats).
+ *  Supports both normal units (with traits + ability) and PvE mobs (no traits,
+ *  optional ability, no cost) — the panel gracefully collapses absent sections. */
 export function renderUnitInspect(
   layer: PIXI.Container,
   m: InspectModel,
@@ -152,8 +154,10 @@ export function renderUnitInspect(
 
   const d = dims(layout);
   // Grow the panel when the unit carries items so the item row never collides.
+  // Shrink the panel when there's no ability block (mobs without abilities).
   const itemRowH = m.items.length > 0 ? 56 : 0;
-  const contentH = 340 + itemRowH;
+  const abilityBlockH = m.ability ? 66 : 0; // 66 = 52px block + 14px gap
+  const contentH = 274 + abilityBlockH + itemRowH;
   const rect = panelRect(layout, d.w - 56, contentH, (PORTRAIT_H - contentH) / 2 - 30);
   const w = rect.w, x = rect.x, y = rect.y, h = rect.h;
   const accent = tierColor(m.tier);
@@ -167,14 +171,17 @@ export function renderUnitInspect(
   panel.addChild(tokenC);
   text(panel, m.name, x + 64, y + 22, 14, C.textPrimary, [0, 0]);
   text(panel, `Tier ${m.tier}`, x + 64, y + 42, 9, accent, [0, 0]);
-  // cost (gold)
-  const coin = new PIXI.Graphics();
-  drawGlyph(coin, "coin", x + 110, y + 47, 10, C.accentGold);
-  coin.eventMode = "none";
-  panel.addChild(coin);
-  text(panel, `${m.cost}`, x + 118, y + 47, 10, C.textGold, [0, 0.5]);
+  // cost (gold) — omit for mobs (cost === 0, they have no shop cost)
+  if (m.cost > 0) {
+    const coin = new PIXI.Graphics();
+    drawGlyph(coin, "coin", x + 110, y + 47, 10, C.accentGold);
+    coin.eventMode = "none";
+    panel.addChild(coin);
+    text(panel, `${m.cost}`, x + 118, y + 47, 10, C.textGold, [0, 0.5]);
+  }
 
-  // Traits row (origin + classes) with the diamond+glyph motif
+  // Traits row (origin + classes) with the diamond+glyph motif.
+  // Mobs have no traits (origin/classes are empty) — the row is silently empty.
   let tx = x + 16;
   const traitY = y + 76;
   const traitChip = (id: string, name: string): void => {
@@ -185,22 +192,25 @@ export function renderUnitInspect(
   if (m.origin) traitChip(m.origin.id, m.origin.name);
   for (const c of m.classes) traitChip(c.id, c.name);
 
-  // Ability block
-  const abY = y + 104;
-  const abRow = new PIXI.Graphics();
-  abRow.roundRect(x + 14, abY, w - 28, 52, 6).fill({ color: C.bgInspectRow, alpha: 0.9 });
-  abRow.eventMode = "none";
-  panel.addChild(abRow);
-  text(panel, m.ability.name, x + 22, abY + 8, 12, C.textPrimary, [0, 0]);
-  const mcoin = new PIXI.Graphics();
-  drawGlyph(mcoin, "spark", x + w - 56, abY + 13, 9, C.manaBlue);
-  mcoin.eventMode = "none";
-  panel.addChild(mcoin);
-  text(panel, `${m.ability.manaCost}`, x + w - 48, abY + 13, 10, C.manaBlue, [0, 0.5]);
-  wrapText(panel, m.ability.description, x + 22, abY + 26, w - 44, 9, C.textMuted);
+  // Ability block — omit entirely when null (mobs with no ability).
+  let gridY = y + 104; // starts immediately after traits when no ability
+  if (m.ability) {
+    const abY = y + 104;
+    const abRow = new PIXI.Graphics();
+    abRow.roundRect(x + 14, abY, w - 28, 52, 6).fill({ color: C.bgInspectRow, alpha: 0.9 });
+    abRow.eventMode = "none";
+    panel.addChild(abRow);
+    text(panel, m.ability.name, x + 22, abY + 8, 12, C.textPrimary, [0, 0]);
+    const mcoin = new PIXI.Graphics();
+    drawGlyph(mcoin, "spark", x + w - 56, abY + 13, 9, C.manaBlue);
+    mcoin.eventMode = "none";
+    panel.addChild(mcoin);
+    text(panel, `${m.ability.manaCost}`, x + w - 48, abY + 13, 10, C.manaBlue, [0, 0.5]);
+    wrapText(panel, m.ability.description, x + 22, abY + 26, w - 44, 9, C.textMuted);
+    gridY = y + 170; // stat grid follows ability block
+  }
 
   // Stat grid (2 columns)
-  const gridY = y + 170;
   const colW = (w - 28) / 2;
   m.stats.forEach((stat, i) => {
     const col = i % 2;

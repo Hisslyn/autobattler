@@ -74,18 +74,26 @@ export function pveStageForRound(round: number, data: GameData): MobStageDef | n
   );
 }
 
+// ---------------------------------------------------------------------------
+// Mob board construction
+// ---------------------------------------------------------------------------
+
 /**
- * Builds a PvE stage's creep board (side 1). Mobs reuse UnitInstance but are
- * never drawn from the unit pool and carry no traits, so they never affect
- * the player's trait counts. Uids come from the match's uid namespace.
+ * Private helper: fills a slot array with mob UnitInstances for the given stage.
+ * The `nextUid` callback is called once per mob and is the only uid source —
+ * callers supply either the live mutating counter or a local disposable one.
  */
-export function buildMobBoard(state: MatchState, stage: MobStageDef, data: GameData): BoardState {
+function buildMobSlots(
+  stage: MobStageDef,
+  data: GameData,
+  nextUid: () => number
+): (UnitInstance | null)[] {
   const slots: (UnitInstance | null)[] = new Array(data.gameplay.boardSlots).fill(null);
   for (const placement of stage.units) {
     const mob = data.mobs.mobs.find((m) => m.id === placement.mobId);
     if (!mob) continue;
     const unit: UnitInstance = {
-      uid: state.nextUid++,
+      uid: nextUid(),
       defId: mob.id,
       tier: mob.tier,
       star: placement.star,
@@ -108,6 +116,40 @@ export function buildMobBoard(state: MatchState, stage: MobStageDef, data: GameD
     };
     if (placement.slot >= 0 && placement.slot < slots.length) slots[placement.slot] = unit;
   }
+  return slots;
+}
+
+/**
+ * Builds a PvE stage's creep board (side 1). Mobs reuse UnitInstance but are
+ * never drawn from the unit pool and carry no traits, so they never affect
+ * the player's trait counts. Uids come from the match's uid namespace.
+ */
+export function buildMobBoard(state: MatchState, stage: MobStageDef, data: GameData): BoardState {
+  const slots = buildMobSlots(stage, data, () => state.nextUid++);
+  return boardToCombatState(slots, 1);
+}
+
+/**
+ * Pure, side-effect-free preview of the creep board for the current round.
+ *
+ * Returns null when `state.round` is not a PvE round. Otherwise returns a
+ * BoardState identical in unit composition and slot placement to what
+ * buildMobBoard would produce for the same stage, but WITHOUT mutating
+ * `state.nextUid` or any other field. Preview uids are negative integers
+ * (starting at -1, decrementing) so they can never collide with real combat
+ * uids (which are positive) and so calling this function any number of times
+ * is fully idempotent with zero side effects.
+ *
+ * This is display-only data and must never be used for actual combat resolution.
+ */
+export function previewPveStage(state: MatchState, data: GameData): BoardState | null {
+  const stage = pveStageForRound(state.round, data);
+  if (!stage) return null;
+
+  // Local disposable uid counter: negative so preview uids never collide with
+  // the match's positive uid namespace and are visually distinct in debug logs.
+  let previewUid = -1;
+  const slots = buildMobSlots(stage, data, () => previewUid--);
   return boardToCombatState(slots, 1);
 }
 

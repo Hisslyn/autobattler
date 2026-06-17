@@ -3,7 +3,7 @@ import { gameData } from "@autobattler/data";
 import type { LootRarity } from "@autobattler/data";
 import { createMatch, advancePhase } from "../src/match.js";
 import { generateLoot, applyLootOrb } from "../src/loot.js";
-import { buildMobBoard, pveStageForRound, isPveRound, stageForRound } from "../src/rounds.js";
+import { buildMobBoard, pveStageForRound, isPveRound, stageForRound, previewPveStage } from "../src/rounds.js";
 import { mulberry32 } from "@autobattler/sim/src/prng.js";
 import type { MatchState } from "../src/state.js";
 import type { UnitInstance } from "@autobattler/sim/src/types.js";
@@ -288,6 +288,135 @@ describe("PvE round", () => {
       expect(b.players[i]!.items).toEqual(a.players[i]!.items);
       expect(JSON.stringify(b.lastCombatResults.get(i)))
         .toBe(JSON.stringify(a.lastCombatResults.get(i)));
+    }
+  });
+});
+
+describe("previewPveStage", () => {
+  it("returns null on a non-PvE round", () => {
+    // Round 4 is the first PvP round (stage 2, roundInStage 1)
+    const state = createMatch(1, gameData);
+    state.round = 4;
+    expect(isPveRound(4)).toBe(false);
+    expect(previewPveStage(state, gameData)).toBeNull();
+  });
+
+  it("returns null on every known PvP round", () => {
+    const state = createMatch(1, gameData);
+    for (const round of KNOWN_PVP_ROUNDS) {
+      state.round = round;
+      expect(previewPveStage(state, gameData), `round ${round} should return null`).toBeNull();
+    }
+  });
+
+  it("returns a BoardState matching buildMobBoard's unit composition (count, defIds, positions, stats) on a PvE round", () => {
+    // Round 1 is a known PvE round with a defined stage
+    const state = createMatch(1, gameData);
+    expect(isPveRound(state.round)).toBe(true);
+
+    const stage = pveStageForRound(state.round, gameData)!;
+    expect(stage).not.toBeNull();
+
+    // Build the authoritative board (mutates state.nextUid)
+    const uidBefore = state.nextUid;
+    const real = buildMobBoard(state, stage, gameData);
+    const uidAfterReal = state.nextUid;
+    expect(uidAfterReal).toBeGreaterThan(uidBefore); // confirms buildMobBoard mutated state
+
+    // Build the preview (must not mutate state.nextUid further)
+    const preview = previewPveStage(state, gameData)!;
+    expect(preview).not.toBeNull();
+    expect(state.nextUid).toBe(uidAfterReal); // preview did not advance the counter
+
+    // Same number of units on side 1
+    expect(preview.units.length).toBe(real.units.length);
+    for (const u of preview.units) expect(u.team).toBe(1);
+
+    // Sort both by position for a stable comparison (order may vary)
+    const key = (u: UnitInstance) => `${u.pos.q},${u.pos.r}`;
+    const sortedReal = [...real.units].sort((a, b) => key(a).localeCompare(key(b)));
+    const sortedPreview = [...preview.units].sort((a, b) => key(a).localeCompare(key(b)));
+
+    for (let i = 0; i < sortedReal.length; i++) {
+      const r = sortedReal[i]!;
+      const p = sortedPreview[i]!;
+      // defId, tier, star, stats, position must match exactly
+      expect(p.defId).toBe(r.defId);
+      expect(p.tier).toBe(r.tier);
+      expect(p.star).toBe(r.star);
+      expect(p.pos).toEqual(r.pos);
+      expect(p.hp).toBe(r.hp);
+      expect(p.maxHp).toBe(r.maxHp);
+      expect(p.ad).toBe(r.ad);
+      expect(p.as).toBe(r.as);
+      expect(p.armor).toBe(r.armor);
+      expect(p.mr).toBe(r.mr);
+      expect(p.range).toBe(r.range);
+      expect(p.mana).toBe(r.mana);
+      expect(p.maxMana).toBe(r.maxMana);
+      expect(p.abilityDamage).toBe(r.abilityDamage);
+      // uid differs by design (preview uses negative disposable ids)
+    }
+  });
+
+  it("preview uids are all negative", () => {
+    const state = createMatch(1, gameData);
+    expect(isPveRound(state.round)).toBe(true);
+    const preview = previewPveStage(state, gameData)!;
+    expect(preview.units.length).toBeGreaterThan(0);
+    for (const u of preview.units) {
+      expect(u.uid, `uid ${u.uid} should be negative`).toBeLessThan(0);
+    }
+  });
+
+  it("CRITICAL no-side-effect: state.nextUid is unchanged after multiple calls and boards are structurally identical", () => {
+    const state = createMatch(42, gameData);
+    expect(isPveRound(state.round)).toBe(true);
+
+    const uidSnapshot = state.nextUid;
+
+    // Call three times; each must return the same board and leave state untouched
+    const boards = [
+      previewPveStage(state, gameData)!,
+      previewPveStage(state, gameData)!,
+      previewPveStage(state, gameData)!,
+    ];
+
+    // state.nextUid must be exactly as it was before any preview call
+    expect(state.nextUid).toBe(uidSnapshot);
+
+    // All three boards must be structurally identical (same units, same positions)
+    const serialized = boards.map((b) =>
+      JSON.stringify(
+        [...b.units].sort((a, bb) => `${a.pos.q},${a.pos.r}`.localeCompare(`${bb.pos.q},${bb.pos.r}`))
+      )
+    );
+    expect(serialized[0]).toBe(serialized[1]);
+    expect(serialized[1]).toBe(serialized[2]);
+
+    // All uids across all three calls must be negative
+    for (const board of boards) {
+      for (const u of board.units) {
+        expect(u.uid).toBeLessThan(0);
+      }
+    }
+  });
+
+  it("preview is consistent across all defined PvE rounds with a known stage", () => {
+    // Verify previewPveStage returns non-null for every PvE round that has a
+    // stage definition in mobs.json, and null for rounds without one.
+    for (const round of KNOWN_PVE_ROUNDS) {
+      const state = createMatch(1, gameData);
+      state.round = round;
+      const stage = pveStageForRound(round, gameData);
+      const preview = previewPveStage(state, gameData);
+      if (stage) {
+        expect(preview, `round ${round} has a stage, preview should be non-null`).not.toBeNull();
+        expect(preview!.units.length).toBe(stage.units.length);
+      } else {
+        // PvE round but no stage entry in mobs.json — preview returns null (no stage to show)
+        expect(preview, `round ${round} has no stage entry, preview should be null`).toBeNull();
+      }
     }
   });
 });

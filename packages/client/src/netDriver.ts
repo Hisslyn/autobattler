@@ -2,10 +2,10 @@ import { gameData } from "@autobattler/data";
 import type { MatchState, RoundResult } from "@autobattler/rules/src/state.js";
 import type { LootOrb } from "@autobattler/rules/src/loot.js";
 import type { MatchStats } from "@autobattler/protocol";
-import type { UnitInstance, CombatResult } from "@autobattler/sim/src/types.js";
+import type { UnitInstance, CombatResult, BoardState } from "@autobattler/sim/src/types.js";
 import { simulateCombat } from "@autobattler/sim";
 import { applyCommand } from "@autobattler/rules/src/commands.js";
-import { derivePairingSeed, boardToCombatState, ghostToCombatState, isPveRound, pveStageForRound, buildMobBoard } from "@autobattler/rules/src/rounds.js";
+import { derivePairingSeed, boardToCombatState, ghostToCombatState, isPveRound, pveStageForRound, buildMobBoard, previewPveStage } from "@autobattler/rules/src/rounds.js";
 import { NetClient } from "./net.js";
 import type { IDriver, DriverEvent, Outcome } from "./driver.js";
 
@@ -304,6 +304,14 @@ export class NetDriver implements IDriver {
   getMatchStats(): Record<number, MatchStats> | null {
     // Carried on MATCH_END; null until the match ends.
     return this._matchStats;
+  }
+
+  getUpcomingPveBoard(): BoardState | null {
+    // Only meaningful during PLANNING. previewPveStage reads only state.round,
+    // which NetDriver tracks accurately from PHASE_CHANGE / STATE_SNAPSHOT.
+    // The returned board uses negative uids — display-only, never fed to the sim.
+    if (!this._state || this._state.phase !== "PLANNING") return null;
+    return previewPveStage(this._state, gameData);
   }
 
   combatPlaybackDone(): void {
