@@ -297,16 +297,21 @@ function portraitLayout(viewportW: number, viewportH: number, safe: SafeInsets):
 //  │              │                           ├──────────────┤
 //  │              │      statusRow (under)    │ sellControl  │
 //  │              │                           │ readyButton  │
-//  ├──────────────┼─────────┬─────────────────┴──────────────┤
-//  │              │  bench  │  itemBar (below bench, centered)│
-//  │              │ (3×3)   │                                 │
-//  ├──────────────┴─────────┴─────────────────────────────────┤
+//  ├──────────────┴──────────────────────────-┴──────────────┤
+//  │              bench (1×9 row, centered)                   │
+//  │              itemBar (below bench, same width)           │
+//  ├───────────────────────────────────────────────────────────┤
 //  │              shop (5 cards, full width, h=64)             │
 //  └───────────────────────────────────────────────────────────┘
 //
-// The bench (3×3 grid, 9 slots) and item bar now sit BELOW the board and ABOVE
-// the shop. The bench is horizontally centered (same center as the board).
+// The bench (1×9 single row, 9 slots) and item bar now sit BELOW the board and
+// ABOVE the shop. The bench is horizontally centered (same center as the board).
 // The item bar sits directly below the bench, also centered.
+//
+// Bench slot dimensions: each slot is slotW × benchH where slotW = benchW / 9
+// (= 36px) and benchH = 36px — both dimensions ≥ 32px touch-target floor.
+// Compared to the old 3×3 grid (54px tall), the single row saves 18px of
+// vertical space; the board region gains those 18px in height.
 //
 // The far-left traitRail now has tab-switcher buttons [1][2] at its top edge
 // (stored in traitTabBar). The rail content area (traitRail) is below them.
@@ -339,13 +344,17 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
   const shopY = dH - shopH;   // 326
 
   // ── Bench + item bar zone: above the shop, below the board ────────────────
-  // Bench: 9 slots in a 3×3 grid. Each slot cell ~36×18 px → 108×54 total.
-  const benchH = 54;
-  const benchW = 108;          // 3 cols × 36px
-  const itemBarH = 44;         // one row of items (touch target floor)
+  // Bench: 9 slots in a single 1×9 horizontal row.
+  // Each slot: 36px wide × 36px tall — both dimensions satisfy the ≥32px touch-
+  // target floor.  Total bench footprint: 324×36 px.
+  const BENCH_SLOTS = 9;
+  const benchSlotSize = 36;            // square slot, both dims ≥ 32px
+  const benchH = benchSlotSize;        // 36
+  const benchW = BENCH_SLOTS * benchSlotSize;  // 324 (9 × 36)
+  const itemBarH = 44;                 // one row of items (touch target floor)
   const benchItemGap = 2;
-  const benchZoneH = benchH + benchItemGap + itemBarH;  // 100
-  const benchZoneY = shopY - benchZoneH - 4;            // 222
+  const benchZoneH = benchH + benchItemGap + itemBarH;  // 82
+  const benchZoneY = shopY - benchZoneH - 4;            // 240
 
   const benchY = benchZoneY;
 
@@ -379,13 +388,14 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
   const boardY = 6;
   const boardW = rightColX - 8 - boardX;      // 646 — dominant, well above 352
   // Board height: fills from top down to the bench zone (with a status band gap).
+  // With the 1×9 bench (18px shorter than the old 3×3), boardH grows by 18px.
   const statusGap = 2;
   const statusH = 16;
   const statusBenchGap = 4;  // breathing room between the status band and the bench zone
-  const boardH = benchZoneY - boardY - statusH - statusGap - statusBenchGap;  // 194
+  const boardH = benchZoneY - boardY - statusH - statusGap - statusBenchGap;  // 212
 
   // Status row: thin band directly under the board (same x/w as the board).
-  const statusY = boardY + boardH + statusGap;  // 208
+  const statusY = boardY + boardH + statusGap;  // 220
 
   // ── Bench centered horizontally under the board ───────────────────────────
   const boardCx = boardX + boardW / 2;
@@ -529,27 +539,24 @@ export function centeredModal(
 // ── Landscape-specific helpers ────────────────────────────────────────────────
 
 /**
- * In landscape, the bench occupies 9 slots in a 3-col × 3-row grid inside
- * the bench region (centered below the board).  Returns the pixel center of
- * slot `i` (0..8) within the bench region, in design space.
+ * In landscape, the bench occupies 9 slots in a single 1×9 horizontal row
+ * inside the bench region (centered below the board).  Returns the pixel
+ * center of slot `i` (0..8) within the bench region, in design space.
  */
 export function landscapeBenchSlotCenter(
   i: number,
   bench: Rect
 ): { x: number; y: number } {
-  const col = i % 3;
-  const row = Math.floor(i / 3);
-  const slotW = bench.w / 3;
-  const slotH = bench.h / 3;
+  const slotW = bench.w / 9;
   return {
-    x: bench.x + col * slotW + slotW / 2,
-    y: bench.y + row * slotH + slotH / 2,
+    x: bench.x + i * slotW + slotW / 2,
+    y: bench.y + bench.h / 2,
   };
 }
 
 /**
  * Map a pointer (px, py) in design space to a bench slot index 0..8, or null
- * if outside the bench region.  Works for the landscape 3×3 grid.
+ * if outside the bench region.  Works for the landscape 1×9 single row.
  */
 export function landscapeBenchSlotAt(
   px: number,
@@ -558,10 +565,8 @@ export function landscapeBenchSlotAt(
 ): number | null {
   if (px < bench.x || px >= bench.x + bench.w) return null;
   if (py < bench.y || py >= bench.y + bench.h) return null;
-  const col = Math.floor((px - bench.x) / (bench.w / 3));
-  const row = Math.floor((py - bench.y) / (bench.h / 3));
-  const idx = row * 3 + col;
-  return Math.max(0, Math.min(8, idx));
+  const col = Math.floor((px - bench.x) / (bench.w / 9));
+  return Math.max(0, Math.min(8, col));
 }
 
 // ── New pure helpers (polish pass) ─────────────────────────────────────────────

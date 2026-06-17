@@ -721,12 +721,12 @@ export class MatchScene {
       const occupied = unit != null;
 
       // Cell rect: portrait uses the benchGeom slot height; landscape divides
-      // the bench rect into a 3×3 grid.
+      // the bench rect into a single 1×9 horizontal row.
       let cellW: number, cellH: number, cellX: number, cellY: number;
       if (this.isLandscape) {
         const r = this.layout.regions.bench;
-        cellW = r.w / 3;
-        cellH = r.h / 3;
+        cellW = r.w / 9;
+        cellH = r.h;
         cellX = cx - cellW / 2;
         cellY = cy - cellH / 2;
       } else {
@@ -954,7 +954,11 @@ export class MatchScene {
     this.container.addChild(c);
     this.container.sortChildren();
     this.dragSprite = c;
-    this.renderItemBar(this.driver.getState().players[this.driver.seatIndex]!);
+    const me = this.driver.getState().players[this.driver.seatIndex]!;
+    this.renderItemBar(me);
+    // Landscape tab-2 browse is a second draggable source for the same items;
+    // re-render the rail so its source chip hides while dragging (like the bar).
+    if (this.isLandscape && this.activeRailTab === "items") this.renderRailTabs(me);
   }
 
   /** Cancel an in-progress item drag without issuing a command. */
@@ -1544,9 +1548,10 @@ export class MatchScene {
   }
 
   /**
-   * Read-only item browse (landscape tab 2): vertical list of the player's
-   * inventory in `traitRail` as TAP-ONLY chips (tap → item-info modal; NO drag —
-   * the draggable bar stays renderItemBar). Assumes traitLayer is already cleared.
+   * Item browse (landscape tab 2): vertical list of the player's inventory in
+   * `traitRail`. Chips are draggable for EQUIP/COMBINE exactly like the main
+   * item bar (same `startDragItem`/`onItemDragEnd` path) and tap → item-info
+   * modal. Assumes traitLayer is already cleared.
    */
   private renderItemBrowse(me: PlayerState): void {
     const inv = inventoryModel(me.items, gameData);
@@ -1559,11 +1564,12 @@ export class MatchScene {
     const half = ITEM_SLOT / 2;
     let rowY = rail.y;
     for (const entry of inv) {
+      if (this.dragItem?.index === entry.index) continue; // hide the source while dragging
       if (rowY + ITEM_SLOT > rail.y + rail.h) break; // clip to the rail
       const cx = rail.x + half;
       const cy = rowY + half;
       const id = entry.id;
-      this.drawItemChip(this.traitLayer, entry, cx, cy, ITEM_SLOT, () => this.openItemDetail(id));
+      this.drawItemChip(this.traitLayer, entry, cx, cy, ITEM_SLOT, () => this.openItemDetail(id), (e) => this.startDragItem(entry, e));
       // Name label beside the icon (mirrors the trait chips' label; the row
       // extends rightward over the board's left margin like the trait stack).
       const m = itemModel(id, gameData);

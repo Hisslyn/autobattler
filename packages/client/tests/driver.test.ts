@@ -16,6 +16,8 @@ import { stateAtTick } from "../src/combat/reducer.js";
 import { LocalDriver } from "../src/driver.js";
 import { NetDriver } from "../src/netDriver.js";
 import type { DriverEvent } from "../src/driver.js";
+import type { UnitInstance } from "@autobattler/sim/src/types.js";
+import { inventoryModel } from "../src/itemModel.js";
 
 describe("headless AI match", () => {
   it("completes a full match without error", () => {
@@ -455,5 +457,79 @@ describe("getUpcomingPveBoard (PvE planning preview)", () => {
 
     inject(null); // no state yet
     expect(net.getUpcomingPveBoard()).toBeNull();
+  });
+});
+
+// ── Item drag → EQUIP command path (shared by the item bar AND the tab-2 browse) ──
+// Both the main item bar and the landscape tab-2 browse render the player's
+// inventory via inventoryModel and drag a chip → startDragItem → tryEquip →
+// driver.playerCommand({type:"EQUIP", unitUid, itemId}). The scene is Pixi/WebGL
+// and not headless-testable, so we exercise the one command path both sources
+// funnel into and assert it applies exactly once (the "no double-handling" guard).
+describe("item drag EQUIP command path", () => {
+  const COMPONENT = "iron_sword"; // a loose component in items.json
+  const def = gameData.units[0]!;
+
+  function benchUnit(uid: number): UnitInstance {
+    return {
+      uid,
+      defId: def.id,
+      tier: def.tier,
+      star: 1,
+      team: 0,
+      pos: { q: 0, r: 0 },
+      hp: def.hp,
+      maxHp: def.hp,
+      ad: def.ad,
+      as: def.as,
+      armor: def.armor,
+      mr: def.mr,
+      range: def.range,
+      mana: def.manaStart,
+      maxMana: def.mana,
+      abilityDamage: def.abilityDamage,
+      ability: def.ability,
+      attackCooldown: 0,
+      statusEffects: [],
+      items: [],
+    };
+  }
+
+  it("an EQUIP issued the way both sources issue it moves the item onto the unit", () => {
+    const driver = new LocalDriver(7);
+    driver.startPlanning();
+    const me = driver.getState().players[driver.seatIndex]!;
+    const unit = benchUnit(9999);
+    me.bench.push(unit);
+    me.items.push(COMPONENT);
+
+    // The inventory model both the bar and the tab-2 browse consume sees the item.
+    const inv = inventoryModel(me.items, gameData);
+    const entry = inv.find((e) => e.id === COMPONENT)!;
+    expect(entry).toBeDefined();
+
+    // tryEquip's exact command (unitUid + itemId from the dragged InventoryEntry).
+    const res = driver.playerCommand({ type: "EQUIP", unitUid: unit.uid, itemId: entry.id });
+    expect(res.ok).toBe(true);
+    expect(unit.items).toEqual([COMPONENT]);
+    expect(me.items.includes(COMPONENT)).toBe(false);
+  });
+
+  it("the same item is consumed once — a second identical EQUIP fails (no double-handling)", () => {
+    const driver = new LocalDriver(7);
+    driver.startPlanning();
+    const me = driver.getState().players[driver.seatIndex]!;
+    const unit = benchUnit(9998);
+    me.bench.push(unit);
+    me.items.push(COMPONENT);
+
+    const first = driver.playerCommand({ type: "EQUIP", unitUid: unit.uid, itemId: COMPONENT });
+    expect(first.ok).toBe(true);
+
+    // Whether the gesture originated in the bar or the tab-2 browse, the item is
+    // already consumed — re-issuing the same EQUIP is rejected, never applied twice.
+    const second = driver.playerCommand({ type: "EQUIP", unitUid: unit.uid, itemId: COMPONENT });
+    expect(second).toEqual({ ok: false, error: "ITEM_NOT_FOUND" });
+    expect(unit.items).toEqual([COMPONENT]); // still exactly one copy
   });
 });

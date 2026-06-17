@@ -219,14 +219,24 @@ describe("landscape regions", () => {
     expect(regions.bench.y + regions.bench.h).toBeLessThanOrEqual(regions.shop.y);
   });
 
-  it("bench has 9 slot positions (3×3 grid) that stay inside the bench rect", () => {
+  it("bench has 9 slot positions in a single 1×9 row that stay inside the bench rect", () => {
+    const centers: { x: number; y: number }[] = [];
     for (let i = 0; i < 9; i++) {
-      const { x, y } = landscapeBenchSlotCenter(i, regions.bench);
-      expect(x).toBeGreaterThanOrEqual(regions.bench.x);
-      expect(x).toBeLessThanOrEqual(regions.bench.x + regions.bench.w);
-      expect(y).toBeGreaterThanOrEqual(regions.bench.y);
-      expect(y).toBeLessThanOrEqual(regions.bench.y + regions.bench.h);
+      const c = landscapeBenchSlotCenter(i, regions.bench);
+      expect(c.x).toBeGreaterThanOrEqual(regions.bench.x);
+      expect(c.x).toBeLessThanOrEqual(regions.bench.x + regions.bench.w);
+      expect(c.y).toBeGreaterThanOrEqual(regions.bench.y);
+      expect(c.y).toBeLessThanOrEqual(regions.bench.y + regions.bench.h);
+      centers.push(c);
     }
+    // Single row: every slot shares the same vertical center.
+    for (const c of centers) expect(c.y).toBeCloseTo(centers[0]!.y, 5);
+    // Nine strictly increasing, evenly spaced x positions.
+    for (let i = 1; i < 9; i++) expect(centers[i]!.x).toBeGreaterThan(centers[i - 1]!.x);
+    // Each slot's footprint meets the ≥32px touch floor in both dimensions.
+    const slotW = regions.bench.w / 9;
+    expect(slotW).toBeGreaterThanOrEqual(32);
+    expect(regions.bench.h).toBeGreaterThanOrEqual(32);
   });
 
   it("traitRail is a thin vertical strip in the far-left column (x=0 or close)", () => {
