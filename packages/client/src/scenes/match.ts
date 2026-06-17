@@ -26,7 +26,7 @@ import { lootRevealModel } from "../lootReveal.js";
 import type { RevealStep } from "../lootReveal.js";
 import { onUnitArtReady } from "../sprites.js";
 import { drawItemIcon, onItemArtReady } from "../itemIconDraw.js";
-import { Z_COMBAT_HEADER, Z_RESOLUTION_OVERLAY, Z_RESOLUTION_BUTTON, Z_RESOLUTION_CONTROL } from "../combatLayout.js";
+import { Z_COMBAT_HEADER, Z_RESOLUTION_OVERLAY, Z_RESOLUTION_BUTTON, Z_RESOLUTION_CONTROL, L3_WATERMARK, L4_FRAME } from "../combatLayout.js";
 import { benchGeom, benchSlotAtX } from "../benchLayout.js";
 import { landscapeHudControls, HUD_BTN_Y_OFFSET } from "../hudControlsLayout.js";
 import type { SettingsStore } from "../settings.js";
@@ -125,6 +125,10 @@ export class MatchScene {
   private lootLayer: PIXI.Container;
   /** Inspect / trait-detail panels (topmost, modal). */
   private inspectLayer: PIXI.Container;
+  /** L3_WATERMARK — board-anchored center watermark. Reserved empty layer (no content yet). */
+  private watermarkLayer: PIXI.Container;
+  /** L4_FRAME — ornate edge frame, 9-slice. Reserved empty layer, non-interactive (no content yet). */
+  private frameLayer: PIXI.Container;
   /** Planning-phase juice (star-up flourish, buy/sell pops); not cleared by render(). */
   private planningFxLayer: PIXI.Container;
 
@@ -195,12 +199,19 @@ export class MatchScene {
     this.planningFxLayer = new PIXI.Container();
     this.inspectLayer = new PIXI.Container();
     this.lootLayer = new PIXI.Container();
+    // L3_WATERMARK / L4_FRAME (combatLayout.ts) — reserved empty layers, styling deferred.
+    this.watermarkLayer = new PIXI.Container();
+    this.frameLayer = new PIXI.Container();
+    this.frameLayer.eventMode = "none"; // L4_FRAME is non-interactive per spec
 
     this.container.addChild(this.hudLayer);
     this.container.addChild(this.boardLayer);
     this.container.addChild(this.benchLayer);
     this.container.addChild(this.shopLayer);
     this.container.addChild(this.traitLayer);
+    // L3_WATERMARK, L4_FRAME: above board/unit content (L1/L2), below HUD/combat/modal chrome.
+    this.container.addChild(this.watermarkLayer);
+    this.container.addChild(this.frameLayer);
     this.container.addChild(this.planningFxLayer);
     this.container.addChild(this.combatLayer);
     this.container.addChild(this.lootLayer);

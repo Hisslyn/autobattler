@@ -8,12 +8,27 @@ import {
   opponentRailTile,
   portraitRegions,
   shopCardContentLayout,
+  landscapeClusterThickness,
   LANDSCAPE_THRESHOLD,
+  LS_BASE_MARGIN,
   PORTRAIT_W, PORTRAIT_H,
   LANDSCAPE_W, LANDSCAPE_H,
 } from "../src/layout.js";
 import type { Rect, MatchLayout } from "../src/layout.js";
 import { landscapeHudControls } from "../src/hudControlsLayout.js";
+import {
+  SCENE_LAYER_ORDER,
+  SCENE_LAYER_NAMES,
+  L0_BOARD_ENV,
+  L1_HEX_GRID,
+  L2_UNITS,
+  L3_WATERMARK,
+  L4_FRAME,
+  L5_HUD,
+  L6_INSPECT,
+  L7_DOM_META,
+  L8_TOAST,
+} from "../src/combatLayout.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -52,7 +67,7 @@ function coreRegions(layout: MatchLayout): Rect[] {
 // ── Orientation detection ─────────────────────────────────────────────────────
 
 describe("orientation detection", () => {
-  it("picks landscape for a 844×390 viewport", () => {
+  it("picks landscape for an 844×390 viewport", () => {
     const layout = resolveLayout({ viewportW: 844, viewportH: 390 });
     expect(layout.orientation).toBe("landscape");
     expect(layout.designW).toBe(LANDSCAPE_W);
@@ -85,6 +100,13 @@ describe("orientation detection", () => {
     const layout = resolveLayout({ viewportW: 844, viewportH: 390 });
     expect(layout.orientation).toBe("landscape");
   });
+
+  it("landscape design canvas is the new 1280×592 reference", () => {
+    const layout = resolveLayout({ viewportW: 844, viewportH: 390 });
+    expect(layout.designW).toBe(1280);
+    expect(layout.designH).toBe(592);
+    expect(layout.designW / layout.designH).toBeCloseTo(2.162, 2);
+  });
 });
 
 // ── Scale-to-fit ──────────────────────────────────────────────────────────────
@@ -110,8 +132,8 @@ describe("scale-to-fit", () => {
   });
 
   it("landscape scale on a wider screen scales up proportionally", () => {
-    const layout = resolveLayout({ viewportW: 1688, viewportH: 780 });
-    expect(layout.scale).toBeCloseTo(780 / LANDSCAPE_H, 3);
+    const layout = resolveLayout({ viewportW: 2560, viewportH: 1184 });
+    expect(layout.scale).toBeCloseTo(1184 / LANDSCAPE_H, 3);
   });
 });
 
@@ -149,9 +171,181 @@ describe("safe-area insets", () => {
     expect(layout.canvasOffsetY).toBeGreaterThanOrEqual(safe.top - 0.001);
     expect(bottom).toBeLessThanOrEqual(vH - safe.bottom + 0.001);
   });
+
+  it("landscape cluster leading edge uses max(safeInset, baseMargin) — small inset falls back to baseMargin", () => {
+    // Region solve runs in fixed DESIGN space, so a real device safe-inset (CSS
+    // px) doesn't directly enter landscapeRegionsFor; this test instead pins
+    // down the documented invariant: with zero device inset, every cluster's
+    // leading edge sits at exactly LS_BASE_MARGIN (the floor for the no-notch
+    // case), matching "max(0, baseMargin) === baseMargin".
+    const layout = resolveLayout({ viewportW: 844, viewportH: 390 });
+    const { topBar, leftRail, rightRail, bottomBar } = layout.clusters!;
+    expect(topBar.x).toBe(LS_BASE_MARGIN);
+    expect(topBar.y).toBe(LS_BASE_MARGIN);
+    expect(leftRail.x).toBe(LS_BASE_MARGIN);
+    expect(layout.designW - (rightRail.x + rightRail.w)).toBeCloseTo(LS_BASE_MARGIN, 5);
+    expect(layout.designH - (bottomBar.y + bottomBar.h)).toBeCloseTo(LS_BASE_MARGIN, 5);
+  });
+
+  it("landscape cluster leading edge grows past baseMargin when the device safe-inset is larger", () => {
+    // A real device notch reports a nonzero CSS-px inset. landscapeLayout
+    // converts it to design units (÷ scale) before landscapeRegionsFor takes
+    // max(safeInsetDesign, LS_BASE_MARGIN) — so a large enough inset visibly
+    // pushes the cluster's leading edge inward past the bare baseMargin.
+    //
+    // Size the viewport so the USABLE area (viewport minus safe insets) is
+    // exactly the 1280×592 design — landscapeLayout computes scale from the
+    // usable area, so usable == design gives scale == 1 exactly, making the
+    // CSS-px insets equal to design-space insets 1:1.
+    const safe = { left: 40, top: 30, right: 0, bottom: 0 };
+    const vW = LANDSCAPE_W + safe.left + safe.right;   // 1320
+    const vH = LANDSCAPE_H + safe.top + safe.bottom;   // 622
+    const withSafe = resolveLayout({ viewportW: vW, viewportH: vH, safe });
+    const { topBar, leftRail } = withSafe.clusters!;
+    expect(withSafe.scale).toBeCloseTo(1, 5);
+    expect(topBar.y).toBeCloseTo(30, 1);
+    expect(leftRail.x).toBeCloseTo(40, 1);
+    expect(topBar.y).toBeGreaterThan(LS_BASE_MARGIN);
+    expect(leftRail.x).toBeGreaterThan(LS_BASE_MARGIN);
+  });
 });
 
-// ── Landscape region geometry ─────────────────────────────────────────────────
+// ── Landscape 4-cluster + residual-board architecture (stage 1) ───────────────
+
+describe("landscape clusters", () => {
+  const layout = resolveLayout({ viewportW: 844, viewportH: 390 });
+  const { designW, designH, clusters } = layout;
+
+  it("exposes the 4 fixed-edge clusters + residual board area", () => {
+    expect(clusters).toBeDefined();
+    expect(clusters!.topBar).toBeDefined();
+    expect(clusters!.leftRail).toBeDefined();
+    expect(clusters!.rightRail).toBeDefined();
+    expect(clusters!.bottomBar).toBeDefined();
+    expect(clusters!.boardArea).toBeDefined();
+  });
+
+  it("portrait layout has no clusters (landscape-only concept)", () => {
+    const p = resolveLayout({ viewportW: 390, viewportH: 844 });
+    expect(p.clusters).toBeUndefined();
+  });
+
+  it("the 4 edge clusters are pairwise non-overlapping and within design bounds", () => {
+    const { topBar, leftRail, rightRail, bottomBar } = clusters!;
+    for (const r of [topBar, leftRail, rightRail, bottomBar]) {
+      expect(withinBounds(r, designW, designH)).toBe(true);
+    }
+    for (const [a, b] of pairs([topBar, leftRail, rightRail, bottomBar])) {
+      expect(rectsOverlap(a, b)).toBe(false);
+    }
+  });
+
+  it("boardArea is the residual rect after the 4 edge clusters are placed", () => {
+    const { topBar, leftRail, rightRail, bottomBar, boardArea } = clusters!;
+    expect(boardArea.x).toBeGreaterThanOrEqual(leftRail.x + leftRail.w);
+    expect(boardArea.x + boardArea.w).toBeLessThanOrEqual(rightRail.x);
+    expect(boardArea.y).toBeGreaterThanOrEqual(topBar.y + topBar.h);
+    expect(boardArea.y + boardArea.h).toBeLessThanOrEqual(bottomBar.y);
+    // Residual area doesn't overlap any edge cluster.
+    for (const r of [topBar, leftRail, rightRail, bottomBar]) {
+      expect(rectsOverlap(boardArea, r)).toBe(false);
+    }
+  });
+
+  it("board (the rendered region) fits inside boardArea and preserves the hex-grid aspect ratio", () => {
+    const { board } = layout.regions;
+    const { boardArea } = clusters!;
+    expect(board.x).toBeGreaterThanOrEqual(boardArea.x - 0.001);
+    expect(board.y).toBeGreaterThanOrEqual(boardArea.y - 0.001);
+    expect(board.x + board.w).toBeLessThanOrEqual(boardArea.x + boardArea.w + 0.001);
+    expect(board.y + board.h).toBeLessThanOrEqual(boardArea.y + boardArea.h + 0.001);
+
+    const gridAspect = 336 / 348;
+    expect(board.w / board.h).toBeCloseTo(gridAspect, 2);
+  });
+
+  it("surplus space (wider/taller than the residual needs) goes to symmetric board margins, not cluster growth", () => {
+    const wide = resolveLayout({ viewportW: 844, viewportH: 390 });
+    const { boardArea, topBar, leftRail, rightRail, bottomBar } = wide.clusters!;
+    // Symmetric centering: leftover horizontal/vertical space inside boardArea
+    // is split evenly around the board rect.
+    const board = wide.regions.board;
+    const leftGap = board.x - boardArea.x;
+    const rightGap = (boardArea.x + boardArea.w) - (board.x + board.w);
+    const topGap = board.y - boardArea.y;
+    const bottomGap = (boardArea.y + boardArea.h) - (board.y + board.h);
+    expect(Math.abs(leftGap - rightGap)).toBeLessThanOrEqual(1);
+    expect(Math.abs(topGap - bottomGap)).toBeLessThanOrEqual(1);
+    // Clusters stay at their reference thickness regardless of viewport (only
+    // the board/margins absorb surplus) — verified by clamp tests below.
+    void topBar; void leftRail; void rightRail; void bottomBar;
+  });
+});
+
+describe("landscapeClusterThickness clamp behavior", () => {
+  it("16:9-equivalent design aspect: clusters clamp to their reference thickness", () => {
+    // The design canvas is fixed at 1280×592 regardless of viewport aspect —
+    // clamp behavior is therefore driven by the fixed design dims, exercised
+    // directly via landscapeClusterThickness.
+    const t = landscapeClusterThickness(1280, 592);
+    expect(t.topBarH).toBeGreaterThanOrEqual(48);
+    expect(t.topBarH).toBeLessThanOrEqual(80);
+    expect(t.bottomBarH).toBeGreaterThanOrEqual(112);
+    expect(t.bottomBarH).toBeLessThanOrEqual(160);
+    expect(t.leftRailW).toBeGreaterThanOrEqual(96);
+    expect(t.leftRailW).toBeLessThanOrEqual(160);
+    expect(t.rightRailW).toBeGreaterThanOrEqual(180);
+    expect(t.rightRailW).toBeLessThanOrEqual(280);
+  });
+
+  it("never exceeds max even with a much larger design canvas (simulated 16:9 ultrawide)", () => {
+    const t = landscapeClusterThickness(2560, 1184); // 2x the reference, still ~2.16:1
+    expect(t.topBarH).toBeLessThanOrEqual(80);
+    expect(t.bottomBarH).toBeLessThanOrEqual(160);
+    expect(t.leftRailW).toBeLessThanOrEqual(160);
+    expect(t.rightRailW).toBeLessThanOrEqual(280);
+  });
+
+  it("4:3-equivalent narrow usable area: clusters shrink toward their min rather than overrunning the board floor", () => {
+    // A much narrower usable width than the design reference (simulating a
+    // squeezed 4:3-ish landscape splitscreen) — rails compress toward MIN
+    // before ever eating into the board's minimum floor.
+    const t = landscapeClusterThickness(500, 592);
+    expect(t.leftRailW).toBeGreaterThan(0);
+    expect(t.rightRailW).toBeGreaterThan(0);
+    expect(t.leftRailW + t.rightRailW).toBeLessThanOrEqual(500 - 360 + 0.5); // LS_BOARD_MIN_W=360
+  });
+
+  it("16:9 viewport (≈1.78) still resolves the fixed 1280×592 design with valid clamped clusters", () => {
+    // 16:9 phone, e.g. 1920×1080 scaled down — orientation flips to landscape,
+    // design stays 1280×592 (independent of the device aspect).
+    const layout = resolveLayout({ viewportW: 1920, viewportH: 1080 });
+    expect(layout.orientation).toBe("landscape");
+    expect(layout.designW).toBe(1280);
+    expect(layout.designH).toBe(592);
+    const c = layout.clusters!;
+    expect(c.topBar.h).toBeGreaterThanOrEqual(48);
+    expect(c.bottomBar.h).toBeGreaterThanOrEqual(112);
+  });
+
+  it("4:3 viewport (1.333, still ≥ LANDSCAPE_THRESHOLD) resolves landscape with valid clamped clusters", () => {
+    const layout = resolveLayout({ viewportW: 800, viewportH: 600 });
+    expect(layout.orientation).toBe("landscape");
+    expect(layout.designW).toBe(1280);
+    expect(layout.designH).toBe(592);
+    const c = layout.clusters!;
+    for (const r of [c.topBar, c.leftRail, c.rightRail, c.bottomBar]) {
+      expect(r.w).toBeGreaterThan(0);
+      expect(r.h).toBeGreaterThan(0);
+    }
+    expect(rectsOverlap(c.boardArea, c.topBar)).toBe(false);
+    expect(rectsOverlap(c.boardArea, c.leftRail)).toBe(false);
+    expect(rectsOverlap(c.boardArea, c.rightRail)).toBe(false);
+    expect(rectsOverlap(c.boardArea, c.bottomBar)).toBe(false);
+  });
+});
+
+// ── Landscape region geometry (existing widget names, slotted into clusters) ──
 
 describe("landscape regions", () => {
   const layout = resolveLayout({ viewportW: 844, viewportH: 390 });
@@ -173,50 +367,47 @@ describe("landscape regions", () => {
       { name: "hud",          r: regions.hud },
     ];
     for (const [a, b] of pairs(named)) {
-      expect(rectsOverlap(a.r, b.r))
-        .toBe(false);
+      expect(rectsOverlap(a.r, b.r)).toBe(false);
     }
   });
 
-  it("board holds the hex grid scaled-to-fit and is the dominant region", () => {
-    // The fixed 7×4 grid is 336w × 348h. Landscape renders it scaled-to-fit the
-    // board region (match.ts boardScale = min(1, (w-16)/336, (h-12)/348)); the
-    // scaled grid must fit inside the region, and the board is the dominant
-    // element — wider than the prior 352px landscape board panel.
+  it("board fills the full residual height and preserves the hex-grid aspect ratio", () => {
     const gridW = 336;
     const gridH = 348;
-    const scale = Math.min(1, (regions.board.w - 16) / gridW, (regions.board.h - 12) / gridH);
-    expect(scale).toBeGreaterThan(0);
-    expect(scale).toBeLessThanOrEqual(1);
-    expect(gridW * scale).toBeLessThanOrEqual(regions.board.w);
-    expect(gridH * scale).toBeLessThanOrEqual(regions.board.h);
-    expect(regions.board.w).toBeGreaterThan(352);
+    // boardArea is wider than the grid's native aspect needs at the 1280×592
+    // reference (asymmetric 120/220 rails leave a very wide residual), so the
+    // board is height-bound: it fills the entire residual height (no longer
+    // capped at the native 348px the way the old 844×390 design was) and its
+    // width follows from the locked aspect ratio — never the other way round.
+    expect(regions.board.h).toBeGreaterThan(0);
+    expect(regions.board.w / regions.board.h).toBeCloseTo(gridW / gridH, 2);
+    expect(regions.board.h).toBeGreaterThanOrEqual(300); // LS_BOARD_MIN_H
   });
 
-  it("board is the dominant top-center element spanning the design center", () => {
-    // Top-center: the board straddles the horizontal midline.
-    expect(regions.board.x).toBeLessThan(designW / 2);
-    expect(regions.board.x + regions.board.w).toBeGreaterThan(designW / 2);
-    // Board y is anchored to the top.
-    expect(regions.board.y).toBeLessThan(designH / 4);
+  it("board sits in the central residual area (between leftRail and rightRail clusters)", () => {
+    const { leftRail, rightRail } = layout.clusters!;
+    expect(regions.board.x).toBeGreaterThanOrEqual(leftRail.x + leftRail.w);
+    expect(regions.board.x + regions.board.w).toBeLessThanOrEqual(rightRail.x + 0.5);
   });
 
-  it("statusRow is a thin band under the board (not full-width)", () => {
+  it("statusRow is a thin band aligned with the board, inside the topBar cluster", () => {
     expect(regions.statusRow.x).toBe(regions.board.x);
     expect(regions.statusRow.w).toBe(regions.board.w);
-    expect(regions.statusRow.y).toBeGreaterThanOrEqual(regions.board.y + regions.board.h);
-    expect(regions.statusRow.y + regions.statusRow.h).toBeLessThanOrEqual(regions.shop.y);
+    expect(regions.statusRow.y).toBeGreaterThanOrEqual(layout.clusters!.topBar.y);
+    expect(regions.statusRow.y + regions.statusRow.h).toBeLessThanOrEqual(layout.clusters!.topBar.y + layout.clusters!.topBar.h);
   });
 
-  it("bench is centered below the board and above the shop", () => {
-    // Bench center x should be close to board center x.
+  it("topBar contains statusRow (opponentRail moved to rightRail)", () => {
+    const { topBar } = layout.clusters!;
+    expect(regions.statusRow.y).toBeGreaterThanOrEqual(topBar.y - 0.5);
+    expect(regions.statusRow.y + regions.statusRow.h).toBeLessThanOrEqual(topBar.y + topBar.h + 0.5);
+  });
+
+  it("bench is centered below the board, inside the bottomBar cluster", () => {
     const benchCx = regions.bench.x + regions.bench.w / 2;
     const boardCx = regions.board.x + regions.board.w / 2;
-    expect(Math.abs(benchCx - boardCx)).toBeLessThanOrEqual(2); // rounding tolerance
-    // Bench y is below the board+status row.
-    expect(regions.bench.y).toBeGreaterThan(regions.statusRow.y + regions.statusRow.h);
-    // Bench bottom is above the shop.
-    expect(regions.bench.y + regions.bench.h).toBeLessThanOrEqual(regions.shop.y);
+    expect(Math.abs(benchCx - boardCx)).toBeLessThanOrEqual(2);
+    expect(regions.bench.y).toBeGreaterThanOrEqual(layout.clusters!.bottomBar.y - 0.5);
   });
 
   it("bench has 9 slot positions in a single 1×9 row that stay inside the bench rect", () => {
@@ -229,61 +420,70 @@ describe("landscape regions", () => {
       expect(c.y).toBeLessThanOrEqual(regions.bench.y + regions.bench.h);
       centers.push(c);
     }
-    // Single row: every slot shares the same vertical center.
     for (const c of centers) expect(c.y).toBeCloseTo(centers[0]!.y, 5);
-    // Nine strictly increasing, evenly spaced x positions.
     for (let i = 1; i < 9; i++) expect(centers[i]!.x).toBeGreaterThan(centers[i - 1]!.x);
-    // Each slot's footprint meets the ≥32px touch floor in both dimensions.
     const slotW = regions.bench.w / 9;
     expect(slotW).toBeGreaterThanOrEqual(32);
     expect(regions.bench.h).toBeGreaterThanOrEqual(32);
   });
 
-  it("traitRail is a thin vertical strip in the far-left column (x=0 or close)", () => {
-    expect(regions.traitRail.x).toBe(0);
-    // Tall and thin.
-    expect(regions.traitRail.h).toBeGreaterThan(regions.traitRail.w * 3);
-    // traitRail is to the left of the board.
-    expect(regions.traitRail.x + regions.traitRail.w).toBeLessThanOrEqual(regions.board.x);
+  it("traitRail is a thin vertical strip inside the leftRail cluster", () => {
+    const { leftRail } = layout.clusters!;
+    expect(regions.traitRail.x).toBe(leftRail.x);
+    expect(regions.traitRail.h).toBeGreaterThan(regions.traitRail.w);
+    expect(regions.traitRail.x + regions.traitRail.w).toBeLessThanOrEqual(regions.board.x + 0.5);
   });
 
-  it("traitTabBar sits at the top of the trait column (landscape only)", () => {
-    // Tab buttons occupy the top of the left column, above the traitRail content.
+  it("traitTabBar sits at the top of the leftRail cluster (landscape only)", () => {
     expect(regions.traitTabBar.x).toBe(regions.traitRail.x);
     expect(regions.traitTabBar.w).toBe(regions.traitRail.w);
     expect(regions.traitTabBar.y).toBeLessThan(regions.traitRail.y);
     expect(regions.traitTabBar.h).toBeGreaterThan(0);
-    // Together they cover a contiguous vertical strip.
     expect(regions.traitTabBar.y + regions.traitTabBar.h).toBeLessThanOrEqual(regions.traitRail.y + 4);
   });
 
-  it("opponentRail, hud, sellControl, readyButton are in the right-edge column", () => {
+  it("hud, sellControl, readyButton are in the right-edge (rightRail) cluster", () => {
     const boardRight = regions.board.x + regions.board.w;
-    expect(regions.opponentRail.x).toBeGreaterThanOrEqual(boardRight);
-    expect(regions.hud.x).toBeGreaterThanOrEqual(boardRight);
-    expect(regions.sellControl.x).toBeGreaterThanOrEqual(boardRight);
-    expect(regions.readyButton.x).toBeGreaterThanOrEqual(boardRight);
+    const { rightRail } = layout.clusters!;
+    expect(regions.hud.x).toBeGreaterThanOrEqual(boardRight - 0.5);
+    expect(regions.sellControl.x).toBeGreaterThanOrEqual(boardRight - 0.5);
+    expect(regions.readyButton.x).toBeGreaterThanOrEqual(boardRight - 0.5);
+    expect(regions.hud.x).toBe(rightRail.x);
+    expect(regions.readyButton.x).toBe(rightRail.x);
   });
 
-  it("shop is a full-width strip pinned to the bottom edge", () => {
-    expect(regions.shop.x).toBe(0);
-    expect(regions.shop.w).toBe(designW);
-    expect(regions.shop.y + regions.shop.h).toBe(designH);
+  it("opponentRail is in the right-edge (rightRail) cluster, not the topBar", () => {
+    const { rightRail } = layout.clusters!;
+    expect(regions.opponentRail.x).toBe(rightRail.x);
+    expect(regions.opponentRail.y).toBeGreaterThanOrEqual(rightRail.y - 0.5);
+    expect(regions.opponentRail.y + regions.opponentRail.h).toBeLessThanOrEqual(rightRail.y + rightRail.h + 0.5);
+  });
+
+  it("opponentRail sits at the top of the rightRail cluster, above hud", () => {
+    const { rightRail } = layout.clusters!;
+    expect(regions.opponentRail.y).toBeCloseTo(rightRail.y, 1);
+    expect(regions.hud.y).toBeGreaterThanOrEqual(regions.opponentRail.y + regions.opponentRail.h);
+  });
+
+  it("shop is a full-width strip inside the bottomBar cluster, pinned to the bottom edge of that cluster", () => {
+    const { bottomBar } = layout.clusters!;
+    expect(regions.shop.x).toBe(bottomBar.x);
+    expect(regions.shop.w).toBe(bottomBar.w);
+    expect(regions.shop.y + regions.shop.h).toBeCloseTo(bottomBar.y + bottomBar.h, 0);
     expect(regions.shop.h).toBeGreaterThanOrEqual(64); // touch-target floor
   });
 
-  it("the right-edge column stacks rail → hud → sell → ready without overlap", () => {
+  it("the right-edge cluster stacks opponentRail → hud → sell → ready without overlap", () => {
     const stack = [regions.opponentRail, regions.hud, regions.sellControl, regions.readyButton];
     for (let i = 1; i < stack.length; i++) {
       const prev = stack[i - 1]!;
       const cur = stack[i]!;
-      expect(cur.y).toBeGreaterThanOrEqual(prev.y + prev.h);
+      expect(cur.y).toBeGreaterThanOrEqual(prev.y + prev.h - 0.5);
     }
-    // Whole stack sits above the bottom shop strip.
-    expect(regions.readyButton.y + regions.readyButton.h).toBeLessThanOrEqual(regions.shop.y);
+    expect(regions.readyButton.y + regions.readyButton.h).toBeLessThanOrEqual(layout.clusters!.rightRail.y + layout.clusters!.rightRail.h + 0.5);
   });
 
-  it("sellControl is detached from the bench (it lives in the right-edge column)", () => {
+  it("sellControl is detached from the bench (it lives in the right-edge cluster)", () => {
     expect(regions.sellControl.x).toBeGreaterThan(regions.bench.x + regions.bench.w);
     expect(regions.sellControl.y).toBeGreaterThan(regions.hud.y);
   });
@@ -295,14 +495,13 @@ describe("landscape regions", () => {
     expect(regions.hud.h).toBeGreaterThanOrEqual(32);
   });
 
-  it("opponentRail stacks seat tiles vertically (4 rows, each ≥ 36px)", () => {
-    // The corner rail holds 8 tiles as a 2-col × 4-row vertical stack.
-    expect(regions.opponentRail.h / 4).toBeGreaterThanOrEqual(36);
+  it("opponentRail has enough height for an 8-seat 4-col×2-row grid (≥ 36px rows)", () => {
+    expect(regions.opponentRail.h / 2).toBeGreaterThanOrEqual(36);
   });
 
-  it("bench is NOT in the far-left trait column (it moved below the board)", () => {
-    // Bench is horizontally centered under the board, not in the left column.
+  it("bench is NOT in the leftRail cluster (it lives in bottomBar)", () => {
     expect(regions.bench.x).toBeGreaterThan(regions.traitRail.x + regions.traitRail.w);
+    expect(regions.bench.y).toBeGreaterThan(regions.traitRail.y);
   });
 });
 
@@ -377,7 +576,7 @@ describe("opponentRailTile", () => {
   });
 });
 
-// ── Portrait region geometry ──────────────────────────────────────────────────
+// ── Portrait region geometry (UNTOUCHED — portrait is out of scope) ───────────
 
 describe("portrait regions", () => {
   const layout = resolveLayout({ viewportW: 390, viewportH: 844 });
@@ -404,8 +603,6 @@ describe("portrait regions", () => {
   });
 
   it("portrait board is at the existing hardcoded x/y/w; height reclaims the freed item-bar space", () => {
-    // match.ts: BOARD_PANEL_X=8, BOARD_PANEL_Y=58, W=374. With the item bar
-    // removed the board grows to its new design max (P_BOARD_MAX=392).
     expect(regions.board.x).toBe(8);
     expect(regions.board.y).toBe(58);
     expect(regions.board.w).toBe(374);
@@ -423,7 +620,6 @@ describe("portrait regions", () => {
   });
 
   it("portrait regions have a uniform inter-region gap below the trait strip", () => {
-    // Each adjacent pair in the stacked lower column should sit 6–10px apart.
     const stack = [
       regions.traitRail,
       regions.hud,
@@ -439,7 +635,7 @@ describe("portrait regions", () => {
   });
 });
 
-// ── Portrait height-driven layout ─────────────────────────────────────────────
+// ── Portrait height-driven layout (UNTOUCHED — portrait is out of scope) ──────
 
 describe("portrait height-driven layout", () => {
   const heights = [606, 640, 736, 844, 926];
@@ -465,7 +661,6 @@ describe("portrait height-driven layout", () => {
       expect(layout.orientation).toBe("portrait");
       expect(layout.designH).toBe(usableH);
       expect(layout.portraitDesignH).toBe(usableH);
-      // Width-only scale: canvas fills usable height exactly.
       expect(layout.scale).toBeCloseTo(390 / PORTRAIT_W, 6);
     });
 
@@ -490,7 +685,6 @@ describe("portrait height-driven layout", () => {
       const layout = resolveLayout({ viewportW: 390, viewportH: usableH });
       const r = layout.regions;
       for (const rect of Object.values(r)) {
-        // traitTabBar is zeroed in portrait — skip its 0-area check
         if (rect.w === 0 && rect.h === 0) continue;
         expect(rect.y + rect.h).toBeLessThanOrEqual(layout.designH + 1);
       }
@@ -504,7 +698,7 @@ describe("portrait height-driven layout", () => {
       expect(r.shop.h).toBeGreaterThanOrEqual(64);
       expect(r.hud.h).toBeGreaterThanOrEqual(32);
       expect(r.board.h).toBeGreaterThanOrEqual(280);
-      expect(r.board.w).toBeGreaterThanOrEqual(336); // hex grid must fit
+      expect(r.board.w).toBeGreaterThanOrEqual(336);
     });
 
     it(`sell control sits beside the bench at usableH=${usableH}`, () => {
@@ -514,7 +708,6 @@ describe("portrait height-driven layout", () => {
       expect(r.bench.w).toBe(324);
       expect(r.sellControl.x).toBe(338);
       expect(r.sellControl.w).toBe(44);
-      // Sell control tracks the bench row exactly.
       expect(r.sellControl.y).toBe(r.bench.y);
       expect(r.sellControl.h).toBe(r.bench.h);
     });
@@ -549,8 +742,8 @@ describe("portrait height-driven layout", () => {
     expect(r.board.x).toBe(8);
     expect(r.board.y).toBe(58);
     expect(r.board.w).toBe(374);
-    expect(r.board.h).toBeGreaterThanOrEqual(359); // 360 ±1 rounding
-    expect(r.shop.h).toBeGreaterThanOrEqual(83);   // 84 ±1
+    expect(r.board.h).toBeGreaterThanOrEqual(359);
+    expect(r.shop.h).toBeGreaterThanOrEqual(83);
   });
 
   it("portraitRegions(844) matches full resolveLayout output", () => {
@@ -569,13 +762,10 @@ describe("shopCardContentLayout", () => {
   for (const cardH of [64, 72, 84]) {
     it(`content rows are top-to-bottom ordered with no trait/tier collision at cardH=${cardH}`, () => {
       const c = shopCardContentLayout(cardH);
-      // Strict vertical order: disc < name < trait < tier.
       expect(c.discY).toBeLessThan(c.nameY);
       expect(c.nameY).toBeLessThan(c.traitY);
       expect(c.traitY).toBeLessThan(c.tierY);
-      // Trait line clears the tier/cost row.
       expect(c.traitY + 7).toBeLessThan(c.tierY - 2);
-      // All offsets stay within the card.
       expect(c.tierY).toBeLessThanOrEqual(cardH);
       expect(c.discY - c.discR).toBeGreaterThanOrEqual(0);
     });
@@ -621,7 +811,6 @@ describe("centeredModal", () => {
   });
 
   it("short landscape viewport: a tall content block is clamped to fit", () => {
-    // Simulate a short landscape browser chrome scenario.
     const layout = resolveLayout({ viewportW: 667, viewportH: 375 });
     const r = centeredModal(layout, 600, layout.designH - 20);
     expect(r.y).toBeGreaterThanOrEqual(0);
@@ -660,7 +849,8 @@ describe("landscapeHudControls fits the hud region", () => {
     inner.x + inner.w <= outer.x + outer.w &&
     inner.y + inner.h <= outer.y + outer.h;
 
-  // Range of supported landscape viewports (design + a wider/taller phone).
+  // Range of supported landscape viewports (design is now fixed 1280×592
+  // regardless of viewport — these exercise different scale factors only).
   const viewports = [
     { viewportW: 844, viewportH: 390 },
     { viewportW: 1688, viewportH: 780 },
@@ -676,15 +866,64 @@ describe("landscapeHudControls fits the hud region", () => {
       expect(within(reroll, hud), "reroll within hud region").toBe(true);
       expect(within(buyXp, hud), "buy-xp within hud region").toBe(true);
 
-      // And inside the overall design bounds (the off-screen symptom of BUG 2).
       expect(withinBounds(reroll, layout.designW, layout.designH)).toBe(true);
       expect(withinBounds(buyXp, layout.designW, layout.designH)).toBe(true);
 
-      // The two buttons must not overlap each other.
       expect(rectsOverlap(reroll, buyXp)).toBe(false);
-      // Both remain at least a usable touch width.
       expect(reroll.w).toBeGreaterThanOrEqual(40);
       expect(buyXp.w).toBeGreaterThanOrEqual(40);
     });
   }
+});
+
+// ── 9-layer z-stack ordering (spec §4) ─────────────────────────────────────────
+
+describe("scene 9-layer z-stack", () => {
+  it("defines exactly 9 named layers, strictly ascending by VALUE", () => {
+    // NOTE: SCENE_LAYER_ORDER/SCENE_LAYER_NAMES are sorted by each constant's
+    // numeric VALUE (true stacking order), not by its L#_ name suffix — see
+    // the IMPORTANT note in combatLayout.ts. L8_TOAST (suffix 8) sorts before
+    // L6_INSPECT/L7_DOM_META (suffixes 6/7) in both arrays because toast's
+    // VALUE places it lower in the stack (above HUD, below the modal layers).
+    expect(SCENE_LAYER_ORDER.length).toBe(9);
+    expect(SCENE_LAYER_NAMES.length).toBe(9);
+    for (let i = 1; i < SCENE_LAYER_ORDER.length; i++) {
+      expect(SCENE_LAYER_ORDER[i]!).toBeGreaterThan(SCENE_LAYER_ORDER[i - 1]!);
+    }
+  });
+
+  it("L0 board env is the bottommost layer", () => {
+    expect(L0_BOARD_ENV).toBe(Math.min(...SCENE_LAYER_ORDER));
+  });
+
+  it("L7 dom meta is the topmost layer (toast deviates below the modal layers)", () => {
+    expect(L7_DOM_META).toBe(Math.max(...SCENE_LAYER_ORDER));
+  });
+
+  it("board content stacks L0 < L1 < L2 (env < grid < units)", () => {
+    expect(L0_BOARD_ENV).toBeLessThan(L1_HEX_GRID);
+    expect(L1_HEX_GRID).toBeLessThan(L2_UNITS);
+  });
+
+  it("watermark (L3) sits above units but below the frame (L4)", () => {
+    expect(L3_WATERMARK).toBeGreaterThan(L2_UNITS);
+    expect(L3_WATERMARK).toBeLessThan(L4_FRAME);
+  });
+
+  it("frame (L4) sits below HUD chrome (L5)", () => {
+    expect(L4_FRAME).toBeLessThan(L5_HUD);
+  });
+
+  it("HUD (L5) sits below the toast layer (L8)", () => {
+    expect(L5_HUD).toBeLessThan(L8_TOAST);
+  });
+
+  it("toast (L8) sits above HUD (L5) — confirms existing toast-above-HUD z-order", () => {
+    expect(L8_TOAST).toBeGreaterThan(L5_HUD);
+  });
+
+  it("toast (L8) sits below the modal layers (L6 inspect, L7 dom meta) per spec", () => {
+    expect(L8_TOAST).toBeLessThan(L6_INSPECT);
+    expect(L6_INSPECT).toBeLessThan(L7_DOM_META);
+  });
 });

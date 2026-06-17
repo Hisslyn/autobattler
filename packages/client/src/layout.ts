@@ -5,13 +5,34 @@
 // Orientation rule
 // ────────────────
 // aspect = viewportW / viewportH
-//   >= LANDSCAPE_THRESHOLD  →  landscape (design 844×390)
+//   >= LANDSCAPE_THRESHOLD  →  landscape (design 1280×592)
 //   <  LANDSCAPE_THRESHOLD  →  portrait  (design 390×844)
 //
 // LANDSCAPE_THRESHOLD = 1.1 — a little above 1.0 so a square-ish phone still
 // gets portrait; 16:9 landscape (≈1.78) and 19.5:9 landscape (≈2.17) both flip.
 // Portrait is preserved below 1.1, which covers virtually all held-portrait phones
 // (390×844 = 0.46 aspect).
+//
+// ── Landscape region architecture (stage 1 of the design-bible rewrite) ───────
+// Landscape moved from an 844×390 edge-anchored design to a 1280×592 reference
+// canvas (aspect 2.162:1) built from a 4-fixed-edge-cluster + residual-board
+// model:
+//   - topBar, leftRail, rightRail, bottomBar are FIXED reference dimensions,
+//     clamped to a [min,max] per cluster (see LS_* constants below). They
+//     never stretch past their max even when the viewport has surplus space.
+//   - the board fills whatever rect remains in the center after the 4 edge
+//     clusters are placed, then scales-to-fit preserving the hex-grid aspect
+//     ratio inside that residual rect (match.ts's existing boardScale getter
+//     already does its own scale-to-fit math from regions.board — unchanged).
+//   - each cluster's start position is max(safeInset_for_that_edge, baseMargin)
+//     so no interactive element ever sits under a device notch on either short
+//     landscape edge. Device safe-area insets arrive in CSS px (from main.ts's
+//     #safe-probe env(safe-area-inset-*) read); they're converted to DESIGN
+//     units (divided by the design↔CSS scale factor) before being compared
+//     against LS_BASE_MARGIN, since the cluster solve itself runs in the fixed
+//     1280×592 design space.
+// Portrait is completely unaffected — portraitRegions/portraitLayout below are
+// byte-for-byte unchanged from the prior stage.
 
 export const LANDSCAPE_THRESHOLD = 1.1;
 
@@ -19,8 +40,13 @@ export const LANDSCAPE_THRESHOLD = 1.1;
 
 export const PORTRAIT_W  = 390;
 export const PORTRAIT_H  = 844;
-export const LANDSCAPE_W = 844;
-export const LANDSCAPE_H = 390;
+/**
+ * Landscape reference canvas (stage-1 rewrite). Replaces the prior 844×390.
+ * Aspect 1280/592 ≈ 2.162:1 — wider than a typical 16:9 phone (1.78) so 16:9
+ * and 4:3 devices both exercise the surplus/clamp logic in landscapeLayout.
+ */
+export const LANDSCAPE_W = 1280;
+export const LANDSCAPE_H = 592;
 
 // ── Geometry ─────────────────────────────────────────────────────────────────
 // Board constants (mirrors hexUtils.ts — kept local so this module stays pure
@@ -74,6 +100,23 @@ export interface MatchRegions {
   sellControl:  Rect;
 }
 
+/**
+ * Landscape-only: the 4 fixed-dimension edge clusters of the stage-1 region
+ * architecture, exposed alongside the legacy per-widget MatchRegions (which
+ * still carries the same names match.ts reads — see landscapeLayout). Each
+ * existing region rect is positioned INSIDE one of these 4 cluster rects;
+ * this type documents/exposes that grouping for tests and future stages.
+ * Undefined in portrait (portrait keeps its own independent stack).
+ */
+export interface LandscapeClusters {
+  topBar:    Rect;
+  leftRail:  Rect;
+  rightRail: Rect;
+  bottomBar: Rect;
+  /** Residual central rect the board scales-to-fit inside. */
+  boardArea: Rect;
+}
+
 export interface MatchLayout {
   orientation: "landscape" | "portrait";
   /** Design-space width fed to Pixi. */
@@ -95,6 +138,8 @@ export interface MatchLayout {
   regions: MatchRegions;
   /** Portrait only: actual design height used (= usable viewport height). */
   portraitDesignH?: number;
+  /** Landscape only: the 4-cluster + residual-board breakdown (stage 1). */
+  clusters?: LandscapeClusters;
 }
 
 export interface ResolveLayoutInput {
@@ -112,6 +157,8 @@ export interface ResolveLayoutInput {
 // while shorter viewports fit the stack without globally shrinking.
 //
 // See PORTRAIT_LAYOUT_SPEC.md for the full algorithm.
+//
+// NOT TOUCHED by the stage-1 landscape rewrite — kept byte-for-byte identical.
 
 // Static (never-scaled) top band heights.
 const P_STATUS_Y = 4;
@@ -277,42 +324,265 @@ function portraitLayout(viewportW: number, viewportH: number, safe: SafeInsets):
   };
 }
 
-// ── Landscape layout ─────────────────────────────────────────────────────────
+// ── Landscape layout (stage 1: 4-cluster + residual-board architecture) ───────
 //
-// Edge-anchored design on 844×390. Layout after the bench-reposition pass:
+// Reference canvas 1280×592 (aspect 2.162:1).
 //
-//  ┌──────────────┬──────────────────────────┬──────────────┐
-//  │[1][2]        │                           │ opponentRail │
-//  │ traitRail    │       BOARD (dominant)    │   (2×4)      │
-//  │ (tab-content │       top-center,         ├──────────────┤
-//  │  area)       │       scaled-to-fit 8 rows│ hud cluster  │
-//  │              │                           ├──────────────┤
-//  │              │      statusRow (under)    │ sellControl  │
-//  │              │                           │ readyButton  │
-//  ├──────────────┴──────────────────────────-┴──────────────┤
-//  │              bench (1×9 row, centered)                   │
-//  ├───────────────────────────────────────────────────────────┤
-//  │              shop (5 cards, full width, h=64)             │
-//  └───────────────────────────────────────────────────────────┘
+//  ┌─────────────────────────────────── topBar (statusRow) ──────────────────┐
+//  ├───────────┬───────────────────────────────────────────────┬────────────┤
+//  │           │                                                │ opponent-  │
+//  │ leftRail  │              boardArea (residual)              │ Rail       │
+//  │ (traits/  │     board scales-to-fit, preserves hex aspect, │ (4×2 seat  │
+//  │  items    │     centered with symmetric margins on surplus │  grid) →   │
+//  │  tabs)    │                                                │ hud, sell, │
+//  │           │                                                │ ready      │
+//  ├───────────┴───────────────────────────────────────────────┴────────────┤
+//  │              bottomBar (bench row + shop strip)                          │
+//  └───────────────────────────────────────────────────────────────────────-┘
 //
-// The bench (1×9 single row, 9 slots) now sits BELOW the board and ABOVE the
-// shop, horizontally centered (same center as the board).
+// Each of the 4 edge clusters has a FIXED reference width/height, clamped to a
+// per-cluster [min,max] (see LS_* constants). They never grow past max even
+// when the viewport has surplus space relative to the 2.162:1 reference —
+// surplus always goes to the board (+ symmetric centering margins).
 //
-// Bench slot dimensions: each slot is slotW × benchH where slotW = benchW / 9
-// (= 36px) and benchH = 36px — both dimensions ≥ 32px touch-target floor.
-// Compared to the old 3×3 grid (54px tall), the single row saves 18px of
-// vertical space; the board region gains those 18px in height.
+// Each cluster's leading edge is positioned at max(safeInsetDesign, LS_BASE_MARGIN)
+// (safeInsetDesign = the device's CSS-px safe-area inset converted into design
+// units) so nothing sits under a device notch on the left/right landscape edges.
 //
-// The far-left traitRail now has tab-switcher buttons [1][2] at its top edge
-// (stored in traitTabBar). The rail content area (traitRail) is below them.
-// Tab 1 = trait chips (existing behavior), Tab 2 = item inventory browse (the
-// draggable item source — drag a chip → EQUIP / COMBINE).
-//
-// The left column background spans the traitRail only (narrower than before
-// since the bench moved below the board).
-//
-// opponentRail, hud, sellControl, readyButton remain in the right-edge column.
-// shop: bottom edge, full design width, h=64.
+// NOTE: opponentRail lives in the rightRail cluster (not topBar) — topBar is
+// clamped to a max of 80px, which can't hold a 4-col×2-row seat grid at the
+// required ≥36px row height (≥72px) alongside statusRow. The tall narrow
+// rightRail has the vertical room and this also matches the pre-rewrite
+// landscape placement (the opponent rail lived in the right thumb column).
+// topBar therefore carries only statusRow.
+
+/** New stage-1 constant: minimum starting margin for every edge cluster, used
+ *  whenever the device safe-area inset for that edge is smaller than this
+ *  (in design units). */
+export const LS_BASE_MARGIN = 12;
+
+// Per-cluster fixed reference dimension + clamp range. Chosen from the
+// current (pre-rewrite) content's minimum usable size — see CHANGE REPORT for
+// the full rationale per cluster.
+const LS_TOPBAR_H_REF = 64,     LS_TOPBAR_H_MIN = 48,     LS_TOPBAR_H_MAX = 80;
+const LS_BOTTOMBAR_H_REF = 132, LS_BOTTOMBAR_H_MIN = 112, LS_BOTTOMBAR_H_MAX = 160;
+const LS_LEFTRAIL_W_REF = 120,  LS_LEFTRAIL_W_MIN = 96,   LS_LEFTRAIL_W_MAX = 160;
+const LS_RIGHTRAIL_W_REF = 220, LS_RIGHTRAIL_W_MIN = 180, LS_RIGHTRAIL_W_MAX = 280;
+
+// Minimum board area so the 336×348 hex grid always has room to scale up from
+// its native size, never down to illegibility.
+const LS_BOARD_MIN_W = 360;
+const LS_BOARD_MIN_H = 300;
+
+/**
+ * Pure cluster-dimension solve, exposed for tests: given the usable design
+ * width/height, returns each fixed-edge cluster's clamped thickness.
+ * Independent of position — landscapeRegionsFor positions clusters using
+ * these thicknesses plus LS_BASE_MARGIN / safe-inset margins.
+ */
+export function landscapeClusterThickness(
+  usableW: number,
+  usableH: number
+): { topBarH: number; bottomBarH: number; leftRailW: number; rightRailW: number } {
+  // Reference values clamp to their own [min,max] regardless of viewport — they
+  // are FIXED dimensions per the spec, not scaled by the viewport. The clamp
+  // exists so a future stage could re-tune the reference constants without
+  // ever producing a degenerate (too-small or runaway) cluster.
+  const topBarH    = clamp(LS_TOPBAR_H_MIN,    LS_TOPBAR_H_REF,    LS_TOPBAR_H_MAX);
+  const bottomBarH = clamp(LS_BOTTOMBAR_H_MIN, LS_BOTTOMBAR_H_REF, LS_BOTTOMBAR_H_MAX);
+  const leftRailW  = clamp(LS_LEFTRAIL_W_MIN,  LS_LEFTRAIL_W_REF,  LS_LEFTRAIL_W_MAX);
+  const rightRailW = clamp(LS_RIGHTRAIL_W_MIN, LS_RIGHTRAIL_W_REF, LS_RIGHTRAIL_W_MAX);
+
+  // Defensive floor: on a viewport far smaller than the reference, shrink the
+  // rails/bars toward their MIN (never below it) so the residual board area
+  // never goes negative. This only engages on viewports tighter than any
+  // currently-supported device; on all tested aspects (16:9, 4:3, 2.162:1+)
+  // the reference values already fit comfortably alongside LS_BOARD_MIN_*.
+  const maxBarsW = Math.max(0, usableW - LS_BOARD_MIN_W);
+  const maxBarsH = Math.max(0, usableH - LS_BOARD_MIN_H);
+  let lw = leftRailW, rw = rightRailW, tb = topBarH, bb = bottomBarH;
+  if (lw + rw > maxBarsW && maxBarsW > 0) {
+    const scaleDown = maxBarsW / (lw + rw);
+    lw = Math.max(LS_LEFTRAIL_W_MIN * scaleDown, 1);
+    rw = Math.max(LS_RIGHTRAIL_W_MIN * scaleDown, 1);
+  }
+  if (tb + bb > maxBarsH && maxBarsH > 0) {
+    const scaleDown = maxBarsH / (tb + bb);
+    tb = Math.max(LS_TOPBAR_H_MIN * scaleDown, 1);
+    bb = Math.max(LS_BOTTOMBAR_H_MIN * scaleDown, 1);
+  }
+
+  return { topBarH: tb, bottomBarH: bb, leftRailW: lw, rightRailW: rw };
+}
+
+/**
+ * Stage-1 landscape region solve. Builds the 4 fixed-edge clusters (clamped,
+ * positioned at max(safeInsetDesign, LS_BASE_MARGIN) per edge) and the
+ * residual boardArea, then slots the EXISTING named widgets into their
+ * assigned cluster at their prior internal proportions/behavior.
+ *
+ * Cluster mapping (documented in full in the CHANGE REPORT):
+ *   topBar    = statusRow
+ *   leftRail  = traitTabBar + traitRail
+ *   rightRail = opponentRail (top, 4×2 seat grid) + hud + sellControl + readyButton
+ *   bottomBar = bench + shop
+ *   boardArea → board (residual, scale-to-fit, hex-aspect preserved)
+ *
+ * opponentRail was remapped out of topBar (clamped ≤80px, too short for a
+ * 4-col×2-row ≥36px-row seat grid) into rightRail, which has the vertical
+ * room and matches the pre-rewrite landscape placement.
+ *
+ * @param designW design-space width (always LANDSCAPE_W, 1280)
+ * @param designH design-space height (always LANDSCAPE_H, 592)
+ * @param safeDesign safe-area insets ALREADY CONVERTED to design units
+ *   (CSS-px inset ÷ the design↔CSS scale factor) by the caller.
+ */
+function landscapeRegionsFor(
+  designW: number,
+  designH: number,
+  safeDesign: SafeInsets
+): { regions: MatchRegions; clusters: LandscapeClusters } {
+  const { topBarH, bottomBarH, leftRailW, rightRailW } = landscapeClusterThickness(designW, designH);
+
+  // Each cluster's leading edge clears the device notch: max(safeInset, baseMargin).
+  const topY    = Math.max(safeDesign.top,    LS_BASE_MARGIN);
+  const leftX   = Math.max(safeDesign.left,   LS_BASE_MARGIN);
+  const rightM  = Math.max(safeDesign.right,  LS_BASE_MARGIN);
+  const bottomM = Math.max(safeDesign.bottom, LS_BASE_MARGIN);
+  // topBar/bottomBar span horizontally between the left/right notch margins.
+  const topX = leftX;
+
+  const topBar: Rect    = { x: topX, y: topY, w: designW - leftX - rightM, h: topBarH };
+  const bottomBar: Rect = { x: topX, y: designH - bottomM - bottomBarH, w: designW - leftX - rightM, h: bottomBarH };
+  const leftRail: Rect  = {
+    x: leftX,
+    y: topBar.y + topBar.h + LS_BASE_MARGIN,
+    w: leftRailW,
+    h: Math.max(1, bottomBar.y - LS_BASE_MARGIN - (topBar.y + topBar.h + LS_BASE_MARGIN)),
+  };
+  const rightRail: Rect = {
+    x: designW - rightM - rightRailW,
+    y: leftRail.y,
+    w: rightRailW,
+    h: leftRail.h,
+  };
+
+  const boardArea: Rect = {
+    x: leftRail.x + leftRail.w + LS_BASE_MARGIN,
+    y: leftRail.y,
+    w: Math.max(1, rightRail.x - LS_BASE_MARGIN - (leftRail.x + leftRail.w + LS_BASE_MARGIN)),
+    h: leftRail.h,
+  };
+
+  const clusters: LandscapeClusters = { topBar, leftRail, rightRail, bottomBar, boardArea };
+
+  // ── Board: scale-to-fit inside boardArea, preserving hex-grid aspect ──────
+  // match.ts independently re-derives its own scale-to-fit from regions.board
+  // (boardScale getter, capped at 1) for hex/token sizing; the region rect
+  // itself is sized to the largest box matching the grid's aspect that fits
+  // inside boardArea, with the leftover space split into symmetric margins.
+  const gridAspect = BOARD_GRID_W / BOARD_GRID_H; // 336/348
+  const areaAspect = boardArea.w / boardArea.h;
+  let boardW: number, boardH: number;
+  if (areaAspect > gridAspect) {
+    // Area is wider than the grid needs — height-bound, center horizontally.
+    boardH = boardArea.h;
+    boardW = boardH * gridAspect;
+  } else {
+    boardW = boardArea.w;
+    boardH = boardW / gridAspect;
+  }
+  const board: Rect = {
+    x: boardArea.x + (boardArea.w - boardW) / 2,
+    y: boardArea.y + (boardArea.h - boardH) / 2,
+    w: boardW,
+    h: boardH,
+  };
+
+  // ── statusRow: thin band, the full topBar cluster content (left-aligned
+  // with the board; topBar carries nothing else now that opponentRail moved
+  // to rightRail) ────────────────────────────────────────────────────────
+  const statusH = 18;
+  const statusRow: Rect = { x: board.x, y: topBar.y, w: board.w, h: statusH };
+
+  // ── leftRail content: tab bar (top strip) + traitRail (remainder) ─────────
+  const tabBtnH = 20;
+  const traitTabBar: Rect = { x: leftRail.x, y: leftRail.y, w: leftRail.w, h: tabBtnH };
+  const traitRail: Rect = {
+    x: leftRail.x,
+    y: leftRail.y + tabBtnH + 4,
+    w: leftRail.w,
+    h: Math.max(1, leftRail.h - tabBtnH - 4),
+  };
+
+  // ── rightRail content: opponentRail (top, 4×2 seat grid) → hud → sellControl
+  // → readyButton (bottom, fixed). opponentRail needs ≥72px (4-col×2-row at
+  // ≥36px/row); it claims a fixed share off the top of the rail and the
+  // existing hud/sellControl/readyButton stack is pushed down to start below
+  // it, otherwise unchanged in proportion/behavior. ────────────────────────
+  const readyH = 44; // fixed touch target, never compressed
+  const readyButton: Rect = {
+    x: rightRail.x,
+    y: rightRail.y + rightRail.h - readyH,
+    w: rightRail.w,
+    h: readyH,
+  };
+  const opponentRailH = Math.max(72, Math.round(rightRail.h * 0.28));
+  const opponentRail: Rect = {
+    x: rightRail.x,
+    y: rightRail.y,
+    w: rightRail.w,
+    h: opponentRailH,
+  };
+  const hudTop = opponentRail.y + opponentRail.h + LS_BASE_MARGIN / 2;
+  const hudH = Math.max(64, Math.round((rightRail.h - opponentRailH - LS_BASE_MARGIN / 2) * 0.32));
+  const hud: Rect = { x: rightRail.x, y: hudTop, w: rightRail.w, h: hudH };
+  const sellControl: Rect = {
+    x: rightRail.x,
+    y: hud.y + hud.h + LS_BASE_MARGIN / 2,
+    w: rightRail.w,
+    h: Math.max(1, readyButton.y - LS_BASE_MARGIN / 2 - (hud.y + hud.h + LS_BASE_MARGIN / 2)),
+  };
+
+  // ── bottomBar content: bench (top) + shop (remainder, bottom) ─────────────
+  // Bench is centered under the BOARD's horizontal center (not the full
+  // bottomBar span) so the bench visually reads as "below the board" even
+  // though the bottomBar cluster itself spans the full design width and the
+  // left/right rails are asymmetric widths (120 vs 220) — without this the
+  // bench would sit centered on the whole design and visibly drift off-center
+  // from the board above it. Clamped so it never escapes the bottomBar rect.
+  const benchSlotSize = clamp(36, Math.floor(bottomBar.h * 0.3), 48);
+  const benchW = 9 * benchSlotSize;
+  const boardCx = board.x + board.w / 2;
+  const benchX = clamp(bottomBar.x, boardCx - benchW / 2, bottomBar.x + bottomBar.w - benchW);
+  const bench: Rect = {
+    x: benchX,
+    y: bottomBar.y,
+    w: benchW,
+    h: benchSlotSize,
+  };
+  const shop: Rect = {
+    x: bottomBar.x,
+    y: bench.y + bench.h + 6,
+    w: bottomBar.w,
+    h: Math.max(64, bottomBar.h - bench.h - 6),
+  };
+
+  const regions: MatchRegions = {
+    board,
+    statusRow,
+    opponentRail,
+    traitRail,
+    traitTabBar,
+    bench,
+    hud,
+    sellControl,
+    readyButton,
+    shop,
+  };
+
+  return { regions, clusters };
+}
 
 function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets): MatchLayout {
   const dW = LANDSCAPE_W;
@@ -329,131 +599,21 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
   const canvasOffsetX = safe.left  + (usableW - scaledW) / 2;
   const canvasOffsetY = safe.top   + (usableH - scaledH) / 2;
 
-  // ── Bottom edge: shop (full-width strip) ──────────────────────────────────
-  const shopH = 64;            // touch-target floor, exactly met
-  const shopY = dH - shopH;   // 326
-
-  // ── Bench zone: above the shop, below the board ───────────────────────────
-  // Bench: 9 slots in a single 1×9 horizontal row.
-  // Each slot: 36px wide × 36px tall — both dimensions satisfy the ≥32px touch-
-  // target floor.  Total bench footprint: 324×36 px.
-  const BENCH_SLOTS = 9;
-  const benchSlotSize = 36;            // square slot, both dims ≥ 32px
-  const benchH = benchSlotSize;        // 36
-  const benchW = BENCH_SLOTS * benchSlotSize;  // 324 (9 × 36)
-  const benchZoneH = benchH;           // bench only (item bar removed)
-  const benchZoneY = shopY - benchZoneH - 4;
-
-  const benchY = benchZoneY;
-
-  // ── Far-left edge: traitRail + tab buttons ────────────────────────────────
-  // Tab buttons sit at the top of the left column; the content rail is below.
-  const traitColX = 0;
-  const traitColW = 28;
-  const tabBtnH = 16;            // small tab buttons
-  const tabBtnY = 6;
-  const traitRailY = tabBtnY + tabBtnH + 2;             // 24
-  const traitRailH = benchZoneY - traitRailY - 4;       // fills down to bench zone
-
-  // ── Right edge: opponentRail → hud → sellControl → readyButton ────────────
-  const rightColW = 158;
-  const rightColX = dW - rightColW;  // 686
-  const rightGap = 6;
-
-  const railY = 6;
-  const railH = 156;        // 2 cols × 4 rows of small seat tiles (≥36px/row)
-
-  const hudY = railY + railH + rightGap;   // 168
-  const hudH = 64;
-
-  const readyH = 44;                       // fixed touch target, never compressed
-  const readyY = shopY - readyH - 6;       // 276 — sits just above the shop
-  const sellH  = readyY - (hudY + hudH) - 2 * rightGap; // fills the remaining gap
-  const sellY  = hudY + hudH + rightGap;   // 238
-
-  // ── Top-center: board (dominant element, grid scaled-to-fit by match.ts) ──
-  const boardX = traitColX + traitColW + 4;   // 32 — immediately right of the trait strip
-  const boardY = 6;
-  const boardW = rightColX - 8 - boardX;      // 646 — dominant, well above 352
-  // Board height: fills from top down to the bench zone (with a status band gap).
-  // With the 1×9 bench (18px shorter than the old 3×3), boardH grows by 18px.
-  const statusGap = 2;
-  const statusH = 16;
-  const statusBenchGap = 4;  // breathing room between the status band and the bench zone
-  const boardH = benchZoneY - boardY - statusH - statusGap - statusBenchGap;  // 212
-
-  // Status row: thin band directly under the board (same x/w as the board).
-  const statusY = boardY + boardH + statusGap;  // 220
-
-  // ── Bench centered horizontally under the board ───────────────────────────
-  const boardCx = boardX + boardW / 2;
-  const benchX = Math.round(boardCx - benchW / 2);
-
-  // ── Sell control: stays in the right-edge cluster (unchanged semantics) ────
-  // (detached from the bench since bench moved below the board)
-
-  const regions: MatchRegions = {
-    board: {
-      x: boardX,
-      y: boardY,
-      w: boardW,
-      h: boardH,
-    },
-    statusRow: {
-      x: boardX,
-      y: statusY,
-      w: boardW,
-      h: statusH,
-    },
-    traitRail: {
-      x: traitColX,
-      y: traitRailY,
-      w: traitColW,
-      h: traitRailH,
-    },
-    traitTabBar: {
-      x: traitColX,
-      y: tabBtnY,
-      w: traitColW,
-      h: tabBtnH,
-    },
-    bench: {
-      x: benchX,
-      y: benchY,
-      w: benchW,
-      h: benchH,
-    },
-    opponentRail: {
-      x: rightColX,
-      y: railY,
-      w: rightColW,
-      h: railH,
-    },
-    hud: {
-      x: rightColX,
-      y: hudY,
-      w: rightColW,
-      h: hudH,
-    },
-    sellControl: {
-      x: rightColX,
-      y: sellY,
-      w: rightColW,
-      h: sellH,
-    },
-    readyButton: {
-      x: rightColX,
-      y: readyY,
-      w: rightColW,
-      h: readyH,
-    },
-    shop: {
-      x: 0,
-      y: shopY,
-      w: dW,
-      h: shopH,
-    },
-  };
+  // Region/cluster solve operates in DESIGN space (0,0)..(dW,dH) — the design
+  // canvas itself is what gets scaled+offset onto the physical viewport, so
+  // clusters are built against the fixed 1280×592 reference, not the raw
+  // viewport. Device safe-area insets (CSS px) are converted to design units
+  // by dividing by the same scale factor, so a real notch still pushes each
+  // cluster's leading edge inward by the correct DESIGN-space amount.
+  const safeDesign: SafeInsets = scale > 0
+    ? {
+        top:    safe.top    / scale,
+        right:  safe.right  / scale,
+        bottom: safe.bottom / scale,
+        left:   safe.left   / scale,
+      }
+    : { top: 0, right: 0, bottom: 0, left: 0 };
+  const { regions, clusters } = landscapeRegionsFor(dW, dH, safeDesign);
 
   return {
     orientation: "landscape",
@@ -463,6 +623,7 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
     canvasOffsetX,
     canvasOffsetY,
     regions,
+    clusters,
   };
 }
 
