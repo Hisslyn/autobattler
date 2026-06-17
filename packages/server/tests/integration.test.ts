@@ -38,8 +38,11 @@ function waitForPort(port: number, timeoutMs = 5000): Promise<void> {
 }
 
 function launchServer(port: number): ChildProcess {
+  // READY no longer skips PLANNING (planning runs its full duration), so shorten
+  // the planning window for the real-subprocess integration harness — otherwise a
+  // full match would take 30s/round of wall-clock time and blow the timeouts.
   return spawn(tsxEsm, [serverEntry], {
-    env: { ...process.env, PORT: String(port) },
+    env: { ...process.env, PORT: String(port), PLANNING_MS_OVERRIDE: "50" },
     stdio: "pipe",
   });
 }
@@ -110,7 +113,8 @@ describe("integration: 2 humans + 6 bots full match", () => {
     function autoReady(ws: WebSocket): void {
       ws.on("message", (data: Buffer | string) => {
         const msg = decodeS2C(typeof data === "string" ? data : data.toString());
-        // READY skips both the planning wait and the resolution pause
+        // READY skips the RESOLUTION pause; planning now elapses on its own short
+        // (override) timer, so a PLANNING READY is a harmless no-op.
         if (msg?.type === "PHASE_CHANGE" && (msg.phase === "PLANNING" || msg.phase === "RESOLUTION")) {
           setTimeout(() => sendRaw(ws, { type: "READY" }), 30);
         }
@@ -292,7 +296,8 @@ describe("reconnect: token restores seat mid-match", () => {
     expect(found, "client 1 did not receive MATCH_FOUND").toBeDefined();
     const { token, seatIndex } = found!;
 
-    // Play one round, then drop the socket
+    // Play one round, then drop the socket. READY during PLANNING is a no-op
+    // now; the short (override) planning timer drives the next PHASE_CHANGE.
     const roundDone = collectUntil(ws1, "PHASE_CHANGE", 10_000);
     sendRaw(ws1, { type: "READY" });
     await roundDone;

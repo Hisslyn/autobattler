@@ -72,7 +72,8 @@ describe("LocalDriver phase flow", () => {
       expect(driver.getState().round).toBe(round);
       expect(driver.getPlanningTimeLeft()).toBeGreaterThan(29_000);
 
-      driver.ready();
+      // Planning runs its full duration; only the 30s timer advances it.
+      vi.advanceTimersByTime(30_000);
 
       // State must actually be in RESOLUTION while RESOLUTION is current
       expect(driver.getState().phase).toBe("RESOLUTION");
@@ -118,7 +119,7 @@ describe("LocalDriver phase flow", () => {
 
     driver.startPlanning();
     for (let round = 0; round < 3; round++) {
-      driver.ready();
+      vi.advanceTimersByTime(30_000); // planning runs full duration → combat
       driver.combatPlaybackDone(); // scene playback finished
       driver.advanceFromResolution(); // Continue button path
     }
@@ -134,7 +135,7 @@ describe("LocalDriver phase flow", () => {
   it("Continue (advanceFromResolution) skips the pause and restarts planning", () => {
     const driver = new LocalDriver(9);
     driver.startPlanning();
-    driver.ready();
+    vi.advanceTimersByTime(30_000);
     expect(driver.getState().phase).toBe("RESOLUTION");
 
     driver.combatPlaybackDone();
@@ -144,7 +145,7 @@ describe("LocalDriver phase flow", () => {
     expect(driver.getPlanningTimeLeft()).toBeGreaterThan(29_000);
 
     // The cancelled resolution timer must not double-advance
-    vi.advanceTimersByTime(60_000); // fires the planning timer → ready() → next round
+    vi.advanceTimersByTime(60_000); // fires the planning timer → next round
     expect(driver.getState().phase).not.toBe("COMBAT");
   });
 
@@ -156,7 +157,7 @@ describe("LocalDriver phase flow", () => {
     expect(driver.isPveRound()).toBe(true);
     expect(typeof driver.getPveStageName()).toBe("string");
 
-    driver.ready(); // runs the PvE round
+    vi.advanceTimersByTime(30_000); // planning elapses → runs the PvE round
     expect(driver.getState().phase).toBe("RESOLUTION");
 
     // PvE carries no pairing but still produces a combat result for playback.
@@ -170,7 +171,7 @@ describe("LocalDriver phase flow", () => {
     // A second same-seed run yields byte-identical orbs (determinism).
     const d2 = new LocalDriver(21);
     d2.startPlanning();
-    d2.ready();
+    vi.advanceTimersByTime(30_000);
     expect(JSON.stringify(d2.getMyLootOrbs())).toBe(JSON.stringify(orbs));
   });
 
@@ -188,7 +189,7 @@ describe("LocalDriver phase flow", () => {
       if (e.type === "phase_change") phases.push(e.phase);
     });
     driver.startPlanning();
-    driver.ready();
+    vi.advanceTimersByTime(30_000);
 
     // COMBAT was emitted; RESOLUTION must NOT yet be emitted.
     expect(phases).toEqual(["PLANNING", "COMBAT"]);
@@ -217,7 +218,7 @@ describe("LocalDriver phase flow", () => {
     const driver = new LocalDriver(33);
     driver.startPlanning();
     expect(driver.isPveRound()).toBe(true);
-    driver.ready();
+    vi.advanceTimersByTime(30_000);
 
     const oppBoard = driver.getMyOpponentBoard();
     expect(oppBoard, "PvE opponent (mob) board must reach the driver").not.toBeNull();
@@ -303,6 +304,31 @@ describe("LocalDriver phase flow", () => {
     for (const p of planningStarts) expect(p.timeLeft).toBe(30_000);
   });
 
+  it("ready() mid-planning is a no-op; only the full 30s timer reaches RESOLUTION", () => {
+    // Regression: READY no longer skips planning. Calling ready() at any point
+    // during planning must leave the phase in PLANNING; advancing the full 30s
+    // timer is the only path to RESOLUTION.
+    const driver = new LocalDriver(5);
+    driver.startPlanning();
+    expect(driver.getState().phase).toBe("PLANNING");
+
+    driver.ready();
+    expect(driver.getState().phase).toBe("PLANNING");
+
+    vi.advanceTimersByTime(15_000);
+    driver.ready();
+    expect(driver.getState().phase).toBe("PLANNING");
+
+    // Just before the timer fires, still planning even after another ready().
+    vi.advanceTimersByTime(14_999);
+    driver.ready();
+    expect(driver.getState().phase).toBe("PLANNING");
+
+    // The final tick fires the timer → combat runs → RESOLUTION.
+    vi.advanceTimersByTime(1);
+    expect(driver.getState().phase).toBe("RESOLUTION");
+  });
+
   it("RESOLUTION is held until combatPlaybackDone; duplicate calls are no-ops", () => {
     const driver = new LocalDriver(13);
     const phases: string[] = [];
@@ -311,7 +337,7 @@ describe("LocalDriver phase flow", () => {
     });
 
     driver.startPlanning();
-    driver.ready();
+    vi.advanceTimersByTime(30_000);
 
     // Combat ran, but RESOLUTION must wait for the scene's playback signal
     expect(driver.getState().phase).toBe("RESOLUTION");
@@ -385,7 +411,7 @@ describe("getUpcomingPveBoard (PvE planning preview)", () => {
         expect(driver.getState().round).toBe(r);
         expect(isPveRound(r)).toBe(true);
         expect(chipVisible(), `round ${r} planning should render the inline creep preview`).toBe(true);
-        driver.ready();
+        vi.advanceTimersByTime(30_000); // planning elapses → combat
         driver.combatPlaybackDone();
         vi.runOnlyPendingTimers();
       }
@@ -420,11 +446,16 @@ describe("getUpcomingPveBoard (PvE planning preview)", () => {
   });
 
   it("LocalDriver returns null once out of the planning phase", () => {
-    const driver = new LocalDriver(21);
-    driver.startPlanning();
-    driver.ready(); // PvE round → COMBAT phase
-    expect(driver.getState().phase).not.toBe("PLANNING");
-    expect(driver.getUpcomingPveBoard()).toBeNull();
+    vi.useFakeTimers();
+    try {
+      const driver = new LocalDriver(21);
+      driver.startPlanning();
+      vi.advanceTimersByTime(30_000); // planning elapses → PvE round → COMBAT phase
+      expect(driver.getState().phase).not.toBe("PLANNING");
+      expect(driver.getUpcomingPveBoard()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("NetDriver derives the same preview client-side (no protocol round-trip)", () => {

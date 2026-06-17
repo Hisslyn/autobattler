@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { gameData } from "@autobattler/data";
 import type { UnitInstance } from "@autobattler/sim/src/types.js";
-import { traitStripModel, xpProgress } from "../src/hudModel.js";
+import { traitStripModel, xpProgress, levelBadgeGeom } from "../src/hudModel.js";
 import { traitColor } from "../src/theme.js";
+import { resolveLayout } from "../src/layout.js";
 
 const unit = (defId: string): UnitInstance => ({ defId } as UnitInstance);
 
@@ -69,4 +70,40 @@ describe("xpProgress", () => {
   it("clamps the fraction to 1", () => {
     expect(xpProgress(5, 1, t).frac).toBe(1);
   });
+
+  it("matches the real economy.json thresholds at known boundaries", () => {
+    const real = gameData.economy.levelXpThresholds;
+    expect(real).toEqual([0, 2, 6, 12, 20, 32, 50, 76, 110]);
+    // Just into level 3 (threshold 6): 8 xp → 2 of the 6 needed for level 4.
+    expect(xpProgress(8, 3, real)).toMatchObject({ level: 3, inLevel: 2, needed: 6, frac: 1 / 3 });
+    // Exactly at a level boundary → 0 progress into the new level.
+    expect(xpProgress(20, 5, real)).toMatchObject({ level: 5, inLevel: 0, frac: 0 });
+  });
+});
+
+describe("levelBadgeGeom", () => {
+  // Exercise across the portrait + landscape hud heights the layout produces.
+  const hudRegions = [
+    resolveLayout({ viewportW: 390, viewportH: 844 }).regions.hud,   // portrait tall
+    resolveLayout({ viewportW: 390, viewportH: 606 }).regions.hud,   // portrait short floor
+    resolveLayout({ viewportW: 844, viewportH: 390 }).regions.hud,   // landscape
+    resolveLayout({ viewportW: 640, viewportH: 360 }).regions.hud,   // short landscape
+  ];
+
+  for (const hud of hudRegions) {
+    it(`badge disc + arc + label stay within the hud bounds (h=${hud.h})`, () => {
+      const g = levelBadgeGeom(hud);
+      // Disc fully inside the region.
+      expect(g.cx - g.arcR).toBeGreaterThanOrEqual(hud.x - 0.001);
+      expect(g.cy - g.arcR).toBeGreaterThanOrEqual(hud.y - 0.001);
+      expect(g.cy + g.arcR + g.arcW / 2).toBeLessThanOrEqual(hud.y + hud.h + 0.001);
+      // Arc is at least the badge radius; badge is a positive disc.
+      expect(g.arcR).toBeGreaterThanOrEqual(g.badgeR);
+      expect(g.badgeR).toBeGreaterThan(0);
+      expect(g.arcW).toBeGreaterThan(0);
+      // Label tucks under the arc but still inside the region.
+      expect(g.labelY).toBeGreaterThan(g.cy);
+      expect(g.labelY).toBeLessThanOrEqual(hud.y + hud.h);
+    });
+  }
 });

@@ -20,7 +20,16 @@ import { MemoryRepository } from "./db/index.js";
 import { recordMatchResult } from "./recorder.js";
 import type { SeatResult } from "./recorder.js";
 
-const PLANNING_MS = 30_000;
+// Planning runs its full duration in production (30s). An env override
+// (PLANNING_MS_OVERRIDE) lets the integration harness shorten real-wall-clock
+// planning since READY no longer skips it; unset → 30_000. The room and the
+// room.test.ts fake-timer harness both read this single value.
+const PLANNING_MS_DEFAULT = 30_000;
+const _planningOverride = Number(process.env.PLANNING_MS_OVERRIDE);
+export const PLANNING_MS =
+  Number.isFinite(_planningOverride) && _planningOverride > 0
+    ? _planningOverride
+    : PLANNING_MS_DEFAULT;
 const HUMAN_SEAT_COUNT = 8;
 
 export interface Room {
@@ -120,10 +129,10 @@ export function handlePlayerCommand(room: Room, seatIndex: number, rawCmd: Recor
 export function handlePlayerReady(room: Room, _seatIndex: number): void {
   const allReady = room.seats.every((s) => s === null || s.afk || isReady(room, s));
   if (!allReady) return;
-  // READY from all human seats skips the planning wait / resolution pause
-  if (room.state.phase === "PLANNING") {
-    advanceCombat(room);
-  } else if (room.state.phase === "RESOLUTION") {
+  // Planning runs its full duration; READY is a no-op for PLANNING (advanceCombat
+  // is reachable only via the startPlanning timer). READY still skips the
+  // RESOLUTION pause (Continue / auto-advance feature).
+  if (room.state.phase === "RESOLUTION") {
     finishResolution(room);
   }
 }

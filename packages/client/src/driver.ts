@@ -183,7 +183,9 @@ export class LocalDriver implements IDriver {
   startPlanning(): void {
     this.planningStartTime = Date.now();
     this.emit({ type: "phase_change", phase: "PLANNING", round: this.state.round });
-    this.planningTimerId = setTimeout(() => this.ready(), PLANNING_TIMER_MS);
+    // Planning always runs the full duration; the timer (not a manual ready)
+    // is the only thing that advances out of planning.
+    this.planningTimerId = setTimeout(() => this._onPlanningTimerFired(), PLANNING_TIMER_MS);
   }
 
   playerCommand(cmd: Parameters<typeof applyCommand>[2]): ReturnType<typeof applyCommand> {
@@ -197,7 +199,18 @@ export class LocalDriver implements IDriver {
     return result;
   }
 
+  /**
+   * Public ready() is a no-op: planning always runs the full PLANNING_TIMER_MS.
+   * Kept on the IDriver interface (and called by no one now) so callers that
+   * still hold a reference stay harmless. Advancing out of planning happens only
+   * via the startPlanning timer (→ _onPlanningTimerFired).
+   */
   ready(): void {
+    /* no-op — planning runs full duration */
+  }
+
+  /** Fired by the startPlanning timer when planning's full duration elapses. */
+  private _onPlanningTimerFired(): void {
     if (this.planningTimerId !== null) {
       clearTimeout(this.planningTimerId);
       this.planningTimerId = null;

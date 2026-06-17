@@ -61,6 +61,8 @@ function collectUntil(ws: WebSocket, stopType: string, timeoutMs: number): Promi
 }
 
 function autoReady(ws: WebSocket): void {
+  // READY skips the RESOLUTION pause; planning now elapses on its own short
+  // (override) timer, so a PLANNING READY is a harmless no-op.
   ws.on("message", (data: Buffer | string) => {
     const msg = decodeS2C(typeof data === "string" ? data : data.toString());
     if (msg?.type === "PHASE_CHANGE" && (msg.phase === "PLANNING" || msg.phase === "RESOLUTION")) {
@@ -100,8 +102,12 @@ describe("persistence: accounts, match recording, MMR", () => {
   beforeAll(async () => {
     port = await getFreePort();
     proc = spawn(tsxEsm, [serverEntry], {
-      // Force the in-memory repository regardless of the host environment
-      env: { ...process.env, PORT: String(port), DATABASE_URL: "" },
+      // Force the in-memory repository regardless of the host environment.
+      // READY no longer skips PLANNING (planning runs its full duration), so
+      // shorten the planning window for this real-subprocess harness — otherwise
+      // a full match would take 30s/round of wall-clock time and blow the 40s
+      // MATCH_END collect timeout.
+      env: { ...process.env, PORT: String(port), DATABASE_URL: "", PLANNING_MS_OVERRIDE: "50" },
       stdio: "pipe",
     });
     await waitForPort(port, 8000);

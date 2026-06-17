@@ -66,8 +66,6 @@ export interface MatchRegions {
   bench:        Rect;
   /** HUD cluster: gold / level+xp / streak / reroll / buy-xp. */
   hud:          Rect;
-  /** Loose item inventory bar (draggable drag-to-equip). */
-  itemBar:      Rect;
   /** Ready button. */
   readyButton:  Rect;
   /** Stage chip + timer status row. */
@@ -124,7 +122,7 @@ const P_BOARD_Y  = P_STATUS_Y + P_STATUS_H + P_RAIL_H; // 58
 
 // Region minimum / design (max) heights.
 const P_BOARD_MIN = 280;
-const P_BOARD_MAX = 360;
+const P_BOARD_MAX = 392;
 const P_BOARD_FRAC = 360 / 844; // ≈ 0.4265
 
 const P_TRAIT_MIN = 32;
@@ -135,18 +133,17 @@ const P_HUD_MIN = 32,   P_HUD_MAX = 38;
 const P_BENCH_MIN = 32, P_BENCH_MAX = 36;
 const P_SHOP_MIN = 72,  P_SHOP_MAX = 84,  P_SHOP_MIN_FLOOR = 64;
 const P_READY_H = 44;   // fixed touch target — never inflated, never compressed
-const P_ITEM_MIN = 52,  P_ITEM_MAX = 68,  P_ITEM_MIN_FLOOR = 44;
 
 const P_GAP_MAX = 8;
 const P_GAP_MIN = 4;
 const P_GAP_FLOOR = 3;
-const P_GAP_COUNT = 8;
+const P_GAP_COUNT = 7;
 
-// Below this usable height the floor minimums for shop/itemBar/gap kick in.
+// Below this usable height the floor minimums for shop/gap kick in.
 const P_FLOOR_THRESHOLD = 680;
 
 const P_MARGIN = 8;     // board / bench side margin
-const P_COL_X  = 9;     // trait/hud/shop/ready/item column inset
+const P_COL_X  = 9;     // trait/hud/shop/ready column inset
 
 /**
  * Pure budget algorithm: given the usable design height, returns the portrait
@@ -158,16 +155,15 @@ export function portraitRegions(designH: number): MatchRegions {
 
   const lowFloor = dH < P_FLOOR_THRESHOLD;
   const shopMin = lowFloor ? P_SHOP_MIN_FLOOR : P_SHOP_MIN;
-  const itemMin = lowFloor ? P_ITEM_MIN_FLOOR : P_ITEM_MIN;
 
   // Board claims a fraction of the height available below the static top band.
   const availableH = dH - P_STATIC_H;
   let boardH = clamp(P_BOARD_MIN, Math.round(availableH * P_BOARD_FRAC), P_BOARD_MAX);
 
   // Fixed lower regions at their minimums.
-  const fixedSum = P_HUD_MIN + P_BENCH_MIN + shopMin + P_READY_H + itemMin;
+  const fixedSum = P_HUD_MIN + P_BENCH_MIN + shopMin + P_READY_H;
 
-  // Height left for trait rail + fixed lower regions + the 8 inter-region gaps.
+  // Height left for trait rail + fixed lower regions + the 7 inter-region gaps.
   let remaining = availableH - boardH;
 
   // Target trait rail as a fraction of the leftover, then solve the gap.
@@ -184,17 +180,16 @@ export function portraitRegions(designH: number): MatchRegions {
   let benchH = P_BENCH_MIN;
   let shopH  = shopMin;
   const readyH = P_READY_H;
-  let itemH  = itemMin;
 
   // ── Surplus distribution (section 3a) ─────────────────────────────────────
   // Anything still unused after the minimum stack inflates regions toward their
   // design values in priority order; the last bucket widens the gap.
   const usedNow = () =>
-    P_STATIC_H + boardH + traitH + hudH + benchH + shopH + readyH + itemH + P_GAP_COUNT * gap;
+    P_STATIC_H + boardH + traitH + hudH + benchH + shopH + readyH + P_GAP_COUNT * gap;
 
   let surplus = dH - usedNow();
   if (surplus > 0) {
-    // 1. board → 360
+    // 1. board → its design max
     const grow = (cur: number, max: number): [number, number] => {
       const add = Math.min(surplus, Math.max(0, max - cur));
       return [cur + add, surplus - add];
@@ -202,11 +197,10 @@ export function portraitRegions(designH: number): MatchRegions {
     [boardH, surplus]  = grow(boardH, P_BOARD_MAX);
     [shopH,  surplus]  = grow(shopH,  P_SHOP_MAX);
     // readyButton intentionally fixed at 44 (saves thumb travel).
-    [itemH,  surplus]  = grow(itemH,  P_ITEM_MAX);
     [hudH,   surplus]  = grow(hudH,   P_HUD_MAX);
     [benchH, surplus]  = grow(benchH, P_BENCH_MAX);
     [traitH, surplus]  = grow(traitH, P_TRAIT_MAX);
-    // 8. gap up to 8, distributed evenly across the 8 gaps.
+    // last: gap up to 8, distributed evenly across the 7 gaps.
     if (surplus > 0 && gap < P_GAP_MAX) {
       const perGap = Math.min(P_GAP_MAX - gap, Math.floor(surplus / P_GAP_COUNT));
       gap += perGap;
@@ -223,7 +217,6 @@ export function portraitRegions(designH: number): MatchRegions {
   const benchY = hudY + hudH + gap;
   const shopY  = benchY + benchH + gap;
   const readyY = shopY + shopH + gap;
-  const itemY  = readyY + readyH + gap;
 
   // sell control (right of bench)
   const sellW  = 44;
@@ -246,7 +239,6 @@ export function portraitRegions(designH: number): MatchRegions {
     sellControl:  { x: sellX,    y: benchY, w: sellW,  h: benchH },
     shop:         { x: P_COL_X,  y: shopY,  w: colW,  h: shopH },
     readyButton:  { x: P_COL_X,  y: readyY, w: colW,  h: readyH },
-    itemBar:      { x: P_COL_X,  y: itemY,  w: colW,  h: itemH },
   };
 }
 
@@ -299,14 +291,12 @@ function portraitLayout(viewportW: number, viewportH: number, safe: SafeInsets):
 //  │              │                           │ readyButton  │
 //  ├──────────────┴──────────────────────────-┴──────────────┤
 //  │              bench (1×9 row, centered)                   │
-//  │              itemBar (below bench, same width)           │
 //  ├───────────────────────────────────────────────────────────┤
 //  │              shop (5 cards, full width, h=64)             │
 //  └───────────────────────────────────────────────────────────┘
 //
-// The bench (1×9 single row, 9 slots) and item bar now sit BELOW the board and
-// ABOVE the shop. The bench is horizontally centered (same center as the board).
-// The item bar sits directly below the bench, also centered.
+// The bench (1×9 single row, 9 slots) now sits BELOW the board and ABOVE the
+// shop, horizontally centered (same center as the board).
 //
 // Bench slot dimensions: each slot is slotW × benchH where slotW = benchW / 9
 // (= 36px) and benchH = 36px — both dimensions ≥ 32px touch-target floor.
@@ -315,11 +305,11 @@ function portraitLayout(viewportW: number, viewportH: number, safe: SafeInsets):
 //
 // The far-left traitRail now has tab-switcher buttons [1][2] at its top edge
 // (stored in traitTabBar). The rail content area (traitRail) is below them.
-// Tab 1 = trait chips (existing behavior), Tab 2 = item inventory browse
-// (tap-for-detail only, no drag — drag still happens from the itemBar).
+// Tab 1 = trait chips (existing behavior), Tab 2 = item inventory browse (the
+// draggable item source — drag a chip → EQUIP / COMBINE).
 //
 // The left column background spans the traitRail only (narrower than before
-// since bench+itemBar moved below the board).
+// since the bench moved below the board).
 //
 // opponentRail, hud, sellControl, readyButton remain in the right-edge column.
 // shop: bottom edge, full design width, h=64.
@@ -343,7 +333,7 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
   const shopH = 64;            // touch-target floor, exactly met
   const shopY = dH - shopH;   // 326
 
-  // ── Bench + item bar zone: above the shop, below the board ────────────────
+  // ── Bench zone: above the shop, below the board ───────────────────────────
   // Bench: 9 slots in a single 1×9 horizontal row.
   // Each slot: 36px wide × 36px tall — both dimensions satisfy the ≥32px touch-
   // target floor.  Total bench footprint: 324×36 px.
@@ -351,10 +341,8 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
   const benchSlotSize = 36;            // square slot, both dims ≥ 32px
   const benchH = benchSlotSize;        // 36
   const benchW = BENCH_SLOTS * benchSlotSize;  // 324 (9 × 36)
-  const itemBarH = 44;                 // one row of items (touch target floor)
-  const benchItemGap = 2;
-  const benchZoneH = benchH + benchItemGap + itemBarH;  // 82
-  const benchZoneY = shopY - benchZoneH - 4;            // 240
+  const benchZoneH = benchH;           // bench only (item bar removed)
+  const benchZoneY = shopY - benchZoneH - 4;
 
   const benchY = benchZoneY;
 
@@ -401,11 +389,6 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
   const boardCx = boardX + boardW / 2;
   const benchX = Math.round(boardCx - benchW / 2);
 
-  // ── Item bar: same x/w as bench, directly below ───────────────────────────
-  const itemBarX = benchX;
-  const itemBarW = benchW;
-  const itemBarY = benchY + benchH + benchItemGap;
-
   // ── Sell control: stays in the right-edge cluster (unchanged semantics) ────
   // (detached from the bench since bench moved below the board)
 
@@ -439,12 +422,6 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
       y: benchY,
       w: benchW,
       h: benchH,
-    },
-    itemBar: {
-      x: itemBarX,
-      y: itemBarY,
-      w: itemBarW,
-      h: itemBarH,
     },
     opponentRail: {
       x: rightColX,
@@ -576,7 +553,6 @@ export type PlanningRegion =
   | { zone: "board"; slotIdx: number }
   | { zone: "bench"; slotIdx: number }
   | { zone: "sell" }
-  | { zone: "itemBar"; itemIdx: number; itemCount: number }
   | { zone: "hud" }
   | { zone: "shop"; cardIdx: number }
   | { zone: "readyButton" }
@@ -598,26 +574,13 @@ export function planningRegionAt(
   py: number,
   layout: MatchLayout,
   boardSlot: number,
-  benchSlot: number | null,
-  itemCount: number,
-  itemSlot: number,
-  itemGap: number
+  benchSlot: number | null
 ): PlanningRegion {
   const r = layout.regions;
   // Order: most-specific interactive targets first.
   if (boardSlot >= 0) return { zone: "board", slotIdx: boardSlot };
   if (benchSlot !== null && inRect(px, py, r.bench, 7)) return { zone: "bench", slotIdx: benchSlot };
   if (inRect(px, py, r.sellControl, 6)) return { zone: "sell" };
-  // Item bar: walk the chips (offset past the bag glyph) to find the slot.
-  if (itemCount > 0 && inRect(px, py, r.itemBar, 6)) {
-    const chipStartX = r.itemBar.x + 18 + itemSlot / 2;
-    for (let i = 0; i < itemCount; i++) {
-      const cx = chipStartX + i * (itemSlot + itemGap);
-      if (px >= cx - itemSlot / 2 - itemGap / 2 && px <= cx + itemSlot / 2 + itemGap / 2) {
-        return { zone: "itemBar", itemIdx: i, itemCount };
-      }
-    }
-  }
   if (inRect(px, py, r.readyButton)) return { zone: "readyButton" };
   if (inRect(px, py, r.shop)) {
     const cardW = r.shop.w / 5;
@@ -657,5 +620,39 @@ export function opponentRailTile(
     cx: tileX + tileW / 2,
     cy: tileY + tileH / 2,
     tileW, tileH,
+  };
+}
+
+/** Vertical content offsets for a shop card of height `cardH` (pure). */
+export interface ShopCardContentLayout {
+  /** Disc (token) center y, relative to the card top. */
+  discY: number;
+  /** Disc radius. */
+  discR: number;
+  /** Name label baseline y, relative to the card top. */
+  nameY: number;
+  /** Trait line y, relative to the card top. */
+  traitY: number;
+  /** Tier/cost row y, relative to the card top. */
+  tierY: number;
+}
+
+/**
+ * Proportional shop-card content offsets so the card reads correctly across the
+ * full variable card height (shop.h ∈ [64, 84]). The tier/cost row is pinned to
+ * the bottom; the trait line is clamped so it always clears it (traitY+7 < tierY-2).
+ */
+export function shopCardContentLayout(cardH: number): ShopCardContentLayout {
+  const discR = Math.min(17, cardH * 0.2);
+  const tierY = cardH - 9;
+  const traitRaw = cardH * 0.71;
+  // Guarantee the trait line sits above the tier/cost row: traitY ≤ (tierY-2) - 10.
+  const traitY = Math.min(traitRaw, tierY - 2 - 10);
+  return {
+    discY: cardH * 0.31,
+    discR,
+    nameY: cardH * 0.57,
+    traitY,
+    tierY,
   };
 }

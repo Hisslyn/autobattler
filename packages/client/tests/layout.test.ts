@@ -7,6 +7,7 @@ import {
   planningRegionAt,
   opponentRailTile,
   portraitRegions,
+  shopCardContentLayout,
   LANDSCAPE_THRESHOLD,
   PORTRAIT_W, PORTRAIT_H,
   LANDSCAPE_W, LANDSCAPE_H,
@@ -44,8 +45,8 @@ function withinBounds(r: Rect, maxW: number, maxH: number): boolean {
 
 /** Core regions to check for non-overlap and bounds (excludes traitTabBar which sits within traitRail column). */
 function coreRegions(layout: MatchLayout): Rect[] {
-  const { board, traitRail, opponentRail, shop, bench, hud, itemBar } = layout.regions;
-  return [board, traitRail, opponentRail, shop, bench, hud, itemBar];
+  const { board, traitRail, opponentRail, shop, bench, hud } = layout.regions;
+  return [board, traitRail, opponentRail, shop, bench, hud];
 }
 
 // ── Orientation detection ─────────────────────────────────────────────────────
@@ -170,7 +171,6 @@ describe("landscape regions", () => {
       { name: "shop",         r: regions.shop },
       { name: "bench",        r: regions.bench },
       { name: "hud",          r: regions.hud },
-      { name: "itemBar",      r: regions.itemBar },
     ];
     for (const [a, b] of pairs(named)) {
       expect(rectsOverlap(a.r, b.r))
@@ -257,13 +257,6 @@ describe("landscape regions", () => {
     expect(regions.traitTabBar.y + regions.traitTabBar.h).toBeLessThanOrEqual(regions.traitRail.y + 4);
   });
 
-  it("itemBar sits below the bench, above the shop, same x/w as bench", () => {
-    expect(regions.itemBar.x).toBe(regions.bench.x);
-    expect(regions.itemBar.w).toBe(regions.bench.w);
-    expect(regions.itemBar.y).toBeGreaterThanOrEqual(regions.bench.y + regions.bench.h);
-    expect(regions.itemBar.y + regions.itemBar.h).toBeLessThanOrEqual(regions.shop.y);
-  });
-
   it("opponentRail, hud, sellControl, readyButton are in the right-edge column", () => {
     const boardRight = regions.board.x + regions.board.w;
     expect(regions.opponentRail.x).toBeGreaterThanOrEqual(boardRight);
@@ -298,7 +291,6 @@ describe("landscape regions", () => {
   it("interactive regions meet their touch-target minimums", () => {
     expect(regions.readyButton.h).toBeGreaterThanOrEqual(44);
     expect(regions.shop.h).toBeGreaterThanOrEqual(64);
-    expect(regions.itemBar.h).toBeGreaterThanOrEqual(44);
     expect(regions.bench.h).toBeGreaterThanOrEqual(32);
     expect(regions.hud.h).toBeGreaterThanOrEqual(32);
   });
@@ -308,11 +300,9 @@ describe("landscape regions", () => {
     expect(regions.opponentRail.h / 4).toBeGreaterThanOrEqual(36);
   });
 
-  it("bench and itemBar are NOT in the far-left trait column (they moved below the board)", () => {
+  it("bench is NOT in the far-left trait column (it moved below the board)", () => {
     // Bench is horizontally centered under the board, not in the left column.
     expect(regions.bench.x).toBeGreaterThan(regions.traitRail.x + regions.traitRail.w);
-    // ItemBar is co-located with the bench (same x).
-    expect(regions.itemBar.x).toBeGreaterThan(regions.traitRail.x + regions.traitRail.w);
   });
 });
 
@@ -325,18 +315,18 @@ describe("planningRegionAt", () => {
 
   it("center of the sell control returns the sell zone", () => {
     const [px, py] = center(r.sellControl);
-    expect(planningRegionAt(px, py, layout, -1, null, 0, 30, 5)).toEqual({ zone: "sell" });
+    expect(planningRegionAt(px, py, layout, -1, null)).toEqual({ zone: "sell" });
   });
 
   it("sell zone uses forgiving bounds (±6px outside still maps to sell)", () => {
     const px = r.sellControl.x + r.sellControl.w + 5;
     const py = r.sellControl.y + r.sellControl.h / 2;
-    expect(planningRegionAt(px, py, layout, -1, null, 0, 30, 5)).toEqual({ zone: "sell" });
+    expect(planningRegionAt(px, py, layout, -1, null)).toEqual({ zone: "sell" });
   });
 
   it("center of the shop returns a shop card index 0–4", () => {
     const [px, py] = center(r.shop);
-    const got = planningRegionAt(px, py, layout, -1, null, 0, 30, 5);
+    const got = planningRegionAt(px, py, layout, -1, null);
     expect(got?.zone).toBe("shop");
     if (got?.zone === "shop") {
       expect(got.cardIdx).toBeGreaterThanOrEqual(0);
@@ -346,23 +336,16 @@ describe("planningRegionAt", () => {
 
   it("center of the ready button returns readyButton", () => {
     const [px, py] = center(r.readyButton);
-    expect(planningRegionAt(px, py, layout, -1, null, 0, 30, 5)).toEqual({ zone: "readyButton" });
+    expect(planningRegionAt(px, py, layout, -1, null)).toEqual({ zone: "readyButton" });
   });
 
   it("a passed board slot wins as the board zone (matches hexFromPointer)", () => {
     const [px, py] = center(r.board);
-    expect(planningRegionAt(px, py, layout, 12, null, 0, 30, 5)).toEqual({ zone: "board", slotIdx: 12 });
-  });
-
-  it("first item-bar chip maps to itemBar idx 0", () => {
-    const cx = r.itemBar.x + 18 + 30 / 2;
-    const py = r.itemBar.y + r.itemBar.h / 2;
-    const got = planningRegionAt(cx, py, layout, -1, null, 3, 30, 5);
-    expect(got).toEqual({ zone: "itemBar", itemIdx: 0, itemCount: 3 });
+    expect(planningRegionAt(px, py, layout, 12, null)).toEqual({ zone: "board", slotIdx: 12 });
   });
 
   it("a point outside every region returns null", () => {
-    expect(planningRegionAt(-50, -50, layout, -1, null, 0, 30, 5)).toBeNull();
+    expect(planningRegionAt(-50, -50, layout, -1, null)).toBeNull();
   });
 });
 
@@ -414,19 +397,19 @@ describe("portrait regions", () => {
       { name: "shop",         r: regions.shop },
       { name: "bench",        r: regions.bench },
       { name: "hud",          r: regions.hud },
-      { name: "itemBar",      r: regions.itemBar },
     ];
     for (const [a, b] of pairs(named)) {
       expect(rectsOverlap(a.r, b.r)).toBe(false);
     }
   });
 
-  it("portrait board is at the existing hardcoded position", () => {
-    // match.ts: BOARD_PANEL_X=8, BOARD_PANEL_Y=58, W=374, H=360
+  it("portrait board is at the existing hardcoded x/y/w; height reclaims the freed item-bar space", () => {
+    // match.ts: BOARD_PANEL_X=8, BOARD_PANEL_Y=58, W=374. With the item bar
+    // removed the board grows to its new design max (P_BOARD_MAX=392).
     expect(regions.board.x).toBe(8);
     expect(regions.board.y).toBe(58);
     expect(regions.board.w).toBe(374);
-    expect(regions.board.h).toBe(360);
+    expect(regions.board.h).toBe(392);
   });
 
   it("portrait uses design 390×844", () => {
@@ -447,18 +430,12 @@ describe("portrait regions", () => {
       regions.bench,
       regions.shop,
       regions.readyButton,
-      regions.itemBar,
     ];
     for (let i = 0; i < stack.length - 1; i++) {
       const gap = stack[i + 1]!.y - (stack[i]!.y + stack[i]!.h);
       expect(gap).toBeGreaterThanOrEqual(6);
       expect(gap).toBeLessThanOrEqual(10);
     }
-  });
-
-  it("portrait item bar is two rows tall and inside the design bounds", () => {
-    expect(regions.itemBar.h).toBe(68);
-    expect(regions.itemBar.y + regions.itemBar.h).toBeLessThanOrEqual(designH);
   });
 });
 
@@ -479,7 +456,6 @@ describe("portrait height-driven layout", () => {
       r.bench,
       r.shop,
       r.readyButton,
-      r.itemBar,
     ];
   }
 
@@ -527,7 +503,6 @@ describe("portrait height-driven layout", () => {
       expect(r.bench.h).toBeGreaterThanOrEqual(32);
       expect(r.shop.h).toBeGreaterThanOrEqual(64);
       expect(r.hud.h).toBeGreaterThanOrEqual(32);
-      expect(r.itemBar.h).toBeGreaterThanOrEqual(44);
       expect(r.board.h).toBeGreaterThanOrEqual(280);
       expect(r.board.w).toBeGreaterThanOrEqual(336); // hex grid must fit
     });
@@ -566,7 +541,7 @@ describe("portrait height-driven layout", () => {
     const short = resolveLayout({ viewportW: 390, viewportH: 606 }).regions.board.h;
     const tall = resolveLayout({ viewportW: 390, viewportH: 844 }).regions.board.h;
     expect(short).toBe(280);
-    expect(tall).toBe(360);
+    expect(tall).toBe(392);
   });
 
   it("portrait at design height 844 produces the prior hardcoded board position", () => {
@@ -576,7 +551,6 @@ describe("portrait height-driven layout", () => {
     expect(r.board.w).toBe(374);
     expect(r.board.h).toBeGreaterThanOrEqual(359); // 360 ±1 rounding
     expect(r.shop.h).toBeGreaterThanOrEqual(83);   // 84 ±1
-    expect(r.itemBar.h).toBeGreaterThanOrEqual(67); // 68 ±1
   });
 
   it("portraitRegions(844) matches full resolveLayout output", () => {
@@ -584,10 +558,28 @@ describe("portrait height-driven layout", () => {
     const viaResolve = resolveLayout({ viewportW: 390, viewportH: 844 }).regions;
     expect(direct.board.y).toBe(viaResolve.board.y);
     expect(direct.shop.y).toBe(viaResolve.shop.y);
-    expect(direct.itemBar.y).toBe(viaResolve.itemBar.y);
     expect(direct.board.h).toBe(viaResolve.board.h);
-    expect(direct.itemBar.h).toBe(viaResolve.itemBar.h);
+    expect(direct.shop.h).toBe(viaResolve.shop.h);
   });
+});
+
+// ── shopCardContentLayout ─────────────────────────────────────────────────────
+
+describe("shopCardContentLayout", () => {
+  for (const cardH of [64, 72, 84]) {
+    it(`content rows are top-to-bottom ordered with no trait/tier collision at cardH=${cardH}`, () => {
+      const c = shopCardContentLayout(cardH);
+      // Strict vertical order: disc < name < trait < tier.
+      expect(c.discY).toBeLessThan(c.nameY);
+      expect(c.nameY).toBeLessThan(c.traitY);
+      expect(c.traitY).toBeLessThan(c.tierY);
+      // Trait line clears the tier/cost row.
+      expect(c.traitY + 7).toBeLessThan(c.tierY - 2);
+      // All offsets stay within the card.
+      expect(c.tierY).toBeLessThanOrEqual(cardH);
+      expect(c.discY - c.discR).toBeGreaterThanOrEqual(0);
+    });
+  }
 });
 
 // ── centeredModal ─────────────────────────────────────────────────────────────

@@ -34,7 +34,7 @@ import type { AudioManager } from "../audio/manager.js";
 import { phaseToMusicState } from "../audio/director.js";
 
 import type { MatchLayout } from "../layout.js";
-import { centeredModal, landscapeBenchSlotCenter, landscapeBenchSlotAt, opponentRailTile } from "../layout.js";
+import { centeredModal, landscapeBenchSlotCenter, landscapeBenchSlotAt, opponentRailTile, shopCardContentLayout } from "../layout.js";
 
 export interface MatchSceneOptions {
   settings: SettingsStore;
@@ -51,7 +51,6 @@ import {
 
 // Item chip sizing (orientation-independent).
 const ITEM_SLOT = 30;          // item chip size
-const ITEM_GAP = 5;
 
 // Match the driver/server resolution window (data-driven) so the visible
 // countdown can never drift from the real auto-advance.
@@ -122,8 +121,6 @@ export class MatchScene {
   /** Landscape left-column rail tab (view-only UI state; never persisted). */
   private activeRailTab: "traits" | "items" = "traits";
   private scoutLayer: PIXI.Container;
-  /** Item inventory bar (loose components + completed items). */
-  private itemLayer: PIXI.Container;
   /** Loot-orb reveal overlay (PvE resolution). */
   private lootLayer: PIXI.Container;
   /** Inspect / trait-detail panels (topmost, modal). */
@@ -197,14 +194,12 @@ export class MatchScene {
     this.toastLayer = new PIXI.Container();
     this.planningFxLayer = new PIXI.Container();
     this.inspectLayer = new PIXI.Container();
-    this.itemLayer = new PIXI.Container();
     this.lootLayer = new PIXI.Container();
 
     this.container.addChild(this.hudLayer);
     this.container.addChild(this.boardLayer);
     this.container.addChild(this.benchLayer);
     this.container.addChild(this.shopLayer);
-    this.container.addChild(this.itemLayer);
     this.container.addChild(this.traitLayer);
     this.container.addChild(this.planningFxLayer);
     this.container.addChild(this.combatLayer);
@@ -300,12 +295,6 @@ export class MatchScene {
     return this.boardOffsetY - BOARD_ROWS * HEX_H * s - 12 * s;
   }
 
-  /** Item bar geometry derived from the itemBar region (chips offset past bag glyph). */
-  private get itemBar(): { x: number; y: number; chipStartX: number } {
-    const r = this.layout.regions.itemBar;
-    return { x: r.x, y: r.y, chipStartX: r.x + 18 };
-  }
-
   /** Resize the invisible drag-catcher to the current design space. */
   private sizeDragCatcher(): void {
     const g = this.dragCatcher;
@@ -340,10 +329,7 @@ export class MatchScene {
       this.renderBench(me);
       if (this.isLandscape) this.renderRailTabs(me);
       else this.renderTraitStrip(me);
-      this.renderShop(state, me);
-      this.renderItemBar(me);
-    } else {
-      this.itemLayer.removeChildren();
+      this.renderShop(me);
     }
   }
 
@@ -834,37 +820,6 @@ export class MatchScene {
 
   // ─── ITEM INVENTORY BAR (phase 10b) ──────────────────────────────────────
 
-  /**
-   * Item inventory bar: one chip per loose component / completed item. Drag a
-   * chip onto a board/bench unit to EQUIP, or onto another item to COMBINE
-   * (preview shown on drag-over); tap to open its info panel. Components read
-   * distinct from completed items (tint + glyph).
-   */
-  private renderItemBar(me: PlayerState): void {
-    this.itemLayer.removeChildren();
-    const inv = inventoryModel(me.items, gameData);
-    const bar = this.itemBar;
-    const midY = bar.y + ITEM_SLOT / 2;
-
-    // Inventory label (bag glyph) so the bar reads as your item stash.
-    this.glyph(this.itemLayer, "bag", bar.x + 7, midY, 13, C.textMuted);
-    if (inv.length === 0) {
-      // Smaller + nudged past the bag glyph so it reads as clearly secondary.
-      this.text(this.itemLayer, "No items", bar.x + 26, midY, 8, C.textDimmed, [0, 0.5]);
-      return;
-    }
-
-    // Chips wrap to a second row past the row cap (portrait item bar is 2 rows).
-    for (let i = 0; i < inv.length; i++) {
-      const entry = inv[i]!;
-      if (this.dragItem?.index === i) continue; // being dragged
-      const pos = this.itemBarPos(i);
-      this.drawItemChip(this.itemLayer, entry, pos.x, pos.y, ITEM_SLOT, () =>
-        this.openItemDetail(entry.id)
-      , (e) => this.startDragItem(entry, e));
-    }
-  }
-
   /** Draw one item chip centered at (cx, cy); wires tap (info) + drag start. */
   private drawItemChip(
     layer: PIXI.Container,
@@ -955,9 +910,8 @@ export class MatchScene {
     this.container.sortChildren();
     this.dragSprite = c;
     const me = this.driver.getState().players[this.driver.seatIndex]!;
-    this.renderItemBar(me);
-    // Landscape tab-2 browse is a second draggable source for the same items;
-    // re-render the rail so its source chip hides while dragging (like the bar).
+    // Landscape tab-2 browse is the draggable item source; re-render the rail so
+    // its source chip hides while dragging.
     if (this.isLandscape && this.activeRailTab === "items") this.renderRailTabs(me);
   }
 
@@ -968,16 +922,41 @@ export class MatchScene {
     this.dragItem = null;
     this.isDragging = false;
     this.dragCatcher.eventMode = "none";
-    this.itemLayer.alpha = 1;
     this.closeCombineHint();
     this.render(this.driver.getState());
+  }
+
+  /**
+   * Pixel center (x, y) of inventory row `i` in the landscape tab-2 browse list,
+   * or null when the browse isn't the active source. Mirrors renderItemBrowse's
+   * row layout.
+   */
+  private itemBrowseRowCenter(i: number): { x: number; y: number } | null {
+    if (!this.isLandscape || this.activeRailTab !== "items") return null;
+    const rail = this.layout.regions.traitRail;
+    const rowH = ITEM_SLOT + 4;
+    const half = ITEM_SLOT / 2;
+    return { x: rail.x + half, y: rail.y + half + i * rowH };
+  }
+
+  /** Inventory row under a pixel in the tab-2 browse list, or null. */
+  private itemSlotAtBrowse(px: number, py: number, count: number): number | null {
+    if (!this.isLandscape || this.activeRailTab !== "items") return null;
+    for (let i = 0; i < count; i++) {
+      const c = this.itemBrowseRowCenter(i);
+      if (!c) continue;
+      if (
+        px >= c.x - ITEM_SLOT / 2 - 4 && px <= c.x + ITEM_SLOT / 2 + 4 &&
+        py >= c.y - ITEM_SLOT / 2 - 2 && py <= c.y + ITEM_SLOT / 2 + 2
+      ) return i;
+    }
+    return null;
   }
 
   /** Resolve an item drag-drop: EQUIP on a unit, COMBINE on another item, else no-op. */
   private onItemDragEnd(px: number, py: number, me: PlayerState): void {
     const drag = this.dragItem!;
     this.closeCombineHint();
-    const midY = this.itemBar.y + ITEM_SLOT / 2;
 
     // 0) Consumables target a UNIT only (board/bench) — never combine onto another
     // item. If dropped anywhere but a unit, the consumable stays put (no-op).
@@ -1001,24 +980,25 @@ export class MatchScene {
       this.tryEquip(me.bench[benchIdx]!.uid);
       return;
     }
-    // 3) Dropped on another inventory item → COMBINE (if a recipe exists).
+    // 3) Dropped on another inventory item (tab-2 browse) → COMBINE (if a recipe exists).
     const inv = inventoryModel(me.items, gameData);
-    const overIdx = this.itemSlotAtBar(px, py, inv.length);
+    const overIdx = this.itemSlotAtBrowse(px, py, inv.length);
     if (overIdx !== null && overIdx !== drag.index) {
       const other = me.items[overIdx]!;
+      const center = this.itemBrowseRowCenter(overIdx);
       const preview = combinePreview(drag.id, drag.index, other, overIdx, gameData);
       if (preview.ok) {
         const result = this.driver.playerCommand({ type: "COMBINE_ITEMS", itemIdA: drag.id, itemIdB: other });
         if (result.ok) {
           this.opts.audio.play("buy");
-          this.spawnPlanningPop(this.itemBarCx(overIdx, inv.length), midY, C.itemCombineOk);
+          if (center) this.spawnPlanningPop(center.x, center.y, C.itemCombineOk);
         } else {
           this.showToast(result.error);
         }
       } else {
         // No recipe: clear "no combine" feedback, send no command.
         this.showToast("NO_RECIPE");
-        this.spawnPlanningPop(this.itemBarCx(overIdx, inv.length), midY, C.itemCombineNo);
+        if (center) this.spawnPlanningPop(center.x, center.y, C.itemCombineNo);
       }
       return;
     }
@@ -1127,40 +1107,6 @@ export class MatchScene {
     return null;
   }
 
-  /** Chips that fit on one row before wrapping (pure from the item bar width). */
-  private itemRowCap(): number {
-    const w = this.layout.regions.itemBar.w;
-    return Math.max(1, Math.floor((w - 18) / (ITEM_SLOT + ITEM_GAP)));
-  }
-
-  /** Pixel center of inventory chip `i`, wrapping to a second row past the cap. */
-  private itemBarPos(i: number): { x: number; y: number } {
-    const cap = this.itemRowCap();
-    const col = i % cap;
-    const row = Math.floor(i / cap);
-    return {
-      x: this.itemBar.chipStartX + ITEM_SLOT / 2 + col * (ITEM_SLOT + ITEM_GAP),
-      y: this.itemBar.y + ITEM_SLOT / 2 + row * (ITEM_SLOT + ITEM_GAP + 2),
-    };
-  }
-
-  /** x-center of inventory chip `i` (row-0 x; kept for x-only callers). */
-  private itemBarCx(i: number, _count: number): number {
-    return this.itemBarPos(i).x;
-  }
-
-  /** Inventory slot under a pixel within the (offset) item bar, or null. */
-  private itemSlotAtBar(px: number, py: number, count: number): number | null {
-    for (let i = 0; i < count; i++) {
-      const c = this.itemBarPos(i);
-      if (
-        px >= c.x - ITEM_SLOT / 2 - ITEM_GAP / 2 && px <= c.x + ITEM_SLOT / 2 + ITEM_GAP / 2 &&
-        py >= c.y - ITEM_SLOT / 2 - 6 && py <= c.y + ITEM_SLOT / 2 + 6
-      ) return i;
-    }
-    return null;
-  }
-
   /** Live combine-preview hint shown while dragging one item over another. */
   private combineHint: PIXI.Container | null = null;
   private updateCombineHint(px: number, py: number, me: PlayerState): void {
@@ -1169,24 +1115,23 @@ export class MatchScene {
     // combine-preview hint never applies while one is being dragged.
     if (itemModel(this.dragItem.id, gameData)?.consumable) { this.closeCombineHint(); return; }
     const inv = inventoryModel(me.items, gameData);
-    const overIdx = this.itemSlotAtBar(px, py, inv.length);
+    const overIdx = this.itemSlotAtBrowse(px, py, inv.length);
     this.closeCombineHint();
     if (overIdx === null || overIdx === this.dragItem.index) return;
     const other = me.items[overIdx]!;
+    const center = this.itemBrowseRowCenter(overIdx);
+    if (!center) return;
     const preview = combinePreview(this.dragItem.id, this.dragItem.index, other, overIdx, gameData);
-    const cx = this.itemBarCx(overIdx, inv.length);
-    // Landscape: the item bar is at the bottom of the short left column, so a
-    // hint above it would overlap the board; place it above the bench (in the
-    // trait-rail space) instead. Portrait: just above the item bar.
-    const hintY = this.isLandscape
-      ? this.layout.regions.bench.y - 30
-      : Math.max(this.layout.regions.statusRow.h + 6, this.itemBar.y - 26);
-    const midY = this.itemBar.y + ITEM_SLOT / 2;
+    const cx = center.x;
+    const midY = center.y;
+    // The tab-2 browse rows sit in the far-left column; show the result chip just
+    // to the right of the target row so it doesn't overlap the row icon.
+    const hintY = midY - 10;
     const hint = new PIXI.Container();
     if (preview.ok) {
-      // "→ Result name" chip above the target.
+      // "→ Result name" chip just to the right of the target row.
       const w = 18 + preview.result.name.length * 5.0 + 14;
-      const hx = Math.max(6, Math.min(this.designW - w - 6, cx - w / 2));
+      const hx = Math.max(6, Math.min(this.designW - w - 6, cx + ITEM_SLOT / 2 + 4));
       const bg = new PIXI.Graphics();
       bg.roundRect(hx, hintY, w, 20, 5).fill({ color: C.panelBg, alpha: 0.97 });
       bg.roundRect(hx, hintY, w, 20, 5).stroke({ width: 1.5, color: C.itemCombineOk, alpha: 0.95 });
@@ -1216,7 +1161,7 @@ export class MatchScene {
     renderItemDetail(this.inspectLayer, m, () => this.closeInspect(), this.opts.settings.get().reducedMotion, this.layout);
   }
 
-  private renderShop(state: MatchState, me: PlayerState): void {
+  private renderShop(me: PlayerState): void {
     this.shopLayer.removeChildren();
     this.renderControls(me);
 
@@ -1276,13 +1221,17 @@ export class MatchScene {
       });
       card.on("pointerupoutside", () => this.clearPress());
 
+      // Content offsets scale with the (variable) card height so nothing rides
+      // off-screen when shop.h compresses toward its 64px floor.
+      const cl = shopCardContentLayout(cardH);
+
       // portrait disc (token glyph/art, no bars); non-interactive so taps reach the card
       const tokenC = new PIXI.Container();
       tokenC.eventMode = "none";
-      drawUnitToken(tokenC, slot.defId, slot.tier, 0, cardCx, shopY + 26, { radius: 17 });
+      drawUnitToken(tokenC, slot.defId, slot.tier, 0, cardCx, shopY + cl.discY, { radius: cl.discR });
       this.shopLayer.addChild(tokenC);
 
-      this.text(this.shopLayer, def?.name ?? slot.defId, cardCx, shopY + 48, 8, C.textPrimary, [0.5, 0]);
+      this.text(this.shopLayer, def?.name ?? slot.defId, cardCx, shopY + cl.nameY, 8, C.textPrimary, [0.5, 0]);
 
       const traitNames = [def?.origin, ...(def?.classes ?? [])]
         .map((tid) => gameData.traits.find((t) => t.id === tid)?.name)
@@ -1291,50 +1240,12 @@ export class MatchScene {
       const traitStr = traitNames.length > 1
         ? `${traitNames[0]!.slice(0, 6)}·${traitNames[1]!.slice(0, 6)}`
         : (traitNames[0] ?? "");
-      this.text(this.shopLayer, traitStr, cardCx, shopY + 60, 7, C.textMuted, [0.5, 0]);
+      this.text(this.shopLayer, traitStr, cardCx, shopY + cl.traitY, 7, C.textMuted, [0.5, 0]);
 
-      this.glyph(this.shopLayer, "coin", x + 12, shopY + cardH - 9, 9, C.accentGold);
-      this.text(this.shopLayer, `${slot.tier}`, x + 20, shopY + cardH - 9, 11, C.textGold, [0, 0.5]);
+      this.glyph(this.shopLayer, "coin", x + 12, shopY + cl.tierY, 9, C.accentGold);
+      this.text(this.shopLayer, `${slot.tier}`, x + 20, shopY + cl.tierY, 11, C.textGold, [0, 0.5]);
     }
 
-    // ── Ready button (its own layout region) — primary CTA identity ──────────
-    const rb = this.layout.regions.readyButton;
-    const isPlanning = state.phase === "PLANNING";
-    const ready = this.chip(this.shopLayer, rb.x, rb.y, rb.w, rb.h, {
-      fill: isPlanning ? C.bgReady : C.bgReadyOff, border: isPlanning ? C.hpGreen : C.chipBorder,
-      borderW: isPlanning ? 1.5 : 1, radius: 7,
-    });
-    ready.eventMode = isPlanning ? "static" : "none";
-    ready.hitArea = new PIXI.Rectangle(rb.x, rb.y, rb.w, rb.h);
-    ready.cursor = isPlanning ? "pointer" : "default";
-    if (isPlanning) {
-      // Top highlight band: a light-source-from-above rim so it reads pressable.
-      // Top corners rounded to follow the button radius (7), bottom square; inset
-      // 1.5px so it tucks just inside the rounded top edge.
-      const highlightH = Math.round(rb.h * 0.3);
-      const hl = new PIXI.Graphics();
-      const hr = 6, hx = rb.x + 1.5, hy = rb.y + 1.5, hw = rb.w - 3;
-      hl.moveTo(hx, hy + highlightH);
-      hl.lineTo(hx, hy + hr);
-      hl.arcTo(hx, hy, hx + hr, hy, hr);
-      hl.lineTo(hx + hw - hr, hy);
-      hl.arcTo(hx + hw, hy, hx + hw, hy + hr, hr);
-      hl.lineTo(hx + hw, hy + highlightH);
-      hl.closePath();
-      hl.fill({ color: C.hpGreen, alpha: 0.12 });
-      hl.eventMode = "none";
-      this.shopLayer.addChild(hl);
-      this.pressFeedback(ready, () => this.driver.ready(), { cx: rb.x + rb.w / 2, cy: rb.y + rb.h / 2 });
-    }
-    const readyTxt = new PIXI.Text(isPlanning ? "Ready" : state.phase, {
-      fontSize: isPlanning ? 14 : 13, fill: isPlanning ? C.textReady : C.textMuted,
-      fontFamily: "monospace", fontWeight: isPlanning ? "bold" : "normal",
-    });
-    readyTxt.anchor.set(0.5, 0.5);
-    readyTxt.x = rb.x + rb.w / 2;
-    readyTxt.y = rb.y + rb.h / 2;
-    readyTxt.eventMode = "none";
-    this.shopLayer.addChild(readyTxt);
   }
 
   // ─── D. HUD row: level / gold / streak / reroll / buy-xp ──────────────────────
@@ -1724,7 +1635,6 @@ export class MatchScene {
       const id = this.dragItem.id;
       if (tapped) {
         this.dragItem = null;
-        this.itemLayer.alpha = 1;
         this.closeCombineHint();
         this.render(this.driver.getState());
         this.openItemDetail(id);
@@ -1732,7 +1642,6 @@ export class MatchScene {
       }
       if (me) this.onItemDragEnd(px, py, me);
       this.dragItem = null;
-      this.itemLayer.alpha = 1;
       this.render(this.driver.getState());
       return;
     }
@@ -2223,7 +2132,7 @@ export class MatchScene {
       this.renderCombat(state);
       return;
     }
-    const planning = [this.boardLayer, this.benchLayer, this.shopLayer, this.traitLayer, this.itemLayer];
+    const planning = [this.boardLayer, this.benchLayer, this.shopLayer, this.traitLayer];
     let t = 0;
     const fade = (ticker: PIXI.Ticker): void => {
       t += ticker.deltaMS;
@@ -2253,7 +2162,6 @@ export class MatchScene {
     this.benchLayer.removeChildren();
     this.shopLayer.removeChildren();
     this.traitLayer.removeChildren();
-    this.itemLayer.removeChildren();
     this.closeCombineHint();
     this.clearLootReveal();
     this.dragItem = null;
@@ -2724,10 +2632,10 @@ export class MatchScene {
         // Fly the orb toward its destination, fading + shrinking.
         const k = (t - popMs - holdMs) / flyMs;
         const hud = this.layout.regions.hud;
-        const bar = this.itemBar;
+        const bench = this.layout.regions.bench;
         const target = step.destination === "gold"
           ? { x: hud.x + (this.isLandscape ? 18 : 95), y: hud.y + hud.h / 2 } // gold counter
-          : { x: bar.x + 30, y: bar.y + ITEM_SLOT / 2 };                       // item bar
+          : { x: bench.x + bench.w / 2, y: bench.y + bench.h / 2 };            // bench (item inventory)
         orb.x = x + (target.x - x) * k;
         orb.y = y + (target.y - y) * k;
         orb.alpha = 1 - k;

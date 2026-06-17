@@ -96,3 +96,37 @@ export function xpProgress(
   const frac = span > 0 ? Math.min(1, inLevel / span) : 1;
   return { level, inLevel, needed: span, frac, maxed: false };
 }
+
+/** Geometry for the circular level badge + arced xp progress in the hud region. */
+export interface LevelBadgeGeom {
+  /** Badge disc center (within the hud region). */
+  cx: number;
+  cy: number;
+  /** Badge disc radius. */
+  badgeR: number;
+  /** XP progress arc radius (≥ badgeR). */
+  arcR: number;
+  /** Arc stroke width. */
+  arcW: number;
+  /** y at which the small "current/threshold" label sits. */
+  labelY: number;
+}
+
+/**
+ * Pure badge+arc geometry from the hud region (mirrors benchGeom). The badge
+ * sits at the left of the hud region; its disc + arc + label all stay within
+ * the hud bounds across the portrait/landscape hud heights.
+ */
+export function levelBadgeGeom(hud: { x: number; y: number; w: number; h: number }): LevelBadgeGeom {
+  // Badge radius scales with hud height but is capped (≈18 portrait / ≈14 short
+  // landscape); the arc is slightly larger; the label tucks just below the arc.
+  const badgeR = Math.max(10, Math.min(18, Math.round(hud.h * 0.42)));
+  const arcW = 5;
+  const arcR = Math.min(badgeR + 8, hud.h / 2 - arcW / 2);
+  // Center the badge a little in from the left edge, vertically centered with a
+  // small lift so the label fits under the arc within the region.
+  const cx = hud.x + arcR + 2;
+  const cy = hud.y + Math.min(arcR + arcW / 2, hud.h - 8);
+  const labelY = Math.min(cy + arcR + 2, hud.y + hud.h - 4);
+  return { cx, cy, badgeR, arcR, arcW, labelY };
+}

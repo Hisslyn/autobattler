@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { createHash } from "node:crypto";
 import { gameData } from "@autobattler/data";
 import { decodeS2C } from "@autobattler/protocol";
@@ -6,20 +6,25 @@ import type { S2CMessage, S2C_CombatStart, S2C_CombatResult } from "@autobattler
 import { simulateCombat } from "@autobattler/sim";
 import type { UnitInstance, CombatResult } from "@autobattler/sim/src/types.js";
 import { derivePairingSeed, boardToCombatState } from "@autobattler/rules/src/rounds.js";
-import { createRoom, markReady, handlePlayerCommand } from "../src/room.js";
+import { createRoom, markReady, handlePlayerCommand, PLANNING_MS } from "../src/room.js";
 import type { Room } from "../src/room.js";
 import type { Session } from "../src/session.js";
 
-// READY from all human seats during PLANNING runs combat (→ RESOLUTION),
-// and during RESOLUTION skips the pause (→ next PLANNING).
+// READY no longer skips PLANNING: planning runs its full PLANNING_MS, advanced
+// only by the room's planning timer. READY still skips the RESOLUTION pause.
 function readyAll(room: Room): void {
   markReady(room, 0);
   markReady(room, 1);
 }
 
+// Advance the planning timer so the room runs combat (PLANNING → RESOLUTION).
+function elapsePlanning(): void {
+  vi.advanceTimersByTime(PLANNING_MS);
+}
+
 function playFullRound(room: Room): void {
-  readyAll(room); // PLANNING → combat → RESOLUTION
-  readyAll(room); // RESOLUTION → PLANNING
+  elapsePlanning(); // PLANNING → combat → RESOLUTION (planning runs full duration)
+  readyAll(room);   // RESOLUTION → PLANNING (READY still skips the pause)
 }
 
 function makeFakeSession(id: string): { session: Session; messages: S2CMessage[] } {
@@ -104,9 +109,14 @@ function resimulate(
 describe("server combat protocol (in-process room)", () => {
   let room: Room | null = null;
 
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
   afterEach(() => {
     if (room?.phaseTimer) clearTimeout(room.phaseTimer);
     room = null;
+    vi.useRealTimers();
   });
 
   it("clients re-simulate from COMBAT_START and match COMBAT_RESULT event-log hashes (A-side and B-side)", () => {
@@ -181,7 +191,7 @@ describe("server combat protocol (in-process room)", () => {
     expect(cs[cs.length - 1]!.pairings).toEqual([]);
 
     // Round 4 is the first PvP round: pairings must cover all 8 alive players
-    readyAll(room);
+    elapsePlanning(); // planning runs full duration → combat
     cs = a.messages.filter((m): m is S2C_CombatStart => m.type === "COMBAT_START");
     const pvp = cs[cs.length - 1]!;
     expect(pvp.pairings.length).toBe(4);
@@ -195,7 +205,7 @@ describe("server combat protocol (in-process room)", () => {
     room = createRoom([a.session, b.session], 7);
 
     // Round 1: PLANNING(1) → combat → RESOLUTION(1); pause until next READY
-    readyAll(room);
+    elapsePlanning(); // planning runs full duration → combat → RESOLUTION
     expect(room.state.phase).toBe("RESOLUTION");
     expect(room.state.round).toBe(1);
 
