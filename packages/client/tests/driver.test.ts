@@ -258,6 +258,49 @@ describe("LocalDriver phase flow", () => {
     }
   });
 
+  it("planning duration is a full 30s for every round, regardless of adjacent PvE status", () => {
+    // Regression: user reported never observing Planning before a PvE round.
+    // Ground truth — drive rounds 1-5 (PvE rounds 1-3, then PvP) and assert the
+    // planning timer is always the full 30s and never short-circuited by the
+    // PvE-ness of the current OR the previous round.
+    const driver = new LocalDriver(21);
+    const planningStarts: Array<{ round: number; pve: boolean; timeLeft: number }> = [];
+    driver.on((e: DriverEvent) => {
+      if (e.type === "phase_change" && e.phase === "PLANNING") {
+        planningStarts.push({
+          round: e.round,
+          pve: driver.isPveRound(),
+          timeLeft: driver.getPlanningTimeLeft(),
+        });
+      }
+    });
+
+    driver.startPlanning();
+    for (let r = 1; r <= 5; r++) {
+      expect(driver.getState().round).toBe(r);
+      expect(driver.getState().phase).toBe("PLANNING");
+      // Full 30s available at the very start of planning.
+      expect(driver.getPlanningTimeLeft()).toBe(30_000);
+      // 10s in, still planning, ~20s left (no early/auto advance for PvE).
+      vi.advanceTimersByTime(10_000);
+      expect(driver.getState().phase).toBe("PLANNING");
+      expect(driver.getPlanningTimeLeft()).toBe(20_000);
+      // The 30s timer fires on its own → ready() runs combat synchronously and
+      // the state lands in RESOLUTION (the RESOLUTION *emit* is held for playback).
+      vi.advanceTimersByTime(20_000);
+      expect(driver.getState().phase).toBe("RESOLUTION");
+      driver.combatPlaybackDone();
+      vi.runOnlyPendingTimers(); // resolution pause → next planning
+    }
+
+    // PLANNING fires for round 1 (startPlanning) then each advance into rounds
+    // 2-6 (the 5th iteration lands the match back in planning for round 6).
+    expect(planningStarts.map((p) => p.round)).toEqual([1, 2, 3, 4, 5, 6]);
+    // Rounds 1-3 are PvE, 4-6 are PvP — every one still started with a full 30s.
+    expect(planningStarts.map((p) => p.pve)).toEqual([true, true, true, false, false, false]);
+    for (const p of planningStarts) expect(p.timeLeft).toBe(30_000);
+  });
+
   it("RESOLUTION is held until combatPlaybackDone; duplicate calls are no-ops", () => {
     const driver = new LocalDriver(13);
     const phases: string[] = [];
@@ -320,6 +363,38 @@ describe("getUpcomingPveBoard (PvE planning preview)", () => {
     expect(JSON.stringify(board)).toBe(
       JSON.stringify(previewPveStage(driver.getState(), gameData))
     );
+  });
+
+  it("Scout-chip visibility (getUpcomingPveBoard) tracks the round being planned for, not the previous round", () => {
+    // The PvE Scout chip is shown iff getUpcomingPveBoard() is non-null. It must
+    // reflect the CURRENT round being planned (combat happens AFTER planning), so
+    // a PvE round's planning shows it and the planning AFTER a PvE round (round 4,
+    // PvP) does NOT — no off-by-one against the just-finished round.
+    vi.useFakeTimers();
+    try {
+      const driver = new LocalDriver(21);
+      driver.startPlanning();
+
+      const chipVisible = (): boolean => driver.getUpcomingPveBoard() !== null;
+
+      // Rounds 1-3 are PvE → chip visible during each one's planning.
+      for (const r of [1, 2, 3]) {
+        expect(driver.getState().round).toBe(r);
+        expect(isPveRound(r)).toBe(true);
+        expect(chipVisible(), `round ${r} planning should show the PvE scout chip`).toBe(true);
+        driver.ready();
+        driver.combatPlaybackDone();
+        vi.runOnlyPendingTimers();
+      }
+
+      // Round 4 is PvP — the round AFTER a PvE round. The chip must be hidden
+      // (it checks round 4's PvE-ness, not round 3's).
+      expect(driver.getState().round).toBe(4);
+      expect(isPveRound(4)).toBe(false);
+      expect(chipVisible(), "round 4 (post-PvE) planning must NOT show the scout chip").toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("LocalDriver returns null once out of the planning phase", () => {

@@ -1,8 +1,12 @@
 {
   "name": "autobattler",
   "private": true,
-  "workspaces": ["packages/*"],
-  "engines": { "node": ">=20" },
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "pretest": "npm run typecheck",
     "test": "vitest run --reporter=verbose",
@@ -12,8 +16,9 @@
     "balance": "tsx packages/balance/src/cli.ts"
   },
   "devDependencies": {
+    "tsx": "^4.11.2",
     "typescript": "^5.4.5",
-    "vitest": "^1.6.0",
-    "tsx": "^4.11.2"
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
   }
 }

@@ -146,6 +146,10 @@ export class MatchScene {
   private lootTimers: Array<ReturnType<typeof setTimeout>> = [];
 
   private dragCatcher!: PIXI.Graphics;
+  /** Planning timer Text node + ticker, so the countdown visibly drains each
+   * second instead of freezing at the value rendered on phase entry. */
+  private planningTimerText: PIXI.Text | null = null;
+  private planningTimerFn: ((t: PIXI.Ticker) => void) | null = null;
   private resolutionAutoTimer: ReturnType<typeof setTimeout> | null = null;
   /** Drives the visible Continue countdown without a per-second re-render of the box. */
   private resolutionCountdownFn: ((t: PIXI.Ticker) => void) | null = null;
@@ -467,12 +471,16 @@ export class MatchScene {
     }
 
     // Planning timer (center): m:ss, muted; tint toward hp-low under 5s.
+    // The node is retained + driven by a per-second ticker (see
+    // startPlanningTimerTick) so the countdown visibly drains instead of
+    // freezing at the value captured on phase entry.
+    this.planningTimerText = null;
     const timeLeft = this.driver.getPlanningTimeLeft();
     if (state.phase === "PLANNING" && timeLeft > 0) {
       const secs = Math.ceil(timeLeft / 1000);
       const m = Math.floor(secs / 60);
       const ss = (secs % 60).toString().padStart(2, "0");
-      this.text(
+      this.planningTimerText = this.text(
         this.hudLayer, `${m}:${ss}`, designW / 2, sy + 10, 12,
         secs <= 5 ? C.hpLow : C.textMuted, [0.5, 0.5]
       );
@@ -2109,6 +2117,40 @@ export class MatchScene {
 
   // ─── PHASE TRANSITIONS ───────────────────────────────────────────────────
 
+  /**
+   * Drives the planning countdown text once per second so it visibly drains
+   * (the renderer only repaints on state changes, so without this the timer
+   * froze at its phase-entry value and combat appeared to start with no
+   * warning). Updates only the retained Text node — no full re-render. Torn
+   * down on every phase change / destroy via clearPlanningTimerTick.
+   */
+  private startPlanningTimerTick(): void {
+    this.clearPlanningTimerTick();
+    let acc = 0;
+    const fn = (ticker: PIXI.Ticker): void => {
+      acc += ticker.deltaMS;
+      if (acc < 250) return; // ~4Hz: cheap, still smooth at the second boundary
+      acc = 0;
+      const node = this.planningTimerText;
+      if (!node || this.driver.getState().phase !== "PLANNING") return;
+      const left = this.driver.getPlanningTimeLeft();
+      const secs = Math.max(0, Math.ceil(left / 1000));
+      const m = Math.floor(secs / 60);
+      const ss = (secs % 60).toString().padStart(2, "0");
+      node.text = `${m}:${ss}`;
+      node.style.fill = secs <= 5 ? C.hpLow : C.textMuted;
+    };
+    this.app.ticker.add(fn);
+    this.planningTimerFn = fn;
+  }
+
+  private clearPlanningTimerTick(): void {
+    if (this.planningTimerFn) {
+      this.app.ticker.remove(this.planningTimerFn);
+      this.planningTimerFn = null;
+    }
+  }
+
   private onPlanningStart(): void {
     this.teardownPlayback();
     this.clearResolutionTimer();
@@ -2127,9 +2169,11 @@ export class MatchScene {
       this.prevGold = me.gold;
     }
     this.render(state);
+    this.startPlanningTimerTick();
   }
 
   private onCombatPhase(): void {
+    this.clearPlanningTimerTick();
     const state = this.driver.getState();
     void this.opts.audio.setMusicState(phaseToMusicState("COMBAT"));
     // Bridge planning → combat with a brief cross-fade so the cut isn't a hard
@@ -2815,6 +2859,7 @@ export class MatchScene {
   /** Tear down the scene: stop playback/timers, unsubscribe, drop the container. */
   destroy(): void {
     this.teardownPlayback();
+    this.clearPlanningTimerTick();
     this.clearResolutionTimer();
     this.clearLootReveal();
     this.clearPress();
