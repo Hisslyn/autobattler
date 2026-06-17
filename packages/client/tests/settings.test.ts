@@ -15,6 +15,19 @@ describe("settings persistence", () => {
     expect(loadSettings(mockStorage())).toEqual(DEFAULT_SETTINGS);
   });
 
+  it("defaults combat speed to 0.25x (quarter the old 1x pace)", () => {
+    expect(DEFAULT_SETTINGS.defaultSpeed).toBe(0.25);
+    expect(loadSettings(mockStorage()).defaultSpeed).toBe(0.25);
+  });
+
+  it("accepts each supported combat speed (0.25 / 0.5 / 1 / 2)", () => {
+    for (const speed of [0.25, 0.5, 1, 2] as const) {
+      const s = mockStorage();
+      s.setItem("ab.settings", JSON.stringify({ defaultSpeed: speed }));
+      expect(loadSettings(s).defaultSpeed).toBe(speed);
+    }
+  });
+
   it("round-trips a full settings object", () => {
     const s = mockStorage();
     const custom: Settings = {
@@ -36,7 +49,7 @@ describe("settings persistence", () => {
     const loaded = loadSettings(s);
     expect(loaded.masterVolume).toBe(1);
     expect(loaded.sfxVolume).toBe(0);
-    expect(loaded.defaultSpeed).toBe(1);
+    expect(loaded.defaultSpeed).toBe(DEFAULT_SETTINGS.defaultSpeed);
     expect(loaded.muted).toBe(DEFAULT_SETTINGS.muted);
   });
 

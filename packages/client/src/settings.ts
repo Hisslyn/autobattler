@@ -3,7 +3,9 @@
 // read by the audio manager. The player name is NOT here — it lives server-side
 // and is changed via PATCH /profile.
 
-export type PlaybackSpeedPref = 1 | 2;
+// 0.25 is the new experienced default (quarter the old 1x pace); 0.5 and 1 are
+// faster options. "1x" keeps its prior meaning everywhere.
+export type PlaybackSpeedPref = 0.25 | 0.5 | 1 | 2;
 
 export interface Settings {
   masterVolume: number; // 0..1
@@ -21,7 +23,7 @@ export const DEFAULT_SETTINGS: Settings = {
   musicVolume: 0.5,
   muted: false,
   musicEnabled: true,
-  defaultSpeed: 1,
+  defaultSpeed: 0.25,
   reducedMotion: false,
 };
 
@@ -48,7 +50,7 @@ export function loadSettings(storage: StorageLike): Settings {
     musicVolume: clamp01(raw.musicVolume, DEFAULT_SETTINGS.musicVolume),
     muted: typeof raw.muted === "boolean" ? raw.muted : DEFAULT_SETTINGS.muted,
     musicEnabled: typeof raw.musicEnabled === "boolean" ? raw.musicEnabled : DEFAULT_SETTINGS.musicEnabled,
-    defaultSpeed: raw.defaultSpeed === 2 ? 2 : 1,
+    defaultSpeed: raw.defaultSpeed === 2 ? 2 : raw.defaultSpeed === 1 ? 1 : raw.defaultSpeed === 0.5 ? 0.5 : 0.25,
     reducedMotion: typeof raw.reducedMotion === "boolean" ? raw.reducedMotion : DEFAULT_SETTINGS.reducedMotion,
   };
 }

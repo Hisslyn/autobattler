@@ -365,11 +365,12 @@ describe("getUpcomingPveBoard (PvE planning preview)", () => {
     );
   });
 
-  it("Scout-chip visibility (getUpcomingPveBoard) tracks the round being planned for, not the previous round", () => {
-    // The PvE Scout chip is shown iff getUpcomingPveBoard() is non-null. It must
-    // reflect the CURRENT round being planned (combat happens AFTER planning), so
-    // a PvE round's planning shows it and the planning AFTER a PvE round (round 4,
-    // PvP) does NOT — no off-by-one against the just-finished round.
+  it("inline creep preview (getUpcomingPveBoard) tracks the round being planned for, not the previous round", () => {
+    // The enemy half renders the upcoming creep board iff getUpcomingPveBoard() is
+    // non-null. It must reflect the CURRENT round being planned (combat happens
+    // AFTER planning), so a PvE round's planning shows creeps and the planning
+    // AFTER a PvE round (round 4, PvP) does NOT — no off-by-one against the
+    // just-finished round.
     vi.useFakeTimers();
     try {
       const driver = new LocalDriver(21);
@@ -381,7 +382,7 @@ describe("getUpcomingPveBoard (PvE planning preview)", () => {
       for (const r of [1, 2, 3]) {
         expect(driver.getState().round).toBe(r);
         expect(isPveRound(r)).toBe(true);
-        expect(chipVisible(), `round ${r} planning should show the PvE scout chip`).toBe(true);
+        expect(chipVisible(), `round ${r} planning should render the inline creep preview`).toBe(true);
         driver.ready();
         driver.combatPlaybackDone();
         vi.runOnlyPendingTimers();
@@ -391,10 +392,29 @@ describe("getUpcomingPveBoard (PvE planning preview)", () => {
       // (it checks round 4's PvE-ness, not round 3's).
       expect(driver.getState().round).toBe(4);
       expect(isPveRound(4)).toBe(false);
-      expect(chipVisible(), "round 4 (post-PvE) planning must NOT show the scout chip").toBe(false);
+      expect(chipVisible(), "round 4 (post-PvE) planning must NOT render the creep preview").toBe(false);
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("reuses the pure previewPveStage (idempotent, no state mutation, no new rules logic)", () => {
+    // The inline creep render reuses the already-built pure previewPveStage as-is
+    // — calling it any number of times yields identical boards and never mutates
+    // the match state (its negative preview uids are disposable, not drawn from
+    // the pool / match uid namespace).
+    const driver = new LocalDriver(21);
+    driver.startPlanning();
+    const stateBefore = JSON.stringify(driver.getState());
+
+    const a = previewPveStage(driver.getState(), gameData);
+    const b = previewPveStage(driver.getState(), gameData);
+    const c = driver.getUpcomingPveBoard();
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+    expect(JSON.stringify(c)).toBe(JSON.stringify(a));
+
+    // Pure: repeated previews left the match state untouched.
+    expect(JSON.stringify(driver.getState())).toBe(stateBefore);
   });
 
   it("LocalDriver returns null once out of the planning phase", () => {

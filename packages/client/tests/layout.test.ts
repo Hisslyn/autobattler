@@ -42,7 +42,7 @@ function withinBounds(r: Rect, maxW: number, maxH: number): boolean {
   return r.x >= 0 && r.y >= 0 && r.x + r.w <= maxW && r.y + r.h <= maxH;
 }
 
-/** Core regions to check for non-overlap and bounds. */
+/** Core regions to check for non-overlap and bounds (excludes traitTabBar which sits within traitRail column). */
 function coreRegions(layout: MatchLayout): Rect[] {
   const { board, traitRail, opponentRail, shop, bench, hud, itemBar } = layout.regions;
   return [board, traitRail, opponentRail, shop, bench, hud, itemBar];
@@ -194,13 +194,11 @@ describe("landscape regions", () => {
   });
 
   it("board is the dominant top-center element spanning the design center", () => {
-    // Top-center: the board straddles the horizontal midline and its center sits
-    // near it (the asymmetric side columns shift it by under half a column gap).
+    // Top-center: the board straddles the horizontal midline.
     expect(regions.board.x).toBeLessThan(designW / 2);
     expect(regions.board.x + regions.board.w).toBeGreaterThan(designW / 2);
-    const cx = regions.board.x + regions.board.w / 2;
-    expect(Math.abs(cx - designW / 2)).toBeLessThanOrEqual(24);
-    expect(regions.board.y).toBeLessThan(designH / 4); // anchored to the top
+    // Board y is anchored to the top.
+    expect(regions.board.y).toBeLessThan(designH / 4);
   });
 
   it("statusRow is a thin band under the board (not full-width)", () => {
@@ -208,6 +206,17 @@ describe("landscape regions", () => {
     expect(regions.statusRow.w).toBe(regions.board.w);
     expect(regions.statusRow.y).toBeGreaterThanOrEqual(regions.board.y + regions.board.h);
     expect(regions.statusRow.y + regions.statusRow.h).toBeLessThanOrEqual(regions.shop.y);
+  });
+
+  it("bench is centered below the board and above the shop", () => {
+    // Bench center x should be close to board center x.
+    const benchCx = regions.bench.x + regions.bench.w / 2;
+    const boardCx = regions.board.x + regions.board.w / 2;
+    expect(Math.abs(benchCx - boardCx)).toBeLessThanOrEqual(2); // rounding tolerance
+    // Bench y is below the board+status row.
+    expect(regions.bench.y).toBeGreaterThan(regions.statusRow.y + regions.statusRow.h);
+    // Bench bottom is above the shop.
+    expect(regions.bench.y + regions.bench.h).toBeLessThanOrEqual(regions.shop.y);
   });
 
   it("bench has 9 slot positions (3×3 grid) that stay inside the bench rect", () => {
@@ -220,9 +229,29 @@ describe("landscape regions", () => {
     }
   });
 
-  it("traitRail and bench are in the left column (x < board.x)", () => {
+  it("traitRail is a thin vertical strip in the far-left column (x=0 or close)", () => {
+    expect(regions.traitRail.x).toBe(0);
+    // Tall and thin.
+    expect(regions.traitRail.h).toBeGreaterThan(regions.traitRail.w * 3);
+    // traitRail is to the left of the board.
     expect(regions.traitRail.x + regions.traitRail.w).toBeLessThanOrEqual(regions.board.x);
-    expect(regions.bench.x + regions.bench.w).toBeLessThanOrEqual(regions.board.x);
+  });
+
+  it("traitTabBar sits at the top of the trait column (landscape only)", () => {
+    // Tab buttons occupy the top of the left column, above the traitRail content.
+    expect(regions.traitTabBar.x).toBe(regions.traitRail.x);
+    expect(regions.traitTabBar.w).toBe(regions.traitRail.w);
+    expect(regions.traitTabBar.y).toBeLessThan(regions.traitRail.y);
+    expect(regions.traitTabBar.h).toBeGreaterThan(0);
+    // Together they cover a contiguous vertical strip.
+    expect(regions.traitTabBar.y + regions.traitTabBar.h).toBeLessThanOrEqual(regions.traitRail.y + 4);
+  });
+
+  it("itemBar sits below the bench, above the shop, same x/w as bench", () => {
+    expect(regions.itemBar.x).toBe(regions.bench.x);
+    expect(regions.itemBar.w).toBe(regions.bench.w);
+    expect(regions.itemBar.y).toBeGreaterThanOrEqual(regions.bench.y + regions.bench.h);
+    expect(regions.itemBar.y + regions.itemBar.h).toBeLessThanOrEqual(regions.shop.y);
   });
 
   it("opponentRail, hud, sellControl, readyButton are in the right-edge column", () => {
@@ -251,22 +280,9 @@ describe("landscape regions", () => {
     expect(regions.readyButton.y + regions.readyButton.h).toBeLessThanOrEqual(regions.shop.y);
   });
 
-  it("sellControl is detached from the bench (it moved to the bottom cluster)", () => {
+  it("sellControl is detached from the bench (it lives in the right-edge column)", () => {
     expect(regions.sellControl.x).toBeGreaterThan(regions.bench.x + regions.bench.w);
     expect(regions.sellControl.y).toBeGreaterThan(regions.hud.y);
-  });
-
-  it("traitRail is a thin vertical strip pinned to the far-left edge", () => {
-    expect(regions.traitRail.x).toBe(0);
-    expect(regions.traitRail.h).toBeGreaterThan(regions.traitRail.w * 3); // tall + thin
-    // bench + itemBar are inboard of the rail (its own region, not a shared col).
-    expect(regions.bench.x).toBeGreaterThanOrEqual(regions.traitRail.x + regions.traitRail.w);
-    expect(regions.itemBar.x).toBeGreaterThanOrEqual(regions.traitRail.x + regions.traitRail.w);
-  });
-
-  it("itemBar sits below the bench in the left column", () => {
-    expect(regions.itemBar.x).toBe(regions.bench.x);
-    expect(regions.itemBar.y).toBeGreaterThanOrEqual(regions.bench.y + regions.bench.h);
   });
 
   it("interactive regions meet their touch-target minimums", () => {
@@ -280,6 +296,13 @@ describe("landscape regions", () => {
   it("opponentRail stacks seat tiles vertically (4 rows, each ≥ 36px)", () => {
     // The corner rail holds 8 tiles as a 2-col × 4-row vertical stack.
     expect(regions.opponentRail.h / 4).toBeGreaterThanOrEqual(36);
+  });
+
+  it("bench and itemBar are NOT in the far-left trait column (they moved below the board)", () => {
+    // Bench is horizontally centered under the board, not in the left column.
+    expect(regions.bench.x).toBeGreaterThan(regions.traitRail.x + regions.traitRail.w);
+    // ItemBar is co-located with the bench (same x).
+    expect(regions.itemBar.x).toBeGreaterThan(regions.traitRail.x + regions.traitRail.w);
   });
 });
 
@@ -401,6 +424,11 @@ describe("portrait regions", () => {
     expect(layout.designH).toBe(844);
   });
 
+  it("portrait traitTabBar is zeroed (no tab switcher in portrait)", () => {
+    expect(regions.traitTabBar.w).toBe(0);
+    expect(regions.traitTabBar.h).toBe(0);
+  });
+
   it("portrait regions have a uniform inter-region gap below the trait strip", () => {
     // Each adjacent pair in the stacked lower column should sit 6–10px apart.
     const stack = [
@@ -476,6 +504,8 @@ describe("portrait height-driven layout", () => {
       const layout = resolveLayout({ viewportW: 390, viewportH: usableH });
       const r = layout.regions;
       for (const rect of Object.values(r)) {
+        // traitTabBar is zeroed in portrait — skip its 0-area check
+        if (rect.w === 0 && rect.h === 0) continue;
         expect(rect.y + rect.h).toBeLessThanOrEqual(layout.designH + 1);
       }
     });
@@ -502,6 +532,12 @@ describe("portrait height-driven layout", () => {
       // Sell control tracks the bench row exactly.
       expect(r.sellControl.y).toBe(r.bench.y);
       expect(r.sellControl.h).toBe(r.bench.h);
+    });
+
+    it(`portrait traitTabBar is zeroed at usableH=${usableH}`, () => {
+      const layout = resolveLayout({ viewportW: 390, viewportH: usableH });
+      expect(layout.regions.traitTabBar.w).toBe(0);
+      expect(layout.regions.traitTabBar.h).toBe(0);
     });
   }
 

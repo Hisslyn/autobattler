@@ -15,7 +15,8 @@ import type { GameData } from "@autobattler/data";
 import { applyEvent, emptyPlaybackState } from "./reducer.js";
 import type { PlaybackState } from "./reducer.js";
 
-export type PlaybackSpeed = 1 | 2;
+// 0.25 = quarter the 1x pace (the new experienced default); 1x keeps its prior meaning.
+export type PlaybackSpeed = 0.25 | 0.5 | 1 | 2;
 
 /** Ability effect kind keyed into per-kind visuals/sounds. */
 export type AbilityFxKind = AbilityEffect["kind"];

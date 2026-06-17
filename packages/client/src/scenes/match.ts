@@ -26,7 +26,7 @@ import { lootRevealModel } from "../lootReveal.js";
 import type { RevealStep } from "../lootReveal.js";
 import { onUnitArtReady } from "../sprites.js";
 import { drawItemIcon, onItemArtReady } from "../itemIconDraw.js";
-import { Z_COMBAT_HEADER, Z_RESOLUTION_BUTTON, Z_RESOLUTION_CONTROL } from "../combatLayout.js";
+import { Z_COMBAT_HEADER, Z_RESOLUTION_OVERLAY, Z_RESOLUTION_BUTTON, Z_RESOLUTION_CONTROL } from "../combatLayout.js";
 import { benchGeom, benchSlotAtX } from "../benchLayout.js";
 import { landscapeHudControls } from "../hudControlsLayout.js";
 import type { SettingsStore } from "../settings.js";
@@ -119,6 +119,8 @@ export class MatchScene {
   private toastLayer: PIXI.Container;
   private combatLayer: PIXI.Container;
   private traitLayer: PIXI.Container;
+  /** Landscape left-column rail tab (view-only UI state; never persisted). */
+  private activeRailTab: "traits" | "items" = "traits";
   private scoutLayer: PIXI.Container;
   /** Item inventory bar (loose components + completed items). */
   private itemLayer: PIXI.Container;
@@ -167,7 +169,7 @@ export class MatchScene {
     view: CombatView;
     tickerFn: (ticker: PIXI.Ticker) => void;
   } | null = null;
-  private playbackSpeed: PlaybackSpeed = 1;
+  private playbackSpeed: PlaybackSpeed = 0.5;
   private speedBtnLabel: PIXI.Text | null = null;
   private opts: MatchSceneOptions;
   /** Active orientation-aware layout (design dims + named region rects). */
@@ -336,7 +338,8 @@ export class MatchScene {
     if (state.phase === "PLANNING") {
       this.renderBoard(me);
       this.renderBench(me);
-      this.renderTraitStrip(me);
+      if (this.isLandscape) this.renderRailTabs(me);
+      else this.renderTraitStrip(me);
       this.renderShop(state, me);
       this.renderItemBar(me);
     } else {
@@ -455,20 +458,8 @@ export class MatchScene {
     this.glyph(this.hudLayer, "swords", 17, sy + 10, 13, C.starGold);
     this.text(this.hudLayer, `Stage ${stage}-${sub}`, 28, sy + 10, 10, C.textPrimary, [0, 0.5]);
 
-    // PvE preview affordance: a PvE round has no opponent to scout, but its
-    // upcoming creep board IS previewable. Reuse the eye-badge scout language as
-    // a compact tappable chip beside the stage chip (only when the upcoming
-    // round is PvE during planning).
-    if (state.phase === "PLANNING" && this.driver.getUpcomingPveBoard()) {
-      const px = 6 + stageW + 6;
-      const pw = 58;
-      const pchip = this.chip(this.hudLayer, px, sy, pw, 20, { fillAlpha: 0.9, border: C.tier3 });
-      pchip.eventMode = "static";
-      pchip.cursor = "pointer";
-      pchip.on("pointerdown", () => this.openPvePreview());
-      this.glyph(this.hudLayer, "eye", px + 12, sy + 10, 7, C.tier3);
-      this.text(this.hudLayer, "Scout", px + 22, sy + 10, 9, C.tier3, [0, 0.5]);
-    }
+    // (PvE creeps are previewed directly on the enemy half of the main board
+    // during planning — see renderBoard — so there's no scout chip here.)
 
     // Planning timer (center): m:ss, muted; tint toward hp-low under 5s.
     // The node is retained + driven by a per-second ticker (see
@@ -586,15 +577,46 @@ export class MatchScene {
     const unitDragging = this.isDragging && this.dragItem === null;
 
     // Enemy zone (top 4 rows) — darker tint, untargetable during planning. While
-    // dragging a unit, dim it so it reads as "not a valid drop zone".
+    // dragging a unit, dim it so it reads as "not a valid drop zone". A PvE round
+    // tints the enemy half with the warm mobZone (mirrors onCombatPhase) so the
+    // creep round reads as PvE — the hex tiles stay non-interactive either way.
+    const isPveRound = this.driver.isPveRound();
+    const enemyZone = isPveRound ? C.mobZone : C.enemyHex;
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
         const { x, y } = hexToPixel(q, r, offX, oppY, s);
         const g = new PIXI.Graphics();
-        drawHex(g, x, y, hexR, C.enemyHex, unitDragging ? 0.4 : 1, {
+        drawHex(g, x, y, hexR, enemyZone, unitDragging ? 0.4 : 1, {
           border: { color: C.boardBorder, width: 1, alpha: unitDragging ? 0.4 : 0.8 },
         });
         this.boardLayer.addChild(g);
+      }
+    }
+
+    // PvE creep preview: render the upcoming mob board (real BoardState from rules
+    // via the driver) on the enemy half so the planned-for round is visible inline
+    // instead of behind a scout overlay. Mob tokens are READ-ONLY — the only
+    // interaction is long-press → inspect (the same armInspect path as board
+    // units; inspectModel resolves a defId absent from data.units). No drag.
+    if (isPveRound) {
+      const mobBoard = this.driver.getUpcomingPveBoard();
+      if (mobBoard) {
+        for (const unit of mobBoard.units) {
+          const displayRow = unit.pos.r - BOARD_ROWS; // enemy-half row → 0..BOARD_ROWS-1
+          if (displayRow < 0 || displayRow >= BOARD_ROWS) continue;
+          const { x, y } = hexToPixel(unit.pos.q, displayRow, offX, oppY, s);
+          const uc = new PIXI.Container();
+          uc.eventMode = "static";
+          uc.cursor = "default";
+          const u = unit;
+          uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.armInspect(u.defId, u, e));
+          uc.on("pointerup", () => this.clearPress());
+          uc.on("pointerupoutside", () => this.clearPress());
+          // withBars=false: the neutral mobTint ring fires automatically because
+          // the mob defId is absent from data.units (no extra theming here).
+          drawUnit(uc, unit, x, y, tokR, false, false);
+          this.boardLayer.addChild(uc);
+        }
       }
     }
 
@@ -850,7 +872,7 @@ export class MatchScene {
     cx: number,
     cy: number,
     size: number,
-    onTap: () => void,
+    onTap?: () => void,
     onDragStart?: (e: PIXI.FederatedPointerEvent) => void
   ): void {
     const half = size / 2;
@@ -883,6 +905,12 @@ export class MatchScene {
         this.armItemTap(onTap, e);
         onDragStart(e);
       });
+    } else if (onTap) {
+      // Tap-only chip (e.g. the landscape item-browse tab): no drag, just info.
+      g.eventMode = "static";
+      g.cursor = "pointer";
+      g.hitArea = new PIXI.Rectangle(cx - half, cy - half, size, size);
+      g.on("pointertap", onTap);
     } else {
       g.eventMode = "none";
     }
@@ -900,13 +928,13 @@ export class MatchScene {
   }
 
   /** Long-press an item chip → open its info panel (tap fires the drag instead). */
-  private armItemTap(onTap: () => void, e: PIXI.FederatedPointerEvent): void {
+  private armItemTap(onTap: (() => void) | undefined, e: PIXI.FederatedPointerEvent): void {
     this.clearPress();
     this.pressStart = { x: e.globalX, y: e.globalY };
     this.pressTimer = setTimeout(() => {
       this.pressTimer = null;
       this.abortItemDrag();
-      onTap();
+      onTap?.();
     }, 360);
   }
 
@@ -920,7 +948,7 @@ export class MatchScene {
     if (this.dragSprite) this.container.removeChild(this.dragSprite);
     const c = new PIXI.Container();
     c.zIndex = 999; // magic-ok: drag sprite stays on top
-    this.drawItemChip(c, entry, 0, 0, ITEM_SLOT, () => {});
+    this.drawItemChip(c, entry, 0, 0, ITEM_SLOT, undefined);
     c.eventMode = "none";
     c.x = e.globalX; c.y = e.globalY;
     this.container.addChild(c);
@@ -1441,14 +1469,7 @@ export class MatchScene {
     const chipH = 18;
 
     if (this.isLandscape) {
-      // Vertical stack down the left rail: one chip per row.
-      const gapY = 4;
-      let rowY = rail.y;
-      for (const c of chips) {
-        if (rowY + chipH > rail.y + rail.h) break; // clip to the rail
-        this.drawTraitChip(this.traitLayer, c, rail.x, rowY);
-        rowY += chipH + gapY;
-      }
+      this.drawTraitRailContent(me);
       return;
     }
 
@@ -1465,6 +1486,89 @@ export class MatchScene {
       if (x + chipW > padX + maxRowW) { x = padX; rowY += chipH + gapY; }
       this.drawTraitChip(this.traitLayer, c, x, rowY);
       x += chipW + gapX;
+    }
+  }
+
+  /**
+   * Landscape-only left-column tab switcher: tab 1 = traits, tab 2 = item browse.
+   * Owns the single traitLayer clear; draws the tab buttons in `traitTabBar`, then
+   * dispatches the rail CONTENT (below) to a non-clearing drawer. The swap is an
+   * instant content re-render (no animation). View-only UI state.
+   */
+  private renderRailTabs(me: PlayerState): void {
+    this.traitLayer.removeChildren();
+    const bar = this.layout.regions.traitTabBar;
+    const btnW = (bar.w - 2) / 2;
+
+    const drawTab = (
+      label: string,
+      tab: "traits" | "items",
+      bx: number
+    ): void => {
+      const active = this.activeRailTab === tab;
+      const g = new PIXI.Graphics();
+      g.roundRect(bx, bar.y, btnW, bar.h, 3).fill({ color: C.panelBg, alpha: active ? 0.95 : 0.5 });
+      g.roundRect(bx, bar.y, btnW, bar.h, 3).stroke({ width: 1, color: active ? C.tier3 : C.chipBorder, alpha: active ? 0.9 : 0.5 });
+      g.alpha = active ? 1 : 0.6;
+      g.eventMode = "static";
+      g.cursor = "pointer";
+      g.hitArea = new PIXI.Rectangle(bx, bar.y, btnW, bar.h);
+      g.on("pointertap", () => {
+        if (this.activeRailTab === tab) return;
+        this.activeRailTab = tab;
+        this.renderRailTabs(me);
+      });
+      this.traitLayer.addChild(g);
+      this.text(this.traitLayer, label, bx + btnW / 2, bar.y + bar.h / 2, 9, active ? C.textPrimary : C.textMuted, [0.5, 0.5]);
+    };
+
+    drawTab("1", "traits", bar.x);
+    drawTab("2", "items", bar.x + btnW + 2);
+
+    if (this.activeRailTab === "traits") this.drawTraitRailContent(me);
+    else this.renderItemBrowse(me);
+  }
+
+  /** Vertical trait-chip stack in `traitRail`. Assumes traitLayer is already cleared. */
+  private drawTraitRailContent(me: PlayerState): void {
+    const chips = traitStripModel(me.board, gameData.units, gameData.traits);
+    const rail = this.layout.regions.traitRail;
+    const chipH = 18;
+    const gapY = 4;
+    let rowY = rail.y;
+    for (const c of chips) {
+      if (rowY + chipH > rail.y + rail.h) break; // clip to the rail
+      this.drawTraitChip(this.traitLayer, c, rail.x, rowY);
+      rowY += chipH + gapY;
+    }
+  }
+
+  /**
+   * Read-only item browse (landscape tab 2): vertical list of the player's
+   * inventory in `traitRail` as TAP-ONLY chips (tap → item-info modal; NO drag —
+   * the draggable bar stays renderItemBar). Assumes traitLayer is already cleared.
+   */
+  private renderItemBrowse(me: PlayerState): void {
+    const inv = inventoryModel(me.items, gameData);
+    const rail = this.layout.regions.traitRail;
+    if (inv.length === 0) {
+      this.text(this.traitLayer, "No items", rail.x, rail.y + 9, 9, C.textDimmed, [0, 0.5]);
+      return;
+    }
+    const rowH = ITEM_SLOT + 4;
+    const half = ITEM_SLOT / 2;
+    let rowY = rail.y;
+    for (const entry of inv) {
+      if (rowY + ITEM_SLOT > rail.y + rail.h) break; // clip to the rail
+      const cx = rail.x + half;
+      const cy = rowY + half;
+      const id = entry.id;
+      this.drawItemChip(this.traitLayer, entry, cx, cy, ITEM_SLOT, () => this.openItemDetail(id));
+      // Name label beside the icon (mirrors the trait chips' label; the row
+      // extends rightward over the board's left margin like the trait stack).
+      const m = itemModel(id, gameData);
+      if (m) this.text(this.traitLayer, m.name, cx + half + 4, cy, 8, C.textPrimary, [0, 0.5]);
+      rowY += rowH;
     }
   }
 
@@ -1990,78 +2094,9 @@ export class MatchScene {
     this.scoutLayer.removeChildren();
   }
 
-  /**
-   * Pre-combat PvE preview: renders the upcoming creep board (real BoardState
-   * from rules via the driver) into the same overlay layer as the PvP scout.
-   * Mobs carry no traits, so there's no trait strip; long-pressing a creep token
-   * opens the same unit-inspect panel (inspectModel resolves mob defIds). Torn
-   * down by closeScout on dismiss / phase change.
-   */
-  private openPvePreview(): void {
-    const board = this.driver.getUpcomingPveBoard();
-    if (!board) return;
-    this.scoutLayer.removeChildren();
-    this.opts.audio.play("tap");
-
-    const { designW, designH, regions } = this.layout;
-    const pad = 20;
-    const panelX = pad;
-    const panelY = regions.statusRow.h + pad;
-    const panelW = designW - 2 * pad;
-    const panelH = designH - panelY - pad;
-
-    // Scrim — tap outside to dismiss (consistent with the scout/inspect overlays).
-    const scrim = new PIXI.Graphics();
-    scrim.rect(0, 0, designW, designH).fill({ color: C.bgScrim, alpha: 0.001 });
-    scrim.eventMode = "static";
-    scrim.cursor = "pointer";
-    scrim.on("pointerdown", () => this.closeScout());
-    this.scoutLayer.addChild(scrim);
-
-    const overlay = new PIXI.Graphics();
-    overlay.roundRect(panelX, panelY, panelW, panelH, 8).fill({ color: C.bgScout, alpha: 0.92 });
-    overlay.eventMode = "static"; // swallow taps so they don't dismiss via the scrim
-    this.scoutLayer.addChild(overlay);
-
-    // Header mirrors the combat-phase PvE label ("PvE · <stage> · Creeps").
-    const stageName = this.driver.getPveStageName();
-    const header = stageName ? `PvE · ${stageName} · Creeps` : "PvE · Creeps";
-    this.text(this.scoutLayer, header, panelX + 10, panelY + 10, 12, C.pveLabel, [0, 0]);
-
-    // Creep board — each mob sits on the enemy half (rows BOARD_ROWS..2*BOARD_ROWS-1);
-    // map those down to a 0-based mini-board so the formation reads top-down like
-    // the PvP scout. Long-press a token → the shared unit-inspect panel.
-    const boardOffX = panelX + (panelW - BOARD_COLS * HEX_W) / 2 + HEX_R;
-    const boardOffY = panelY + 50;
-    for (const unit of board.units) {
-      const displayRow = unit.pos.r - BOARD_ROWS; // enemy-half row → 0..BOARD_ROWS-1
-      const { x, y } = hexToPixel(unit.pos.q, displayRow, boardOffX, boardOffY);
-      const uc = new PIXI.Container();
-      uc.eventMode = "static";
-      uc.cursor = "pointer";
-      const u = unit;
-      uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.armInspect(u.defId, u, e));
-      uc.on("pointerup", () => this.clearPress());
-      uc.on("pointerupoutside", () => this.clearPress());
-      drawUnit(uc, unit, x, y, 14);
-      this.scoutLayer.addChild(uc);
-    }
-    // (No trait strip: mobs carry no traits, unlike a scouted PvP board.)
-
-    // Close button — visual 30×24, hit area expanded to the 44px min target.
-    const closeBtn = new PIXI.Graphics();
-    closeBtn.roundRect(panelX + panelW - 30, panelY + 4, 30, 24, 4).fill({ color: C.bgCloseBtn, alpha: 0.9 });
-    closeBtn.eventMode = "static";
-    closeBtn.cursor = "pointer";
-    closeBtn.hitArea = new PIXI.Rectangle(panelX + panelW - 44, panelY, 44, 36);
-    closeBtn.on("pointerdown", () => this.closeScout());
-    this.scoutLayer.addChild(closeBtn);
-    const closeX = new PIXI.Text("X", { fontSize: 11, fill: C.textMuted, fontFamily: "monospace" });
-    closeX.anchor.set(0.5, 0.5);
-    closeX.x = panelX + panelW - 15;
-    closeX.y = panelY + 16;
-    this.scoutLayer.addChild(closeX);
-  }
+  // (The PvE creep board is previewed directly on the enemy half of the main
+  // board during planning — see renderBoard — so there's no separate PvE scout
+  // overlay. The PvP scout overlay above stays for scouting other players.)
 
   // ─── INSPECT (unit + trait detail panels) ────────────────────────────────
 
@@ -2190,8 +2225,12 @@ export class MatchScene {
       for (const l of planning) l.alpha = 1 - k;
       if (k >= 1) {
         this.app.ticker.remove(fade);
-        this.renderCombat(this.driver.getState());
         for (const l of planning) l.alpha = 1;
+        // The phase may have already advanced past COMBAT (a fast PvE round can
+        // hit RESOLUTION before this 120ms fade completes). Rendering the combat
+        // board then would stamp the combat header on top of the resolution
+        // overlay — so only render combat if we're still in COMBAT.
+        if (this.driver.getState().phase === "COMBAT") this.renderCombat(this.driver.getState());
       }
     };
     this.app.ticker.add(fade);
@@ -2291,18 +2330,21 @@ export class MatchScene {
     // (outside both hex zones) and given a high zIndex so the sortable
     // combatLayer always draws it above the tiles/tokens — never behind them.
     // Clamp into view for short landscape (board panel nearly fills designH).
-    const b = this.layout.regions.board;
-    const headerY = Math.min(b.y + b.h + 12, this.designH - 10);
-    const headerText = isPve ? `PvE  ·  ${opponentName}` : `COMBAT  ·  vs ${opponentName}`;
-    const header = new PIXI.Text(headerText, {
-      fontSize: 13, fill: isPve ? C.pveLabel : C.textCombat, fontFamily: "monospace",
-    });
-    header.anchor.set(0.5, 0.5);
-    header.x = this.designW / 2;
-    header.y = headerY;
-    header.zIndex = Z_COMBAT_HEADER;
-    header.eventMode = "none";
-    this.combatLayer.addChild(header);
+    // PvE rounds render NO header text once combat starts (the PvE label lives
+    // only in the planning-phase board preview); PvP keeps its "vs X" header.
+    if (!isPve) {
+      const b = this.layout.regions.board;
+      const headerY = Math.min(b.y + b.h + 12, this.designH - 10);
+      const header = new PIXI.Text(`COMBAT  ·  vs ${opponentName}`, {
+        fontSize: 13, fill: C.textCombat, fontFamily: "monospace",
+      });
+      header.anchor.set(0.5, 0.5);
+      header.x = this.designW / 2;
+      header.y = headerY;
+      header.zIndex = Z_COMBAT_HEADER;
+      header.eventMode = "none";
+      this.combatLayer.addChild(header);
+    }
   }
 
   // ─── COMBAT PLAYBACK ─────────────────────────────────────────────────────
@@ -2365,7 +2407,9 @@ export class MatchScene {
   }
 
   private toggleSpeed(): void {
-    this.playbackSpeed = this.playbackSpeed === 1 ? 2 : 1;
+    // Toggle set is 0.5x / 1x — 0.5x is the default (half the old pace), 1x the
+    // faster option. (1x keeps its prior meaning; this only adds the slow step.)
+    this.playbackSpeed = this.playbackSpeed === 0.5 ? 1 : 0.5;
     this.playback?.player.setSpeed(this.playbackSpeed);
     if (this.speedBtnLabel) this.speedBtnLabel.text = `${this.playbackSpeed}x`;
   }
@@ -2424,6 +2468,9 @@ export class MatchScene {
     bg.rect(0, 0, designW, designH).fill({ color: C.bgOverlay, alpha: 0.72 });
     // Must NOT swallow pointer events — we need the Continue button to work
     bg.eventMode = "none";
+    // Above the combat header so the resolution screen always covers it (a fast
+    // PvE round can land RESOLUTION mid planning→combat fade). See combatLayout.ts.
+    bg.zIndex = Z_RESOLUTION_OVERLAY;
     this.combatLayer.addChild(bg);
 
     // Centered + clamped modal (fits short landscape, designH=390).
@@ -2443,6 +2490,7 @@ export class MatchScene {
     box.roundRect(modal.x, modal.y, modal.w, modal.h, 8).fill({ color: C.bgInspect, alpha: 0.97 });
     box.roundRect(modal.x, modal.y, modal.w, modal.h, 8).stroke({ width: 1.5, color: resultColor, alpha: 0.6 });
     box.eventMode = "none";
+    box.zIndex = Z_RESOLUTION_OVERLAY;
     this.combatLayer.addChild(box);
     const title = new PIXI.Text(`Round ${state.round} — ${resultStr}`, {
       fontSize: 13, fill: C.textPrimary, fontFamily: "monospace",
@@ -2451,6 +2499,7 @@ export class MatchScene {
     title.anchor.set(0.5, 0);
     title.x = cx;
     title.y = modal.y + 12;
+    title.zIndex = Z_RESOLUTION_CONTROL;
     this.combatLayer.addChild(title);
 
     const resultLabel = new PIXI.Text(resultStr, {
@@ -2460,6 +2509,7 @@ export class MatchScene {
     resultLabel.anchor.set(0.5, 0);
     resultLabel.x = cx;
     resultLabel.y = modal.y + 34;
+    resultLabel.zIndex = Z_RESOLUTION_CONTROL;
     this.combatLayer.addChild(resultLabel);
 
     const hpText = new PIXI.Text(`HP: ${Math.max(0, me.hp)}`, {
@@ -2469,6 +2519,7 @@ export class MatchScene {
     hpText.anchor.set(0.5, 0);
     hpText.x = cx;
     hpText.y = modal.y + 68;
+    hpText.zIndex = Z_RESOLUTION_CONTROL;
     this.combatLayer.addChild(hpText);
 
     // Round damage detail (real numbers decided by rules; we only display them).
@@ -2497,6 +2548,7 @@ export class MatchScene {
       detailText.anchor.set(0.5, 0);
       detailText.x = cx;
       detailText.y = modal.y + 86;
+      detailText.zIndex = Z_RESOLUTION_CONTROL;
       this.combatLayer.addChild(detailText);
     }
 

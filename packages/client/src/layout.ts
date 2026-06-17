@@ -52,15 +52,21 @@ export interface MatchRegions {
   board:        Rect;
   /** Opponent health/seat rail. */
   opponentRail: Rect;
-  /** Trait tracker rail. */
+  /** Trait tracker rail (shared tab-content area for traits tab OR items browse tab). */
   traitRail:    Rect;
+  /**
+   * Landscape only: the two tab-switcher buttons ("1" traits / "2" items) that
+   * toggle what fills the traitRail region. In portrait this rect is zeroed
+   * (portrait has no tab switcher — both tabs sit in the same rail).
+   */
+  traitTabBar:  Rect;
   /** Shop 5-card strip. */
   shop:         Rect;
   /** 9-slot bench. */
   bench:        Rect;
   /** HUD cluster: gold / level+xp / streak / reroll / buy-xp. */
   hud:          Rect;
-  /** Loose item inventory bar. */
+  /** Loose item inventory bar (draggable drag-to-equip). */
   itemBar:      Rect;
   /** Ready button. */
   readyButton:  Rect;
@@ -226,11 +232,15 @@ export function portraitRegions(designH: number): MatchRegions {
   const benchW = railW - sellW - benchGap;
   const sellX  = P_MARGIN + benchW + benchGap;
 
+  // Portrait has no tab switcher — traitTabBar is zeroed.
+  const zeroRect: Rect = { x: 0, y: 0, w: 0, h: 0 };
+
   return {
     statusRow:    { x: 0,        y: P_STATUS_Y, w: dW,    h: P_STATUS_H },
     opponentRail: { x: 0,        y: P_STATUS_Y + P_STATUS_H, w: dW, h: P_RAIL_H },
     board:        { x: P_MARGIN, y: boardY, w: dW - 2 * P_MARGIN, h: boardH },
     traitRail:    { x: P_COL_X,  y: traitY, w: colW,  h: traitH },
+    traitTabBar:  zeroRect,
     hud:          { x: P_COL_X,  y: hudY,   w: colW,  h: hudH },
     bench:        { x: P_MARGIN, y: benchY, w: benchW, h: benchH },
     sellControl:  { x: sellX,    y: benchY, w: sellW,  h: benchH },
@@ -277,46 +287,37 @@ function portraitLayout(viewportW: number, viewportH: number, safe: SafeInsets):
 
 // ── Landscape layout ─────────────────────────────────────────────────────────
 //
-// Edge-anchored design on 844×390 — the board is the dominant top-center
-// element; every other region is a small cluster pinned to whichever screen
-// edge/corner matches its function, rather than three even columns:
+// Edge-anchored design on 844×390. Layout after the bench-reposition pass:
 //
-//  ┌─┬─────────┬──────────────────────────┬──────────────┐
-//  │t│ bench    │                           │ opponentRail │
-//  │R│ (3×3)    │       BOARD (dominant)    │   (2×4)      │
-//  │ │          │       top-center,         ├──────────────┤
-//  │ ├─────────┤       scaled-to-fit 8 rows │ hud cluster  │
-//  │ │ itemBar  │                           ├──────────────┤
-//  │ │          │       statusRow (under)   │ sellControl  │
-//  │ │          │                           │ readyButton  │
-//  ├─┴──────────┴──────────────────────────┴──────────────┤
-//  │              shop (5 cards, full width, h=64)          │
-//  └───────────────────────────────────────────────────────┘
+//  ┌──────────────┬──────────────────────────┬──────────────┐
+//  │[1][2]        │                           │ opponentRail │
+//  │ traitRail    │       BOARD (dominant)    │   (2×4)      │
+//  │ (tab-content │       top-center,         ├──────────────┤
+//  │  area)       │       scaled-to-fit 8 rows│ hud cluster  │
+//  │              │                           ├──────────────┤
+//  │              │      statusRow (under)    │ sellControl  │
+//  │              │                           │ readyButton  │
+//  ├──────────────┼─────────┬─────────────────┴──────────────┤
+//  │              │  bench  │  itemBar (below bench, centered)│
+//  │              │ (3×3)   │                                 │
+//  ├──────────────┴─────────┴─────────────────────────────────┤
+//  │              shop (5 cards, full width, h=64)             │
+//  └───────────────────────────────────────────────────────────┘
 //
-// tR = traitRail (far-left edge, x=0, thin vertical strip — icon+count chips
-//      stacked top-to-bottom; its OWN region, not inset into a shared column).
-// bench (3×3 grid) + itemBar = left column INBOARD of the trait-rail strip
-//      (x starts past the rail), shrunk vs the prior 3-even-column design since
-//      the board now claims the dominant center-top position.
+// The bench (3×3 grid, 9 slots) and item bar now sit BELOW the board and ABOVE
+// the shop. The bench is horizontally centered (same center as the board).
+// The item bar sits directly below the bench, also centered.
 //
-// Board: the dominant element — wider than the prior 352px panel. The full 7×4
-// hex grid spans 336×348 at native HEX size; a full 348px grid plus a full-width
-// 64px bottom shop exceeds the 390px design height, so the LANDSCAPE board grid
-// is rendered SCALED-TO-FIT its board region (match.ts derives the scale from
-// `board.w/h` vs the native grid span and feeds the same scaled mapping +
-// token radius to combat/view.ts). Portrait stays scale=1. The board region is
-// sized so the scaled 8-row grid + radius fits inside it with no clipping.
+// The far-left traitRail now has tab-switcher buttons [1][2] at its top edge
+// (stored in traitTabBar). The rail content area (traitRail) is below them.
+// Tab 1 = trait chips (existing behavior), Tab 2 = item inventory browse
+// (tap-for-detail only, no drag — drag still happens from the itemBar).
 //
-// opponentRail: top-right corner, a 2-col × 4-row vertical stack of small seat
-// tiles (match.ts passes cols=2, rows=4 to opponentRailTile) — a compact corner
-// cluster, not a column-spanning horizontal grid.
+// The left column background spans the traitRail only (narrower than before
+// since bench+itemBar moved below the board).
 //
-// shop: bottom edge, full design width (844), h=64 (touch-target floor) — 5
-// cards run the full width, anchored to the bottom edge.
-//
-// sellControl: detached from bench — relocated into the right-edge cluster
-// (just above readyButton, near the bottom shop) per the brief's "near the
-// shop / bottom HUD cluster" guidance, rather than sitting beside bench.
+// opponentRail, hud, sellControl, readyButton remain in the right-edge column.
+// shop: bottom edge, full design width, h=64.
 
 function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets): MatchLayout {
   const dW = LANDSCAPE_W;
@@ -335,46 +336,31 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
 
   // ── Bottom edge: shop (full-width strip) ──────────────────────────────────
   const shopH = 64;            // touch-target floor, exactly met
-  const shopY = dH - shopH;    // 326
+  const shopY = dH - shopH;   // 326
 
-  // ── Far-left edge: traitRail (its own thin vertical strip) ───────────────
-  const traitRailX = 0;
-  const traitRailW = 28;
-  const traitRailY = 6;
-  const traitRailH = shopY - traitRailY - 4;   // 316 — spans almost the full column
+  // ── Bench + item bar zone: above the shop, below the board ────────────────
+  // Bench: 9 slots in a 3×3 grid. Each slot cell ~36×18 px → 108×54 total.
+  const benchH = 54;
+  const benchW = 108;          // 3 cols × 36px
+  const itemBarH = 44;         // one row of items (touch target floor)
+  const benchItemGap = 2;
+  const benchZoneH = benchH + benchItemGap + itemBarH;  // 100
+  const benchZoneY = shopY - benchZoneH - 4;            // 222
 
-  // ── Left column, INBOARD of traitRail: bench (3×3) + itemBar ─────────────
-  const leftColX = traitRailX + traitRailW + 4;  // 32
-  const leftColW = 150;                          // shrunk vs the prior 240
-  const leftGap  = 6;
+  const benchY = benchZoneY;
 
-  const benchX = leftColX;
-  const benchY = 6;
-  const benchW = leftColW;
-  const benchH = 200;                            // 3 rows × ~66.7px/slot
+  // ── Far-left edge: traitRail + tab buttons ────────────────────────────────
+  // Tab buttons sit at the top of the left column; the content rail is below.
+  const traitColX = 0;
+  const traitColW = 28;
+  const tabBtnH = 16;            // small tab buttons
+  const tabBtnY = 6;
+  const traitRailY = tabBtnY + tabBtnH + 2;             // 24
+  const traitRailH = benchZoneY - traitRailY - 4;       // fills down to bench zone
 
-  const itemBarX = leftColX;
-  const itemBarY = benchY + benchH + leftGap;    // 212
-  const itemBarW = leftColW;
-  const itemBarH = shopY - itemBarY - 4;         // 106 — ≥ 44 floor
-
-  // ── Top-center: board (dominant element, grid scaled-to-fit by match.ts) ──
-  const boardX = leftColX + leftColW + 8;        // 198
-  const boardY = 6;
-  // Right column reserved before computing board width.
+  // ── Right edge: opponentRail → hud → sellControl → readyButton ────────────
   const rightColW = 158;
-  const rightColX = dW - rightColW;              // 686
-  const boardW = rightColX - 8 - boardX;         // 480 — dominant, well above 352
-  // Board height fills down to a thin status band above the shop.
-  const statusGap = 2;
-  const statusH = 16;
-  const boardH = shopY - boardY - statusH - statusGap; // 300
-
-  // Status row: thin band directly under the board (same x/w as the board),
-  // filling the small gap between the board's bottom and the shop's top edge.
-  const statusY = boardY + boardH + statusGap;   // 308
-
-  // ── Right edge: opponentRail (2×4) → hud → sellControl → readyButton ──────
+  const rightColX = dW - rightColW;  // 686
   const rightGap = 6;
 
   const railY = 6;
@@ -387,6 +373,31 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
   const readyY = shopY - readyH - 6;       // 276 — sits just above the shop
   const sellH  = readyY - (hudY + hudH) - 2 * rightGap; // fills the remaining gap
   const sellY  = hudY + hudH + rightGap;   // 238
+
+  // ── Top-center: board (dominant element, grid scaled-to-fit by match.ts) ──
+  const boardX = traitColX + traitColW + 4;   // 32 — immediately right of the trait strip
+  const boardY = 6;
+  const boardW = rightColX - 8 - boardX;      // 646 — dominant, well above 352
+  // Board height: fills from top down to the bench zone (with a status band gap).
+  const statusGap = 2;
+  const statusH = 16;
+  const statusBenchGap = 4;  // breathing room between the status band and the bench zone
+  const boardH = benchZoneY - boardY - statusH - statusGap - statusBenchGap;  // 194
+
+  // Status row: thin band directly under the board (same x/w as the board).
+  const statusY = boardY + boardH + statusGap;  // 208
+
+  // ── Bench centered horizontally under the board ───────────────────────────
+  const boardCx = boardX + boardW / 2;
+  const benchX = Math.round(boardCx - benchW / 2);
+
+  // ── Item bar: same x/w as bench, directly below ───────────────────────────
+  const itemBarX = benchX;
+  const itemBarW = benchW;
+  const itemBarY = benchY + benchH + benchItemGap;
+
+  // ── Sell control: stays in the right-edge cluster (unchanged semantics) ────
+  // (detached from the bench since bench moved below the board)
 
   const regions: MatchRegions = {
     board: {
@@ -402,10 +413,16 @@ function landscapeLayout(viewportW: number, viewportH: number, safe: SafeInsets)
       h: statusH,
     },
     traitRail: {
-      x: traitRailX,
+      x: traitColX,
       y: traitRailY,
-      w: traitRailW,
+      w: traitColW,
       h: traitRailH,
+    },
+    traitTabBar: {
+      x: traitColX,
+      y: tabBtnY,
+      w: traitColW,
+      h: tabBtnH,
     },
     bench: {
       x: benchX,
@@ -513,8 +530,8 @@ export function centeredModal(
 
 /**
  * In landscape, the bench occupies 9 slots in a 3-col × 3-row grid inside
- * the left column.  Returns the pixel center of slot `i` (0..8) within the
- * bench region, in design space.
+ * the bench region (centered below the board).  Returns the pixel center of
+ * slot `i` (0..8) within the bench region, in design space.
  */
 export function landscapeBenchSlotCenter(
   i: number,

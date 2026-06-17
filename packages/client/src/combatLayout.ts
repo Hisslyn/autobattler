@@ -10,7 +10,15 @@
 export const Z_COMBAT_TILE = 0;
 /** "COMBAT · vs X" header — must sit above the tiles. */
 export const Z_COMBAT_HEADER = 50;
-/** Resolution overlay controls (Continue button + countdown). */
-export const Z_RESOLUTION_CONTROL = 10;
+/**
+ * Resolution overlay surface (scrim + modal box + title). Ranked strictly above
+ * Z_COMBAT_HEADER so the resolution screen always covers a combat header — a
+ * fast PvE round can hit RESOLUTION before the planning→combat fade finishes, and
+ * this guarantees the round-result modal wins instead of the two strings
+ * garbling together ("PvE · …Resolution… · Creeps"). Regression-guarded.
+ */
+export const Z_RESOLUTION_OVERLAY = 60;
+/** Resolution overlay controls (Continue button + countdown) — above the surface. */
+export const Z_RESOLUTION_CONTROL = 70;
 /** Resolution Continue button (interactive, above the dim scrim). */
-export const Z_RESOLUTION_BUTTON = 10;
+export const Z_RESOLUTION_BUTTON = 70;

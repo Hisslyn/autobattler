@@ -135,3 +135,31 @@ describe("combat fx emission (known-answer over a fixed log)", () => {
     expect(allFx(true)).toEqual(allFx(true));
   });
 });
+
+describe("playback speed pacing", () => {
+  it("0.5x advances time at half the rate of 1x (twice as slow)", () => {
+    const at = (speed: 0.5 | 1 | 2, dtMs: number): number => {
+      const p = new CombatPlayer(fixedLog(), 20, DATA, {});
+      p.setSpeed(speed);
+      return p.advance(dtMs).tick;
+    };
+    // The log spans 5 ticks at 20 ticks/s → 250ms at 1x. Sample mid-playback
+    // (100ms) where no speed has hit the end clamp yet.
+    const dt = 100;
+    const t1x = at(1, dt);
+    const tHalf = at(0.5, dt);
+    const t2x = at(2, dt);
+    // Half speed reaches half the tick of 1x; 2x reaches double — strictly slower.
+    expect(tHalf).toBeCloseTo(t1x / 2, 5);
+    expect(t2x).toBeCloseTo(t1x * 2, 5);
+    expect(tHalf).toBeLessThan(t1x);
+  });
+
+  it("0.5x default still reaches the end (takes 2x the 1x wall-clock)", () => {
+    const p = new CombatPlayer(fixedLog(), 20, DATA, {});
+    p.setSpeed(0.5);
+    // 1x duration is endTick * msPerTick; 0.5x needs 2x that wall-clock to finish.
+    expect(p.advance(p.durationMs).done).toBe(false); // not yet at half speed
+    expect(p.advance(p.durationMs).done).toBe(true); // reaches end after 2x duration
+  });
+});

@@ -55,9 +55,12 @@ export interface IDriver {
 
 const HUMAN_PLAYER_ID = 0;
 const PLANNING_TIMER_MS = 30_000;
-// Fallback cap for combat playback: 1x duration plus a buffer. The scene
-// normally calls combatPlaybackDone() sooner (2x speed / skip / no scene fx).
+// Fallback cap for combat playback: slowest-speed duration plus a buffer. The
+// scene normally calls combatPlaybackDone() sooner (faster speed / skip / no
+// scene fx). Scaled by the slowest playback speed so the cap never fires before
+// genuine playback finishes (0.25x default → real duration is 4x the 1x duration).
 const PLAYBACK_CAP_BUFFER_MS = 2_000;
+const SLOWEST_PLAYBACK_SPEED = 0.25;
 
 export type DriverEvent =
   | { type: "state"; state: MatchState }
@@ -218,15 +221,18 @@ export class LocalDriver implements IDriver {
     this.emit({ type: "phase_change", phase: "COMBAT", round: this.state.round });
     this.emit({ type: "state", state: this.state });
 
-    // Hold RESOLUTION until the scene finishes event-log playback. The cap
-    // uses 1x duration (speed only shortens playback) so a missing scene
-    // can never stall the match. Use the PvE-aware accessor: a PvE round has
-    // no pairing but still produces a combat result whose log the scene plays
-    // back, so the cap must reflect that duration (else capMs=0 would fire
-    // combatPlaybackDone immediately and tear the mob board down on frame 1).
+    // Hold RESOLUTION until the scene finishes event-log playback. The cap is a
+    // fallback (the scene normally calls combatPlaybackDone() when playback truly
+    // ends) so a missing scene can never stall the match. It must never fire
+    // BEFORE genuine playback completes, so it's scaled by the SLOWEST playback
+    // speed (0.25x → real duration is 4x the 1x duration). Use the PvE-aware
+    // accessor: a PvE round has no pairing but still produces a combat result
+    // whose log the scene plays back, so the cap must reflect that duration
+    // (else capMs=0 would fire immediately and tear the mob board down on frame 1).
     const result = this.getMyCombatResult();
+    const oneXMs = result ? Math.ceil((result.ticks * 1000) / gameData.gameplay.ticksPerSec) : 0;
     const capMs = result
-      ? Math.ceil((result.ticks * 1000) / gameData.gameplay.ticksPerSec) + PLAYBACK_CAP_BUFFER_MS
+      ? Math.ceil(oneXMs / SLOWEST_PLAYBACK_SPEED) + PLAYBACK_CAP_BUFFER_MS
       : 0;
     this.pendingResolution = true;
     this.playbackCapTimerId = setTimeout(() => this.combatPlaybackDone(), capMs);
