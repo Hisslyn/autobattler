@@ -453,9 +453,11 @@ describe("landscape regions", () => {
       expect(r.y).toBeGreaterThanOrEqual(regions.bench.y + regions.bench.h - 0.5);
       expect(r.y + r.h).toBeLessThanOrEqual(bottomBar.y + bottomBar.h + 0.5);
     }
-    // Econ on the left, sell on the right of the row.
+    // Econ on the left; sell sits left of the money-sack shop button, which
+    // owns the rightmost corner (so sell is NOT flush with the right edge).
     expect(regions.hud.x).toBe(bottomBar.x);
-    expect(regions.sellControl.x + regions.sellControl.w).toBeCloseTo(bottomBar.x + bottomBar.w, 0);
+    expect(regions.sellControl.x + regions.sellControl.w).toBeLessThan(bottomBar.x + bottomBar.w);
+    expect(regions.shop.x + regions.shop.w).toBeCloseTo(bottomBar.x + bottomBar.w, 0);
     // Neither overlaps the right rail (which is up in the middle band).
     expect(regions.hud.y).toBeGreaterThanOrEqual(rightRail.y + rightRail.h - 0.5);
   });
@@ -468,9 +470,15 @@ describe("landscape regions", () => {
     expect(regions.opponentRail.h).toBe(rightRail.h);
   });
 
-  it("shop is zeroed in landscape (drop-down panel only, no docked row)", () => {
-    expect(regions.shop.w).toBe(0);
-    expect(regions.shop.h).toBe(0);
+  it("shop region is the money-sack toggle button in the bottom-right corner", () => {
+    const { bottomBar } = layout.clusters!;
+    expect(regions.shop.w).toBeGreaterThan(0);
+    expect(regions.shop.h).toBeGreaterThan(0);
+    // Flush with the bottom row's right edge, sharing the econ/sell vertical band.
+    expect(regions.shop.x + regions.shop.w).toBeCloseTo(bottomBar.x + bottomBar.w, 0);
+    expect(regions.shop.y).toBeCloseTo(regions.hud.y, 0);
+    // Sell sits immediately to its left (no overlap).
+    expect(regions.sellControl.x + regions.sellControl.w).toBeLessThanOrEqual(regions.shop.x + 0.5);
   });
 
   it("bottom row lays out econ (left) + sell (right) without overlap", () => {

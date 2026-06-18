@@ -132,7 +132,10 @@ export interface BuyXpGeom {
  * band and the taller landscape cluster alike.
  */
 export function buyXpGeom(region: { x: number; y: number; w: number; h: number }): BuyXpGeom {
-  const r = Math.max(16, Math.min(region.h / 2 - 1, region.w * 0.34, 30));
+  // Cap lifted from 30 → 56 so the landscape econ cluster (a full-height
+  // bottom-left square) can render the button at ~2× the portrait size; the
+  // thin portrait HUD band stays bound by its own region.h / 2 - 1.
+  const r = Math.max(16, Math.min(region.h / 2 - 1, region.w * 0.34, 56));
   const rimW = Math.max(2.5, r * 0.16);
   const cx = region.x + r + rimW;
   const cy = region.y + region.h / 2;

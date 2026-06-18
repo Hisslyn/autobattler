@@ -131,10 +131,7 @@ describe("circular Buy XP button is wired into the real renderControls path", ()
         const reg =
           orientation === "portrait"
             ? scene.layout.regions.hud
-            : (() => {
-                const h = scene.layout.regions.hud;
-                return { x: h.x + h.w - 96, y: h.y, w: 96, h: h.h };
-              })();
+            : scene.buyXpRegionLandscape(); // the real bottom-left square the render path uses
         const g = buyXpGeom(reg);
         // The button body is a circle of radius g.r centered at g.cx/g.cy
         // (other circles exist — coin glyphs, badge — so match by geometry).

@@ -371,7 +371,7 @@ const LS_TOPBAR_H_REF = 40,     LS_TOPBAR_H_MIN = 30,     LS_TOPBAR_H_MAX = 56;
 // space is reclaimed by the residual board.
 const LS_BOTTOMBAR_H_REF = 114, LS_BOTTOMBAR_H_MIN = 106, LS_BOTTOMBAR_H_MAX = 132;
 const LS_LEFTRAIL_W_REF = 120,  LS_LEFTRAIL_W_MIN = 96,   LS_LEFTRAIL_W_MAX = 160;
-const LS_RIGHTRAIL_W_REF = 96, LS_RIGHTRAIL_W_MIN = 80, LS_RIGHTRAIL_W_MAX = 130;
+const LS_RIGHTRAIL_W_REF = 120, LS_RIGHTRAIL_W_MIN = 80, LS_RIGHTRAIL_W_MAX = 130;
 
 // Minimum board area so the 336×348 hex grid always has room to scale up from
 // its native size, never down to illegibility.
@@ -534,10 +534,15 @@ function landscapeRegionsFor(
 
   const econW = clamp(200, Math.round(bottomBar.w * 0.18), 250);
   const sellW = 64;
+  const shopBtnW = 96;
+  const colGap = 8;
   const hud: Rect = { x: bottomBar.x, y: row2Y, w: econW, h: row2H };
-  const sellControl: Rect = { x: bottomBar.x + bottomBar.w - sellW, y: row2Y, w: sellW, h: row2H };
-  // Shop is a drop-down panel only (money-sack toggle) — no docked row.
-  const shop: Rect = { x: 0, y: 0, w: 0, h: 0 };
+  // The money-sack shop toggle owns the bottom-RIGHTMOST corner (gold lives
+  // inside it now); sell sits immediately to its left. `shop` carries the
+  // toggle-button rect (the shop cards themselves remain drop-down-only).
+  const shopX = bottomBar.x + bottomBar.w - shopBtnW;
+  const sellControl: Rect = { x: shopX - colGap - sellW, y: row2Y, w: sellW, h: row2H };
+  const shop: Rect = { x: shopX, y: row2Y, w: shopBtnW, h: row2H };
 
   // readyButton is not rendered in landscape (READY is a DOM control) — zeroed.
   const readyButton: Rect = { x: 0, y: 0, w: 0, h: 0 };

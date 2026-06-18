@@ -131,6 +131,12 @@ export class MatchScene {
   private lootLayer!: PIXI.Container;
   /** Inspect / trait-detail panels (topmost, modal). */
   private inspectLayer!: PIXI.Container;
+  /**
+   * Playtest-only Skip pill (Practice/local only) — an independent top-most
+   * overlay pinned top-center below the timer. Rendered into its OWN layer so it
+   * never participates in any layout cluster's anchoring/sizing.
+   */
+  private skipLayer!: PIXI.Container;
   /** L3_WATERMARK — board-anchored center watermark. Reserved empty layer (no content yet). */
   private watermarkLayer!: PIXI.Container;
   /** L4_FRAME — ornate edge frame, 9-slice. Reserved empty layer, non-interactive (no content yet). */
@@ -280,6 +286,7 @@ export class MatchScene {
     this.toastLayer = new PIXI.Container();
     this.scoutLayer = new PIXI.Container();
     this.inspectLayer = new PIXI.Container();
+    this.skipLayer = new PIXI.Container();
 
     // zIndex IS the layer constant (1:1) — the enforced z-stack.
     this.boardLayer.zIndex = L0_BOARD_ENV;
@@ -297,6 +304,10 @@ export class MatchScene {
     this.toastLayer.zIndex = L8_TOAST;
     this.scoutLayer.zIndex = L6_INSPECT;
     this.inspectLayer.zIndex = L6_INSPECT;
+    // Playtest Skip pill: a standalone top-most overlay, above all HUD/modal
+    // layers but below the active drag sprite (999) / drag catcher (900) so it
+    // never intercepts an in-progress unit/item drag.
+    this.skipLayer.zIndex = 850; // magic-ok: independent debug overlay, above L* layers
 
     // Added back-to-front; addChild order is only the stable tie-break within a
     // shared layer (see the method doc).
@@ -316,6 +327,7 @@ export class MatchScene {
     this.container.addChild(this.toastLayer);
     this.container.addChild(this.scoutLayer);
     this.container.addChild(this.inspectLayer);
+    this.container.addChild(this.skipLayer);
   }
 
   // ─── LAYOUT GEOMETRY (derived from this.layout) ──────────────────────────────
@@ -402,6 +414,7 @@ export class MatchScene {
     } else if (state.phase === "RESOLUTION") {
       this.renderResolution(state);
     }
+    this.renderSkipButton(); // re-pin the playtest Skip pill (or keep it hidden)
   }
 
   private render(state: MatchState): void {
@@ -503,6 +516,39 @@ export class MatchScene {
     // Safety: if no release arrives shortly, restore the visual (e.g. re-render
     // swaps the node) — without firing the action.
     g.on("pointerdown", () => setTimeout(restore, 200));
+  }
+
+  /**
+   * Playtest-only Skip pill. Independent top-most overlay (its own layer), pinned
+   * top-center directly below the stage/timer — it does NOT touch any layout
+   * cluster's anchoring or sizing. Shown only during PLANNING and only when the
+   * driver owns the planning clock (LocalDriver exposes skipPlanning; NetDriver
+   * omits it, so online stays server-paced and the pill never appears). On click
+   * it fires the driver's normal planning-timer expiry path — no sim bypass.
+   */
+  private renderSkipButton(): void {
+    this.skipLayer.removeChildren();
+    const skip = this.driver.skipPlanning;
+    if (typeof skip !== "function") return; // online / server-paced → hidden
+    if (this.driver.getState().phase !== "PLANNING") return;
+
+    const status = this.layout.regions.statusRow;
+    const w = 52;
+    const h = 20;
+    const cx = status.x + status.w / 2; // safe-area center, matching the timer
+    const x = cx - w / 2;
+    const y = status.y + 24; // directly below the stage chip / timer row
+    const g = this.chip(this.skipLayer, x, y, w, h, {
+      fill: C.panelBg,
+      fillAlpha: 0.95,
+      border: C.accentGold,
+      borderW: 1,
+      radius: 10,
+    });
+    g.eventMode = "static";
+    g.cursor = "pointer";
+    this.text(this.skipLayer, "Skip", cx, y + h / 2, 11, C.textGold, [0.5, 0.5]);
+    this.pressFeedback(g, () => this.driver.skipPlanning?.(), { cx: x + w / 2, cy: y + h / 2 });
   }
 
   // ─── HUD: status row + opponent rail ─────────────────────────────────────────
@@ -638,8 +684,8 @@ export class MatchScene {
     rail: { x: number; y: number; w: number; h: number },
     currentOpp: number
   ): void {
-    const av = 9;
-    const rightPad = 4;
+    const av = 16; // enlarged (~1.8× the prior 9) so a glyph reads inside
+    const rightPad = 6;
     for (let i = 0; i < 8; i++) {
       const p = state.players[i];
       if (!p) continue;
@@ -655,11 +701,17 @@ export class MatchScene {
       const avg = new PIXI.Graphics();
       avg.circle(discCx, cy, av).fill({ color: C.panelBg, alpha: elim ? 0.4 : 1 });
       avg.circle(discCx, cy, av).stroke({
-        width: i === currentOpp ? 2.5 : 1,
+        width: i === currentOpp ? 2.5 : 1.5,
         color: i === currentOpp ? C.textCombat : isSelf ? C.tier3 : C.chipBorder,
         alpha: elim ? 0.4 : 1,
       });
       this.hudLayer.addChild(avg);
+
+      // Helmet placeholder inside the disc (future: per-player character icon).
+      this.glyph(
+        this.hudLayer, "helmet", discCx, cy + 1, av * 1.35,
+        elim ? C.textMuted : isSelf ? C.tier3 : C.textPrimary
+      );
 
       // Two-line text block, right-aligned: nickname (placeholder) on top, HP below.
       this.text(this.hudLayer, `Player ${i + 1}`, textRightX, cy - 6, 9, elim ? C.textMuted : C.textPrimary, [1, 0.5]);
@@ -1414,10 +1466,15 @@ export class MatchScene {
   // ─── Drop-down shop panel + money-sack toggle ────────────────────────────────
 
   /**
-   * Money-sack toggle button rect — anchored in the bottom-right HUD corner,
+   * Money-sack toggle button rect. Landscape: the bottom-RIGHTMOST corner (the
+   * `shop` region — gold lives inside it), with sell to its left. Portrait:
    * directly above the sell drop-zone so the two coexist (sell keeps its spot).
    */
   private shopToggleRect(): { x: number; y: number; w: number; h: number } {
+    if (this.isLandscape) {
+      const s = this.layout.regions.shop;
+      return { x: s.x, y: s.y, w: s.w, h: s.h };
+    }
     const sr = this.layout.regions.sellControl;
     const size = Math.min(sr.w, sr.h, 48);
     return { x: sr.x + (sr.w - size) / 2, y: sr.y - size - 6, w: size, h: size };
@@ -1449,7 +1506,27 @@ export class MatchScene {
     g.cursor = "pointer";
     g.hitArea = new PIXI.Rectangle(r.x, r.y, r.w, r.h);
     this.pressFeedback(g, () => this.toggleShopPanel(me), { cx, cy });
-    // Money sack: bag silhouette + a coin marking its face.
+    if (this.isLandscape) {
+      // Money sack + the live gold amount INSIDE the button (gold no longer has
+      // a standalone display); a win/loss streak badge clings to the top-left.
+      this.glyph(this.shopToggleLayer, "bag", r.x + 26, cy + 1, 28, C.accentGold);
+      this.text(this.shopToggleLayer, `${me.gold}`, r.x + 46, cy, 18, C.textGold, [0, 0.5]);
+
+      const streak = me.winStreak > 0 ? me.winStreak : me.loseStreak > 0 ? -me.loseStreak : 0;
+      if (streak !== 0) {
+        const bw = 32, bh = 16, bx = r.x - 5, by = r.y - 6;
+        this.chip(this.shopToggleLayer, bx, by, bw, bh, {
+          fill: C.panelBg, border: C.streakOrange, borderW: 1.5, radius: 7,
+        });
+        this.glyph(this.shopToggleLayer, "flame", bx + 9, by + bh / 2, 10, C.streakOrange);
+        this.text(
+          this.shopToggleLayer, `${streak > 0 ? "+" : ""}${streak}`, bx + 17, by + bh / 2, 10,
+          C.streakOrange, [0, 0.5]
+        );
+      }
+      return;
+    }
+    // Portrait: money sack + a coin marking its face.
     this.glyph(this.shopToggleLayer, "bag", cx, cy + 1, r.w * 0.42, C.accentGold);
     this.glyph(this.shopToggleLayer, "coin", cx, cy + 3, r.w * 0.15, C.textGold);
   }
@@ -1639,30 +1716,26 @@ export class MatchScene {
    * Reroll moved to the drop-down shop panel's title strip. Grouped as one block.
    */
   private renderControlsLandscape(me: PlayerState): void {
+    // The buy-XP widget is now the sole occupant of the bottom-left corner
+    // (gold + streak moved into the money-sack shop button), scaled ~2× by
+    // giving it a full-bottom-bar-height square anchored at the left, clear of
+    // the centred bench above it. Reroll lives in the drop-down shop panel.
+    void this.renderBuyXpButton(me, this.buyXpRegionLandscape());
+  }
+
+  /**
+   * Landscape buy-XP region: a square in the bottom-LEFT corner spanning the
+   * full bottom-bar height (bench-row top → econ-row bottom), to the left of
+   * the centred bench. Doubling the button's footprint vs. its prior row-2-only
+   * slot, while staying clear of the bench/board.
+   */
+  private buyXpRegionLandscape(): { x: number; y: number; w: number; h: number } {
     const hud = this.layout.regions.hud;
-    const x0 = hud.x;
-    const y0 = hud.y;
-    const W = hud.w;
-    const H = hud.h;
-
-    // ── Left: gold + streak ─────────────────────────────────────────────────
-    this.glyph(this.shopLayer, "coin", x0 + 12, y0 + 14, 12, C.accentGold);
-    this.text(this.shopLayer, `${me.gold}`, x0 + 24, y0 + 14, 16, C.textGold, [0, 0.5]);
-
-    const streak = me.winStreak > 0 ? me.winStreak : me.loseStreak > 0 ? -me.loseStreak : 0;
-    if (streak !== 0) {
-      this.glyph(this.shopLayer, "flame", x0 + 12, y0 + 36, 11, C.streakOrange);
-      this.text(
-        this.shopLayer, `${streak > 0 ? "+" : ""}${streak}`, x0 + 24, y0 + 36, 12,
-        C.streakOrange, [0, 0.5]
-      );
-    }
-
-    // Reroll now lives in the drop-down shop panel's title strip (renderShopPanel).
-
-    // ── Right: circular Buy XP button (absorbs the level + xp progress) ─────
-    const colW = 96;
-    void this.renderBuyXpButton(me, { x: x0 + W - colW, y: y0, w: colW, h: H });
+    const bench = this.layout.regions.bench;
+    const top = bench.y;
+    const bottom = hud.y + hud.h;
+    const w = Math.max(1, bench.x - hud.x - 8); // clear of the centred bench
+    return { x: hud.x, y: top, w, h: bottom - top };
   }
 
   /** Portrait HUD: the prior single horizontal band (unchanged). */
@@ -2142,16 +2215,19 @@ export class MatchScene {
 
   /** Pixel center of shop card `idx` (mirrors renderShop's card layout). */
   private shopCardCenter(idx: number): { x: number; y: number } {
-    const shop = this.layout.regions.shop;
     const gap = 4;
-    let cardW: number, startX: number;
     if (this.isLandscape) {
-      cardW = Math.min(110, Math.floor((shop.w - 4 * gap) / 5));
-      startX = shop.x + Math.max(0, (shop.w - (5 * cardW + 4 * gap)) / 2);
-    } else {
-      cardW = 71;
-      startX = shop.x;
+      // Cards live in the drop-down panel (mirrors renderShopPanel's cardsArea).
+      const pr = this.shopPanelRect();
+      const pad = 10, titleH = 22;
+      const area = { x: pr.x + pad, y: pr.y + titleH, w: pr.w - 2 * pad, h: pr.h - titleH - pad };
+      const cardW = Math.min(110, Math.floor((area.w - 4 * gap) / 5));
+      const startX = area.x + Math.max(0, (area.w - (5 * cardW + 4 * gap)) / 2);
+      return { x: startX + idx * (cardW + gap) + cardW / 2, y: area.y + area.h / 2 };
     }
+    const shop = this.layout.regions.shop;
+    const cardW = 71;
+    const startX = shop.x;
     return { x: startX + idx * (cardW + gap) + cardW / 2, y: shop.y + shop.h / 2 };
   }
 
@@ -2456,11 +2532,13 @@ export class MatchScene {
       this.prevGold = me.gold;
     }
     this.render(state);
+    this.renderSkipButton();
     this.startPlanningTimerTick();
   }
 
   private onCombatPhase(): void {
     this.clearPlanningTimerTick();
+    this.renderSkipButton(); // hides the playtest Skip pill (phase no longer PLANNING)
     const state = this.driver.getState();
     void this.opts.audio.setMusicState(phaseToMusicState("COMBAT"));
     // Bridge planning → combat with a brief cross-fade so the cut isn't a hard
@@ -2695,6 +2773,7 @@ export class MatchScene {
   private onResolutionPhase(): void {
     // Online the server may advance before playback ends: auto-skip to end.
     this.teardownPlayback();
+    this.renderSkipButton(); // hides the playtest Skip pill (phase no longer PLANNING)
     const state = this.driver.getState();
     this.renderResolution(state);
     // PvE rounds drop loot: animate the seeded orbs revealing their contents

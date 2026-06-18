@@ -11,7 +11,7 @@ export type GlyphKind =
   | "flame" | "bolt" | "droplet" | "snowflake" | "leaf" | "claw"
   | "star" | "sun" | "moon" | "spark" | "skull" | "eye" | "orb" | "heart"
   // non-trait HUD icons (stage 2): not in TRAIT_GLYPH
-  | "coin" | "refresh" | "levelUp"
+  | "coin" | "refresh" | "levelUp" | "helmet"
   // non-trait item icons (phase 10b): not in TRAIT_GLYPH
   | "gem" | "component" | "bag";
 
@@ -288,6 +288,20 @@ export function drawGlyph(
       // Double up-chevron (level-up cue).
       g.moveTo(cx - s * 0.7, cy - s * 0.05).lineTo(cx, cy - s * 0.7).lineTo(cx + s * 0.7, cy - s * 0.05);
       g.moveTo(cx - s * 0.7, cy + s * 0.6).lineTo(cx, cy - s * 0.05).lineTo(cx + s * 0.7, cy + s * 0.6);
+      strokeIt();
+      break;
+    case "helmet":
+      // Great-helm silhouette: domed top, cheek guards tapering to the jaw,
+      // with a horizontal visor slit + vertical nasal guard. Placeholder for a
+      // future per-player character icon on the opponent rail.
+      g.arc(cx, cy - s * 0.05, s * 0.72, Math.PI, 0);
+      g.lineTo(cx + s * 0.72, cy + s * 0.5);
+      g.lineTo(cx + s * 0.42, cy + s * 0.8);
+      g.lineTo(cx - s * 0.42, cy + s * 0.8);
+      g.lineTo(cx - s * 0.72, cy + s * 0.5);
+      g.closePath();
+      g.moveTo(cx - s * 0.5, cy + s * 0.12).lineTo(cx + s * 0.5, cy + s * 0.12);
+      g.moveTo(cx, cy + s * 0.12).lineTo(cx, cy + s * 0.62);
       strokeIt();
       break;
     case "orb":

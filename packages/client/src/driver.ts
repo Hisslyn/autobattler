@@ -49,6 +49,15 @@ export interface IDriver {
   advanceFromResolution(): void;
   /** Returns ms remaining in current planning phase, or 0 if not applicable. */
   getPlanningTimeLeft(): number;
+  /**
+   * Playtest-only convenience: end the current PLANNING phase immediately by
+   * firing the SAME path the planning timer fires on expiry (AI commands +
+   * deterministic sim + normal phase advance — no sim bypass, no new logic).
+   * Present only on drivers that own the planning clock (LocalDriver); absent on
+   * NetDriver, where the server owns the clock — the scene hides the Skip
+   * affordance when this is undefined.
+   */
+  skipPlanning?(): void;
   /** Tear down timers/sockets when leaving a match. */
   dispose(): void;
 }
@@ -207,6 +216,15 @@ export class LocalDriver implements IDriver {
    */
   ready(): void {
     /* no-op — planning runs full duration */
+  }
+
+  /**
+   * Playtest convenience: collapse the remaining planning time by invoking the
+   * exact path the planning timer fires on expiry — no sim bypass, no new logic.
+   * Guarded against non-PLANNING phases by `_onPlanningTimerFired`.
+   */
+  skipPlanning(): void {
+    this._onPlanningTimerFired();
   }
 
   /** Fired by the startPlanning timer when planning's full duration elapses. */
