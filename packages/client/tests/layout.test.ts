@@ -292,8 +292,8 @@ describe("landscapeClusterThickness clamp behavior", () => {
     expect(t.bottomBarH).toBeLessThanOrEqual(132);
     expect(t.leftRailW).toBeGreaterThanOrEqual(96);
     expect(t.leftRailW).toBeLessThanOrEqual(160);
-    expect(t.rightRailW).toBeGreaterThanOrEqual(120);
-    expect(t.rightRailW).toBeLessThanOrEqual(200);
+    expect(t.rightRailW).toBeGreaterThanOrEqual(80);
+    expect(t.rightRailW).toBeLessThanOrEqual(130);
   });
 
   it("never exceeds max even with a much larger design canvas (simulated 16:9 ultrawide)", () => {
@@ -301,7 +301,7 @@ describe("landscapeClusterThickness clamp behavior", () => {
     expect(t.topBarH).toBeLessThanOrEqual(56);
     expect(t.bottomBarH).toBeLessThanOrEqual(132);
     expect(t.leftRailW).toBeLessThanOrEqual(160);
-    expect(t.rightRailW).toBeLessThanOrEqual(200);
+    expect(t.rightRailW).toBeLessThanOrEqual(130);
   });
 
   it("4:3-equivalent narrow usable area: clusters shrink toward their min rather than overrunning the board floor", () => {

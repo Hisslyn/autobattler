@@ -628,9 +628,10 @@ export class MatchScene {
   }
 
   /**
-   * Landscape opponent rail: a single 1×8 vertical column of compact horizontal
-   * tiles (avatar + seat number, level, HP bar), stacked top-to-bottom in seat
-   * order, filling the rightRail width. Presentation only.
+   * Landscape opponent rail: a single 1×8 vertical column, stacked top-to-bottom
+   * in seat order, right-aligned and hugging the rail's right edge. Each row is
+   * an avatar disc on the RIGHT with a right-aligned two-line text block to its
+   * left (nickname on top, current HP below). Presentation only.
    */
   private renderOpponentColumn(
     state: MatchState,
@@ -638,14 +639,15 @@ export class MatchScene {
     currentOpp: number
   ): void {
     const av = 9;
+    const rightPad = 4;
     for (let i = 0; i < 8; i++) {
       const p = state.players[i];
       if (!p) continue;
       const tile = opponentRailTile(i, 1, 8, rail);
       const { tileX, tileY, tileW, tileH } = tile;
       const cy = tileY + tileH / 2;
-      const discCx = tileX + av + 5;
-      const textX = discCx + av + 7;
+      const discCx = tileX + tileW - rightPad - av; // avatar anchored on the right
+      const textRightX = discCx - av - 7; // text block right-aligned left of the disc
       const isSelf = i === this.driver.seatIndex;
       const elim = !p.alive;
       const scoutable = !isSelf && p.alive && state.phase === "PLANNING";
@@ -659,28 +661,11 @@ export class MatchScene {
       });
       this.hudLayer.addChild(avg);
 
-      // Seat number inside the disc; level label + HP bar to its right.
-      this.text(this.hudLayer, `${i + 1}`, discCx, cy, 10, elim ? C.textMuted : C.textPrimary, [0.5, 0.5]);
-      this.text(this.hudLayer, `L${p.level}`, textX, cy - 7, 9, C.textMuted, [0, 0.5]);
-
-      const hpFrac = Math.max(0, Math.min(1, p.hp / 100));
-      const barX = textX;
-      const barW = tileX + tileW - barX - 6;
-      const barY = cy + 4;
-      const hb = new PIXI.Graphics();
-      hb.rect(barX, barY, barW, 4).fill({ color: C.hpBg, alpha: elim ? 0.4 : 1 });
-      hb.rect(barX, barY, Math.round(barW * hpFrac), 4)
-        .fill({ color: hpFrac < 0.25 ? C.hpLow : C.hpGreen, alpha: elim ? 0.4 : 1 });
-      this.hudLayer.addChild(hb);
+      // Two-line text block, right-aligned: nickname (placeholder) on top, HP below.
+      this.text(this.hudLayer, `Player ${i + 1}`, textRightX, cy - 6, 9, elim ? C.textMuted : C.textPrimary, [1, 0.5]);
+      this.text(this.hudLayer, `${p.hp}`, textRightX, cy + 6, 10, elim ? C.textMuted : C.hpGreen, [1, 0.5]);
 
       if (scoutable) {
-        const badge = new PIXI.Graphics();
-        badge.circle(discCx + av - 1, cy - av + 1, 5).fill({ color: C.bgScout });
-        badge.circle(discCx + av - 1, cy - av + 1, 5).stroke({ width: 1, color: C.tier3, alpha: 0.9 });
-        badge.eventMode = "none";
-        this.hudLayer.addChild(badge);
-        this.glyph(this.hudLayer, "eye", discCx + av - 1, cy - av + 1, 6, C.tier3);
-
         const hit = new PIXI.Graphics();
         hit.rect(tileX, tileY, tileW, tileH).fill({ color: C.bgOverlay, alpha: 0.001 });
         hit.eventMode = "static";

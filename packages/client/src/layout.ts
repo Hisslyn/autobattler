@@ -371,7 +371,7 @@ const LS_TOPBAR_H_REF = 40,     LS_TOPBAR_H_MIN = 30,     LS_TOPBAR_H_MAX = 56;
 // space is reclaimed by the residual board.
 const LS_BOTTOMBAR_H_REF = 114, LS_BOTTOMBAR_H_MIN = 106, LS_BOTTOMBAR_H_MAX = 132;
 const LS_LEFTRAIL_W_REF = 120,  LS_LEFTRAIL_W_MIN = 96,   LS_LEFTRAIL_W_MAX = 160;
-const LS_RIGHTRAIL_W_REF = 150, LS_RIGHTRAIL_W_MIN = 120, LS_RIGHTRAIL_W_MAX = 200;
+const LS_RIGHTRAIL_W_REF = 96, LS_RIGHTRAIL_W_MIN = 80, LS_RIGHTRAIL_W_MAX = 130;
 
 // Minimum board area so the 336×348 hex grid always has room to scale up from
 // its native size, never down to illegibility.
