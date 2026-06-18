@@ -31,7 +31,6 @@ import {
   L0_BOARD_ENV, L2_UNITS, L3_WATERMARK, L4_FRAME, L5_HUD, L6_INSPECT, L8_TOAST,
 } from "../combatLayout.js";
 import { benchGeom, benchSlotAtX } from "../benchLayout.js";
-import { landscapeHudControls, HUD_BTN_Y_OFFSET } from "../hudControlsLayout.js";
 import type { SettingsStore } from "../settings.js";
 import type { AudioManager } from "../audio/manager.js";
 import { phaseToMusicState } from "../audio/director.js";
@@ -54,6 +53,9 @@ import {
 
 // Item chip sizing (orientation-independent).
 const ITEM_SLOT = 30;          // item chip size
+
+// Consistent inset between the hex grid's bounding box and the board frame.
+const BOARD_PAD = 12;
 
 // Match the driver/server resolution window (data-driven) so the visible
 // countdown can never drift from the real auto-advance.
@@ -317,9 +319,14 @@ export class MatchScene {
   private get boardScale(): number {
     if (!this.isLandscape) return 1;
     const b = this.layout.regions.board;
-    const gridW = BOARD_COLS * HEX_W;
+    // FULL visual grid extent (hex radii included), so the scaled grid's
+    // bounding box — not just the cell centers — is contained by the frame:
+    //   width  = (centers span 6·HEX_W + HEX_R) + 2·HEX_R  = BOARD_COLS·HEX_W + HEX_R
+    //   height = (centers span 7·HEX_H + 12)     + HEX_H    = BOARD_ROWS·HEX_H·2 + 12
+    // A single BOARD_PAD inset on every side gives consistent padding.
+    const gridW = BOARD_COLS * HEX_W + HEX_R;
     const gridH = BOARD_ROWS * HEX_H * 2 + 12;
-    return Math.min(1, (b.w - 16) / gridW, (b.h - 12) / gridH);
+    return Math.min(1, (b.w - 2 * BOARD_PAD) / gridW, (b.h - 2 * BOARD_PAD) / gridH);
   }
   /** Scaled hex radius for drawHex / drag highlight (portrait = HEX_R). */
   private get hexR(): number {
@@ -330,11 +337,15 @@ export class MatchScene {
     return Math.round(16 * this.boardScale);
   }
 
-  /** Hex-board horizontal offset (centers the scaled 7-col grid in the board panel). */
+  /** Hex-board horizontal offset (centers the scaled grid's true bounding box in
+   *  the board frame — the grid and frame share one center). */
   private get boardOffsetX(): number {
     const b = this.layout.regions.board;
     const s = this.boardScale;
-    return b.x + (b.w - BOARD_COLS * HEX_W * s) / 2 + HEX_R * s;
+    // Cell-center span is (BOARD_COLS-1)·HEX_W + HEX_R (the odd-row shift adds the
+    // trailing HEX_R); centering that span centers the symmetric visual box too.
+    const centerSpan = (BOARD_COLS - 1) * HEX_W + HEX_R;
+    return b.x + b.w / 2 - (centerSpan * s) / 2;
   }
   /** Player-zone top hex row center y (lower half of the board panel). */
   private get boardOffsetY(): number {
@@ -493,14 +504,17 @@ export class MatchScene {
     this.hudLayer.addChild(bg);
 
     // ── A. Status row ──────────────────────────────────────────────────────
-    // Stage chip (left): swords glyph + "Stage X-Y" derived from the round.
+    // Stage chip (left), timer (center on the SAFE-AREA center = status center),
+    // menu (DOM ☰, right).
     const stage = Math.floor((state.round - 1) / 5) + 1;
     const sub = ((state.round - 1) % 5) + 1;
     const stageW = 96;
     const sy = status.y;
-    this.chip(this.hudLayer, 6, sy, stageW, 20, { fillAlpha: 0.9 });
-    this.glyph(this.hudLayer, "swords", 17, sy + 10, 13, C.starGold);
-    this.text(this.hudLayer, `Stage ${stage}-${sub}`, 28, sy + 10, 10, C.textPrimary, [0, 0.5]);
+    const stageX = status.x + 6;
+    const centerX = status.x + status.w / 2; // safe-area center
+    this.chip(this.hudLayer, stageX, sy, stageW, 20, { fillAlpha: 0.9 });
+    this.glyph(this.hudLayer, "swords", stageX + 11, sy + 10, 13, C.starGold);
+    this.text(this.hudLayer, `Stage ${stage}-${sub}`, stageX + 22, sy + 10, 10, C.textPrimary, [0, 0.5]);
 
     // (PvE creeps are previewed directly on the enemy half of the main board
     // during planning — see renderBoard — so there's no scout chip here.)
@@ -516,22 +530,26 @@ export class MatchScene {
       const m = Math.floor(secs / 60);
       const ss = (secs % 60).toString().padStart(2, "0");
       this.planningTimerText = this.text(
-        this.hudLayer, `${m}:${ss}`, designW / 2, sy + 10, 12,
+        this.hudLayer, `${m}:${ss}`, centerX, sy + 10, 12,
         secs <= 5 ? C.hpLow : C.textMuted, [0.5, 0.5]
       );
     } else {
       // Same 12px as the timer so phase transitions don't jitter the slot.
-      this.text(this.hudLayer, state.phase, designW / 2, sy + 10, 12, C.textMuted, [0.5, 0.5]);
+      this.text(this.hudLayer, state.phase, centerX, sy + 10, 12, C.textMuted, [0.5, 0.5]);
     }
     // Right slot reserved for the DOM ☰ pause button (existing hook).
 
     // ── B. Opponent rail: 8 seat tiles ──────────────────────────────────────
-    // Portrait: a single horizontal row of 8 tiles. Landscape: a 4×2 grid in
-    // the right-column rail region.
+    // Portrait: a single horizontal row of 8 tiles. Landscape: a single 1×8
+    // vertical column of compact horizontal tiles in the right rail.
     const myPairing = this.driver.getMyPairing();
     const currentOpp = myPairing && !myPairing.isGhost ? myPairing.opponentId : -1;
-    const cols = this.isLandscape ? 4 : 8;
-    const rows = this.isLandscape ? 2 : 1;
+    if (this.isLandscape) {
+      this.renderOpponentColumn(state, rail, currentOpp);
+      return;
+    }
+    const cols = 8;
+    const rows = 1;
     const av = 8; // avatar radius
     for (let i = 0; i < 8; i++) {
       const p = state.players[i];
@@ -580,6 +598,71 @@ export class MatchScene {
         badge.eventMode = "none";
         this.hudLayer.addChild(badge);
         this.glyph(this.hudLayer, "eye", cx + av - 1, cy - av + 1, 6, C.tier3);
+
+        const hit = new PIXI.Graphics();
+        hit.rect(tileX, tileY, tileW, tileH).fill({ color: C.bgOverlay, alpha: 0.001 });
+        hit.eventMode = "static";
+        hit.cursor = "pointer";
+        const capturedId = i;
+        hit.on("pointerdown", () => this.openScout(capturedId, state));
+        this.hudLayer.addChild(hit);
+      }
+    }
+  }
+
+  /**
+   * Landscape opponent rail: a single 1×8 vertical column of compact horizontal
+   * tiles (avatar + seat number, level, HP bar), stacked top-to-bottom in seat
+   * order, filling the rightRail width. Presentation only.
+   */
+  private renderOpponentColumn(
+    state: MatchState,
+    rail: { x: number; y: number; w: number; h: number },
+    currentOpp: number
+  ): void {
+    const av = 9;
+    for (let i = 0; i < 8; i++) {
+      const p = state.players[i];
+      if (!p) continue;
+      const tile = opponentRailTile(i, 1, 8, rail);
+      const { tileX, tileY, tileW, tileH } = tile;
+      const cy = tileY + tileH / 2;
+      const discCx = tileX + av + 5;
+      const textX = discCx + av + 7;
+      const isSelf = i === this.driver.seatIndex;
+      const elim = !p.alive;
+      const scoutable = !isSelf && p.alive && state.phase === "PLANNING";
+
+      const avg = new PIXI.Graphics();
+      avg.circle(discCx, cy, av).fill({ color: C.panelBg, alpha: elim ? 0.4 : 1 });
+      avg.circle(discCx, cy, av).stroke({
+        width: i === currentOpp ? 2.5 : 1,
+        color: i === currentOpp ? C.textCombat : isSelf ? C.tier3 : C.chipBorder,
+        alpha: elim ? 0.4 : 1,
+      });
+      this.hudLayer.addChild(avg);
+
+      // Seat number inside the disc; level label + HP bar to its right.
+      this.text(this.hudLayer, `${i + 1}`, discCx, cy, 10, elim ? C.textMuted : C.textPrimary, [0.5, 0.5]);
+      this.text(this.hudLayer, `L${p.level}`, textX, cy - 7, 9, C.textMuted, [0, 0.5]);
+
+      const hpFrac = Math.max(0, Math.min(1, p.hp / 100));
+      const barX = textX;
+      const barW = tileX + tileW - barX - 6;
+      const barY = cy + 4;
+      const hb = new PIXI.Graphics();
+      hb.rect(barX, barY, barW, 4).fill({ color: C.hpBg, alpha: elim ? 0.4 : 1 });
+      hb.rect(barX, barY, Math.round(barW * hpFrac), 4)
+        .fill({ color: hpFrac < 0.25 ? C.hpLow : C.hpGreen, alpha: elim ? 0.4 : 1 });
+      this.hudLayer.addChild(hb);
+
+      if (scoutable) {
+        const badge = new PIXI.Graphics();
+        badge.circle(discCx + av - 1, cy - av + 1, 5).fill({ color: C.bgScout });
+        badge.circle(discCx + av - 1, cy - av + 1, 5).stroke({ width: 1, color: C.tier3, alpha: 0.9 });
+        badge.eventMode = "none";
+        this.hudLayer.addChild(badge);
+        this.glyph(this.hudLayer, "eye", discCx + av - 1, cy - av + 1, 6, C.tier3);
 
         const hit = new PIXI.Graphics();
         hit.rect(tileX, tileY, tileW, tileH).fill({ color: C.bgOverlay, alpha: 0.001 });
@@ -745,14 +828,12 @@ export class MatchScene {
   private renderBench(me: PlayerState): void {
     this.benchLayer.removeChildren();
 
-    // Landscape: a subtle column-bg behind the whole left column (trait rail →
-    // bench → sell → item bar) so the three-column structure reads at a glance
-    // (chips/slots no longer float against the bare page color). Drawn first.
-    if (this.isLandscape) {
-      const regions = this.layout.regions;
+    // Landscape: a subtle column-bg behind the left rail (trait tab bar + trait/
+    // items rail) so the rail reads as a panel rather than floating chips.
+    if (this.isLandscape && this.layout.clusters) {
+      const lr = this.layout.clusters.leftRail;
       const colBg = new PIXI.Graphics();
-      const colW = regions.bench.x + regions.bench.w + 4;
-      colBg.rect(0, regions.statusRow.h, colW, this.designH - regions.statusRow.h)
+      colBg.roundRect(lr.x - 4, lr.y - 4, lr.w + 8, lr.h + 8, 6)
         .fill({ color: C.bgHud, alpha: 0.4 });
       colBg.eventMode = "none";
       this.benchLayer.addChild(colBg);
@@ -1227,12 +1308,20 @@ export class MatchScene {
     const shop = this.layout.regions.shop;
     const shopY = shop.y;
     const cardH = shop.h;
-    // Portrait keeps the existing 71px card width; landscape spreads 5 cards
-    // across the shop region.
+    // Portrait keeps the existing 71px card width; landscape caps the card width
+    // and centers the 5-card strip within the (wide) shop region.
     const gap = 4;
-    const cardW = this.isLandscape ? Math.floor(shop.w / 5) - gap : 71;
+    let cardW: number, startX: number;
+    if (this.isLandscape) {
+      cardW = Math.min(110, Math.floor((shop.w - 4 * gap) / 5));
+      const totalW = 5 * cardW + 4 * gap;
+      startX = shop.x + Math.max(0, (shop.w - totalW) / 2);
+    } else {
+      cardW = 71;
+      startX = shop.x;
+    }
     for (let i = 0; i < 5; i++) {
-      const x = shop.x + i * (cardW + gap);
+      const x = startX + i * (cardW + gap);
       const slot = me.shop[i];
 
       if (!slot) {
@@ -1324,17 +1413,24 @@ export class MatchScene {
     // Disc.
     gfx.circle(g.cx, g.cy, g.badgeR).fill({ color: C.tokenBg });
     gfx.circle(g.cx, g.cy, g.badgeR).stroke({ width: 1, color: C.chipBorder });
-    // XP progress arc: full track + filled sweep, clockwise from 12 o'clock.
-    const start = -Math.PI / 2;
-    const track = Math.max(0.0001, g.arcR);
-    gfx.arc(g.cx, g.cy, track, start, start + Math.PI * 2)
-      .stroke({ width: g.arcW, color: C.bgShopEmpty, cap: "round" });
-    if (xp.frac > 0) {
-      gfx.arc(g.cx, g.cy, track, start, start + Math.PI * 2 * xp.frac)
-        .stroke({ width: g.arcW, color: C.xpPurple, cap: "round" });
-    }
     gfx.eventMode = "none";
     this.shopLayer.addChild(gfx);
+
+    // XP progress arc: full track + filled sweep, clockwise from 12 o'clock.
+    // Drawn on its OWN Graphics so the arc never inherits the disc subpath's pen
+    // position — otherwise Pixi v8 connects the disc to the arc start with a
+    // stray diagonal line (the thin line that streaked across the board).
+    const arcGfx = new PIXI.Graphics();
+    const start = -Math.PI / 2;
+    const track = Math.max(0.0001, g.arcR);
+    arcGfx.arc(g.cx, g.cy, track, start, start + Math.PI * 2)
+      .stroke({ width: g.arcW, color: C.bgShopEmpty, cap: "round" });
+    if (xp.frac > 0) {
+      arcGfx.arc(g.cx, g.cy, track, start, start + Math.PI * 2 * xp.frac)
+        .stroke({ width: g.arcW, color: C.xpPurple, cap: "round" });
+    }
+    arcGfx.eventMode = "none";
+    this.shopLayer.addChild(arcGfx);
 
     // Level number, centered in the disc.
     this.text(this.shopLayer, `${me.level}`, g.cx, g.cy, 13, C.textPrimary, [0.5, 0.5]);
@@ -1351,56 +1447,69 @@ export class MatchScene {
   }
 
   /**
-   * Landscape HUD: two sub-rows so the economy display (level/gold/streak) reads
-   * separately from the action buttons (reroll/XP), instead of one crammed band.
-   * Sub-row A = top half (compressed text); sub-row B = the two wide buttons.
+   * Landscape econ cluster (now the left unit of the bottom row): gold +
+   * win-streak (left), refresh button (bottom-left), and the buy-XP button with
+   * its XP progress bar directly below it (right). Grouped as one block.
    */
   private renderControlsLandscape(me: PlayerState): void {
     const hud = this.layout.regions.hud;
     const x0 = hud.x;
-    const y = hud.y;
+    const y0 = hud.y;
+    const W = hud.w;
+    const H = hud.h;
 
-    // ── Sub-row A: level badge | gold | streak (compressed) ─────────────────
-    // Circular level badge + arced xp progress (replaces the old chip + bar),
-    // confined to the top economy sub-row so it never collides with the
-    // reroll/XP buttons of sub-row B (which start at HUD_BTN_Y_OFFSET).
-    const badgeRight = this.renderLevelBadge(me, { x: x0, y, w: hud.w, h: HUD_BTN_Y_OFFSET });
+    // ── Left: gold + streak ─────────────────────────────────────────────────
+    this.glyph(this.shopLayer, "coin", x0 + 12, y0 + 14, 12, C.accentGold);
+    this.text(this.shopLayer, `${me.gold}`, x0 + 24, y0 + 14, 16, C.textGold, [0, 0.5]);
 
-    // Gold (coin glyph + compressed number)
-    this.glyph(this.shopLayer, "coin", badgeRight + 8, y + 11, 10, C.accentGold);
-    this.text(this.shopLayer, `${me.gold}`, badgeRight + 20, y + 11, 15, C.textGold, [0, 0.5]);
-
-    // Streak (flame + signed value)
     const streak = me.winStreak > 0 ? me.winStreak : me.loseStreak > 0 ? -me.loseStreak : 0;
     if (streak !== 0) {
-      this.glyph(this.shopLayer, "flame", badgeRight + 66, y + 11, 11, C.streakOrange);
-      this.text(this.shopLayer, `${streak > 0 ? "+" : ""}${streak}`, badgeRight + 76, y + 11, 11, C.streakOrange, [0, 0.5]);
+      this.glyph(this.shopLayer, "flame", x0 + 12, y0 + 36, 11, C.streakOrange);
+      this.text(
+        this.shopLayer, `${streak > 0 ? "+" : ""}${streak}`, x0 + 24, y0 + 36, 12,
+        C.streakOrange, [0, 0.5]
+      );
     }
 
-    // ── Sub-row B: reroll | XP buttons. Geometry is the pure, region-fitted
-    // landscapeHudControls (splits hud.w) — never the old fixed 106px-each
-    // layout which overflowed the 158px right-column hud region (BUG 2). ──
-    const ctrl = landscapeHudControls(hud);
-    const btnY = ctrl.reroll.y, btnH = ctrl.reroll.h, btnW = ctrl.reroll.w;
-    const rrX = ctrl.reroll.x;
-    const rr = this.chip(this.shopLayer, rrX, btnY, btnW, btnH, { fill: C.bgReroll });
+    // ── Bottom-left: reroll button ──────────────────────────────────────────
+    const rrW = 100, rrH = 24;
+    const rrX = x0 + 6, rrY = y0 + H - rrH - 4;
+    const rr = this.chip(this.shopLayer, rrX, rrY, rrW, rrH, { fill: C.bgReroll });
     rr.eventMode = "static";
-    rr.hitArea = new PIXI.Rectangle(rrX, btnY, btnW, btnH);
+    rr.hitArea = new PIXI.Rectangle(rrX, rrY, rrW, rrH);
     rr.cursor = "pointer";
-    this.pressFeedback(rr, () => this.onReroll(), { cx: rrX + btnW / 2, cy: btnY + btnH / 2 });
-    this.glyph(this.shopLayer, "refresh", rrX + 10, btnY + btnH / 2, 11, C.textPrimary);
-    this.glyph(this.shopLayer, "coin", rrX + 26, btnY + btnH / 2, 8, C.accentGold);
-    this.text(this.shopLayer, `${gameData.economy.rerollCost}g`, rrX + 34, btnY + btnH / 2, 10, C.textGold, [0, 0.5]);
+    this.pressFeedback(rr, () => this.onReroll(), { cx: rrX + rrW / 2, cy: rrY + rrH / 2 });
+    this.glyph(this.shopLayer, "refresh", rrX + 13, rrY + rrH / 2, 12, C.textPrimary);
+    this.glyph(this.shopLayer, "coin", rrX + 30, rrY + rrH / 2, 8, C.accentGold);
+    this.text(this.shopLayer, `${gameData.economy.rerollCost}`, rrX + 38, rrY + rrH / 2, 11, C.textGold, [0, 0.5]);
 
-    const xpX = ctrl.buyXp.x;
-    const xpBtn = this.chip(this.shopLayer, xpX, btnY, btnW, btnH, { fill: C.bgXp });
+    // ── Right: buy-XP button (top) + XP progress bar directly below it ──────
+    const colW = 104;
+    const cx = x0 + W - colW - 6;
+    const xpW = colW, xpH = 24;
+    const xpY = y0 + 6;
+    const xpBtn = this.chip(this.shopLayer, cx, xpY, xpW, xpH, { fill: C.bgXp });
     xpBtn.eventMode = "static";
-    xpBtn.hitArea = new PIXI.Rectangle(xpX, btnY, btnW, btnH);
+    xpBtn.hitArea = new PIXI.Rectangle(cx, xpY, xpW, xpH);
     xpBtn.cursor = "pointer";
-    this.pressFeedback(xpBtn, () => this.onBuyXp(), { cx: xpX + btnW / 2, cy: btnY + btnH / 2 });
-    this.text(this.shopLayer, "XP", xpX + 8, btnY + btnH / 2, 10, C.textPrimary, [0, 0.5]);
-    this.glyph(this.shopLayer, "coin", xpX + 28, btnY + btnH / 2, 8, C.accentGold);
-    this.text(this.shopLayer, `${gameData.economy.xpBuyCost}g`, xpX + 36, btnY + btnH / 2, 10, C.textGold, [0, 0.5]);
+    this.pressFeedback(xpBtn, () => this.onBuyXp(), { cx: cx + xpW / 2, cy: xpY + xpH / 2 });
+    this.text(this.shopLayer, "Buy XP", cx + 8, xpY + xpH / 2, 10, C.textPrimary, [0, 0.5]);
+    this.glyph(this.shopLayer, "coin", cx + xpW - 26, xpY + xpH / 2, 8, C.accentGold);
+    this.text(this.shopLayer, `${gameData.economy.xpBuyCost}`, cx + xpW - 18, xpY + xpH / 2, 10, C.textGold, [0, 0.5]);
+
+    // XP progress bar directly below the buy-XP button.
+    const xp = xpProgress(me.xp, me.level, gameData.economy.levelXpThresholds);
+    const barY = xpY + xpH + 8, barH = 8;
+    const bar = new PIXI.Graphics();
+    bar.roundRect(cx, barY, xpW, barH, 3).fill({ color: C.bgShopEmpty });
+    if (xp.frac > 0) {
+      bar.roundRect(cx, barY, Math.max(barH, Math.round(xpW * xp.frac)), barH, 3).fill({ color: C.xpPurple });
+    }
+    bar.eventMode = "none";
+    this.shopLayer.addChild(bar);
+    const xpLabel = xp.maxed ? "MAX" : `${xp.inLevel}/${xp.needed}`;
+    this.text(this.shopLayer, `L${me.level}`, cx, barY + barH + 9, 9, C.textMuted, [0, 0.5]);
+    this.text(this.shopLayer, xpLabel, cx + xpW, barY + barH + 9, 9, C.textMuted, [1, 0.5]);
   }
 
   /** Portrait HUD: the prior single horizontal band (unchanged). */
@@ -1893,8 +2002,15 @@ export class MatchScene {
   private shopCardCenter(idx: number): { x: number; y: number } {
     const shop = this.layout.regions.shop;
     const gap = 4;
-    const cardW = this.isLandscape ? Math.floor(shop.w / 5) - gap : 71;
-    return { x: shop.x + idx * (cardW + gap) + cardW / 2, y: shop.y + shop.h / 2 };
+    let cardW: number, startX: number;
+    if (this.isLandscape) {
+      cardW = Math.min(110, Math.floor((shop.w - 4 * gap) / 5));
+      startX = shop.x + Math.max(0, (shop.w - (5 * cardW + 4 * gap)) / 2);
+    } else {
+      cardW = 71;
+      startX = shop.x;
+    }
+    return { x: startX + idx * (cardW + gap) + cardW / 2, y: shop.y + shop.h / 2 };
   }
 
   /** uid → star across board + bench, for detecting a merge after a command. */

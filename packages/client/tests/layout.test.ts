@@ -264,20 +264,18 @@ describe("landscape clusters", () => {
     expect(board.w / board.h).toBeCloseTo(gridAspect, 2);
   });
 
-  it("surplus space (wider/taller than the residual needs) goes to symmetric board margins, not cluster growth", () => {
+  it("board is centered on the safe-area center (not the residual-rect center) and vertically centered in the residual", () => {
     const wide = resolveLayout({ viewportW: 844, viewportH: 390 });
     const { boardArea, topBar, leftRail, rightRail, bottomBar } = wide.clusters!;
-    // Symmetric centering: leftover horizontal/vertical space inside boardArea
-    // is split evenly around the board rect.
     const board = wide.regions.board;
-    const leftGap = board.x - boardArea.x;
-    const rightGap = (boardArea.x + boardArea.w) - (board.x + board.w);
+    // Horizontal: board centers on the safe-area center (= designW/2 with no
+    // insets), which differs from the asymmetric-rail residual center.
+    const safeCenterX = wide.designW / 2;
+    expect(Math.abs(board.x + board.w / 2 - safeCenterX)).toBeLessThanOrEqual(1);
+    // Vertical: centered within the residual band.
     const topGap = board.y - boardArea.y;
     const bottomGap = (boardArea.y + boardArea.h) - (board.y + board.h);
-    expect(Math.abs(leftGap - rightGap)).toBeLessThanOrEqual(1);
     expect(Math.abs(topGap - bottomGap)).toBeLessThanOrEqual(1);
-    // Clusters stay at their reference thickness regardless of viewport (only
-    // the board/margins absorb surplus) — verified by clamp tests below.
     void topBar; void leftRail; void rightRail; void bottomBar;
   });
 });
@@ -288,22 +286,22 @@ describe("landscapeClusterThickness clamp behavior", () => {
     // clamp behavior is therefore driven by the fixed design dims, exercised
     // directly via landscapeClusterThickness.
     const t = landscapeClusterThickness(1280, 592);
-    expect(t.topBarH).toBeGreaterThanOrEqual(48);
-    expect(t.topBarH).toBeLessThanOrEqual(80);
-    expect(t.bottomBarH).toBeGreaterThanOrEqual(112);
+    expect(t.topBarH).toBeGreaterThanOrEqual(30);
+    expect(t.topBarH).toBeLessThanOrEqual(56);
+    expect(t.bottomBarH).toBeGreaterThanOrEqual(116);
     expect(t.bottomBarH).toBeLessThanOrEqual(160);
     expect(t.leftRailW).toBeGreaterThanOrEqual(96);
     expect(t.leftRailW).toBeLessThanOrEqual(160);
-    expect(t.rightRailW).toBeGreaterThanOrEqual(180);
-    expect(t.rightRailW).toBeLessThanOrEqual(280);
+    expect(t.rightRailW).toBeGreaterThanOrEqual(120);
+    expect(t.rightRailW).toBeLessThanOrEqual(200);
   });
 
   it("never exceeds max even with a much larger design canvas (simulated 16:9 ultrawide)", () => {
     const t = landscapeClusterThickness(2560, 1184); // 2x the reference, still ~2.16:1
-    expect(t.topBarH).toBeLessThanOrEqual(80);
+    expect(t.topBarH).toBeLessThanOrEqual(56);
     expect(t.bottomBarH).toBeLessThanOrEqual(160);
     expect(t.leftRailW).toBeLessThanOrEqual(160);
-    expect(t.rightRailW).toBeLessThanOrEqual(280);
+    expect(t.rightRailW).toBeLessThanOrEqual(200);
   });
 
   it("4:3-equivalent narrow usable area: clusters shrink toward their min rather than overrunning the board floor", () => {
@@ -313,7 +311,7 @@ describe("landscapeClusterThickness clamp behavior", () => {
     const t = landscapeClusterThickness(500, 592);
     expect(t.leftRailW).toBeGreaterThan(0);
     expect(t.rightRailW).toBeGreaterThan(0);
-    expect(t.leftRailW + t.rightRailW).toBeLessThanOrEqual(500 - 360 + 0.5); // LS_BOARD_MIN_W=360
+    expect(t.leftRailW + t.rightRailW).toBeLessThanOrEqual(500 - 320 + 0.5); // LS_BOARD_MIN_W=320
   });
 
   it("16:9 viewport (≈1.78) still resolves the fixed 1280×592 design with valid clamped clusters", () => {
@@ -324,8 +322,8 @@ describe("landscapeClusterThickness clamp behavior", () => {
     expect(layout.designW).toBe(1280);
     expect(layout.designH).toBe(592);
     const c = layout.clusters!;
-    expect(c.topBar.h).toBeGreaterThanOrEqual(48);
-    expect(c.bottomBar.h).toBeGreaterThanOrEqual(112);
+    expect(c.topBar.h).toBeGreaterThanOrEqual(30);
+    expect(c.bottomBar.h).toBeGreaterThanOrEqual(116);
   });
 
   it("4:3 viewport (1.333, still ≥ LANDSCAPE_THRESHOLD) resolves landscape with valid clamped clusters", () => {
@@ -390,14 +388,20 @@ describe("landscape regions", () => {
     expect(regions.board.x + regions.board.w).toBeLessThanOrEqual(rightRail.x + 0.5);
   });
 
-  it("statusRow is a thin band aligned with the board, inside the topBar cluster", () => {
-    expect(regions.statusRow.x).toBe(regions.board.x);
-    expect(regions.statusRow.w).toBe(regions.board.w);
-    expect(regions.statusRow.y).toBeGreaterThanOrEqual(layout.clusters!.topBar.y);
-    expect(regions.statusRow.y + regions.statusRow.h).toBeLessThanOrEqual(layout.clusters!.topBar.y + layout.clusters!.topBar.h);
+  it("statusRow spans the topBar cluster and its center sits on the safe-area center (= board center)", () => {
+    const { topBar } = layout.clusters!;
+    expect(regions.statusRow.x).toBe(topBar.x);
+    expect(regions.statusRow.w).toBe(topBar.w);
+    expect(regions.statusRow.y).toBeGreaterThanOrEqual(topBar.y);
+    expect(regions.statusRow.y + regions.statusRow.h).toBeLessThanOrEqual(topBar.y + topBar.h);
+    // Status cluster center == board center == safe-area center.
+    const statusCx = regions.statusRow.x + regions.statusRow.w / 2;
+    const boardCx = regions.board.x + regions.board.w / 2;
+    expect(Math.abs(statusCx - boardCx)).toBeLessThanOrEqual(1);
+    expect(statusCx).toBeCloseTo(layout.designW / 2, 0);
   });
 
-  it("topBar contains statusRow (opponentRail moved to rightRail)", () => {
+  it("topBar contains only statusRow", () => {
     const { topBar } = layout.clusters!;
     expect(regions.statusRow.y).toBeGreaterThanOrEqual(topBar.y - 0.5);
     expect(regions.statusRow.y + regions.statusRow.h).toBeLessThanOrEqual(topBar.y + topBar.h + 0.5);
@@ -442,61 +446,65 @@ describe("landscape regions", () => {
     expect(regions.traitTabBar.y + regions.traitTabBar.h).toBeLessThanOrEqual(regions.traitRail.y + 4);
   });
 
-  it("hud, sellControl, readyButton are in the right-edge (rightRail) cluster", () => {
-    const boardRight = regions.board.x + regions.board.w;
-    const { rightRail } = layout.clusters!;
-    expect(regions.hud.x).toBeGreaterThanOrEqual(boardRight - 0.5);
-    expect(regions.sellControl.x).toBeGreaterThanOrEqual(boardRight - 0.5);
-    expect(regions.readyButton.x).toBeGreaterThanOrEqual(boardRight - 0.5);
-    expect(regions.hud.x).toBe(rightRail.x);
-    expect(regions.readyButton.x).toBe(rightRail.x);
+  it("hud (econ) + sellControl live in the bottomBar bottom row, not the right rail", () => {
+    const { bottomBar, rightRail } = layout.clusters!;
+    // Both sit in the bottomBar, below the bench row.
+    for (const r of [regions.hud, regions.sellControl]) {
+      expect(r.y).toBeGreaterThanOrEqual(regions.bench.y + regions.bench.h - 0.5);
+      expect(r.y + r.h).toBeLessThanOrEqual(bottomBar.y + bottomBar.h + 0.5);
+    }
+    // Econ on the left, sell on the right of the row.
+    expect(regions.hud.x).toBe(bottomBar.x);
+    expect(regions.sellControl.x + regions.sellControl.w).toBeCloseTo(bottomBar.x + bottomBar.w, 0);
+    // Neither overlaps the right rail (which is up in the middle band).
+    expect(regions.hud.y).toBeGreaterThanOrEqual(rightRail.y + rightRail.h - 0.5);
   });
 
-  it("opponentRail is in the right-edge (rightRail) cluster, not the topBar", () => {
+  it("rightRail holds opponentRail ONLY (fills the cluster)", () => {
     const { rightRail } = layout.clusters!;
     expect(regions.opponentRail.x).toBe(rightRail.x);
-    expect(regions.opponentRail.y).toBeGreaterThanOrEqual(rightRail.y - 0.5);
-    expect(regions.opponentRail.y + regions.opponentRail.h).toBeLessThanOrEqual(rightRail.y + rightRail.h + 0.5);
+    expect(regions.opponentRail.y).toBe(rightRail.y);
+    expect(regions.opponentRail.w).toBe(rightRail.w);
+    expect(regions.opponentRail.h).toBe(rightRail.h);
   });
 
-  it("opponentRail sits at the top of the rightRail cluster, above hud", () => {
-    const { rightRail } = layout.clusters!;
-    expect(regions.opponentRail.y).toBeCloseTo(rightRail.y, 1);
-    expect(regions.hud.y).toBeGreaterThanOrEqual(regions.opponentRail.y + regions.opponentRail.h);
-  });
-
-  it("shop is a full-width strip inside the bottomBar cluster, pinned to the bottom edge of that cluster", () => {
+  it("shop sits between the econ cluster and the sell control, pinned to the bottom edge of bottomBar", () => {
     const { bottomBar } = layout.clusters!;
-    expect(regions.shop.x).toBe(bottomBar.x);
-    expect(regions.shop.w).toBe(bottomBar.w);
+    expect(regions.shop.x).toBeGreaterThanOrEqual(regions.hud.x + regions.hud.w);
+    expect(regions.shop.x + regions.shop.w).toBeLessThanOrEqual(regions.sellControl.x + 0.5);
     expect(regions.shop.y + regions.shop.h).toBeCloseTo(bottomBar.y + bottomBar.h, 0);
     expect(regions.shop.h).toBeGreaterThanOrEqual(64); // touch-target floor
   });
 
-  it("the right-edge cluster stacks opponentRail → hud → sell → ready without overlap", () => {
-    const stack = [regions.opponentRail, regions.hud, regions.sellControl, regions.readyButton];
-    for (let i = 1; i < stack.length; i++) {
-      const prev = stack[i - 1]!;
-      const cur = stack[i]!;
-      expect(cur.y).toBeGreaterThanOrEqual(prev.y + prev.h - 0.5);
+  it("bottom row lays out econ → shop → sell left-to-right without overlap", () => {
+    const row = [regions.hud, regions.shop, regions.sellControl];
+    for (let i = 1; i < row.length; i++) {
+      expect(row[i]!.x).toBeGreaterThanOrEqual(row[i - 1]!.x + row[i - 1]!.w);
     }
-    expect(regions.readyButton.y + regions.readyButton.h).toBeLessThanOrEqual(layout.clusters!.rightRail.y + layout.clusters!.rightRail.h + 0.5);
+    // All three share the bottom row's vertical band.
+    expect(regions.shop.y).toBeCloseTo(regions.hud.y, 0);
+    expect(regions.sellControl.y).toBeCloseTo(regions.hud.y, 0);
   });
 
-  it("sellControl is detached from the bench (it lives in the right-edge cluster)", () => {
+  it("sellControl is detached from the bench (bench is the top row, sell the bottom-right)", () => {
     expect(regions.sellControl.x).toBeGreaterThan(regions.bench.x + regions.bench.w);
-    expect(regions.sellControl.y).toBeGreaterThan(regions.hud.y);
+    expect(regions.sellControl.y).toBeGreaterThanOrEqual(regions.bench.y + regions.bench.h - 0.5);
   });
 
   it("interactive regions meet their touch-target minimums", () => {
-    expect(regions.readyButton.h).toBeGreaterThanOrEqual(44);
     expect(regions.shop.h).toBeGreaterThanOrEqual(64);
     expect(regions.bench.h).toBeGreaterThanOrEqual(32);
     expect(regions.hud.h).toBeGreaterThanOrEqual(32);
+    expect(regions.sellControl.h).toBeGreaterThanOrEqual(32);
   });
 
-  it("opponentRail has enough height for an 8-seat 4-col×2-row grid (≥ 36px rows)", () => {
-    expect(regions.opponentRail.h / 2).toBeGreaterThanOrEqual(36);
+  it("readyButton is zeroed in landscape (READY is a DOM control)", () => {
+    expect(regions.readyButton.w).toBe(0);
+    expect(regions.readyButton.h).toBe(0);
+  });
+
+  it("opponentRail has enough height for a 1×8 vertical column (≥ 24px rows)", () => {
+    expect(regions.opponentRail.h / 8).toBeGreaterThanOrEqual(24);
   });
 
   it("bench is NOT in the leftRail cluster (it lives in bottomBar)", () => {

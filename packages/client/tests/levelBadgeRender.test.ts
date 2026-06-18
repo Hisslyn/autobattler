@@ -104,28 +104,28 @@ describe("level badge is wired into the real renderControls path", () => {
         scene.renderControls(me);
       });
 
-      it("draws the circular badge disc + arced xp progress (arc(), not just a rect bar)", () => {
+      it("draws the xp progress indicator (portrait = arced badge; landscape = xp bar)", () => {
         const gfxChildren = scene.shopLayer.children.filter(
           (c: unknown): c is RecGraphics => c instanceof RecGraphics
         );
         const allOps = gfxChildren.flatMap((g: RecGraphics) => g.ops);
-
-        const circles = allOps.filter((o: GfxOp) => o.fn === "circle");
         const arcs = allOps.filter((o: GfxOp) => o.fn === "arc");
 
-        // The badge disc.
-        expect(circles.length).toBeGreaterThanOrEqual(1);
-        // The xp progress is an ARC (track + fill), proving the badge — not the
-        // former straight rect xp bar — is what renders.
-        expect(arcs.length).toBeGreaterThanOrEqual(2);
+        if (orientation === "portrait") {
+          const circles = allOps.filter((o: GfxOp) => o.fn === "circle");
+          expect(circles.length).toBeGreaterThanOrEqual(1); // badge disc
+          expect(arcs.length).toBeGreaterThanOrEqual(2);     // track + fill arc
+        } else {
+          // Landscape econ cluster uses an XP progress BAR (roundRect track +
+          // fill) directly below the Buy-XP button — no arced badge.
+          const roundRects = allOps.filter((o: GfxOp) => o.fn === "roundRect");
+          expect(roundRects.length).toBeGreaterThanOrEqual(1);
+        }
       });
 
-      it("places the badge at the hud bottom-left (matches levelBadgeGeom)", () => {
-        const region =
-          orientation === "landscape"
-            ? { x: layoutHud().x, y: layoutHud().y, w: layoutHud().w, h: 26 }
-            : layoutHud();
-        const g = levelBadgeGeom(region);
+      it("portrait places the badge at the hud bottom-left (matches levelBadgeGeom)", () => {
+        if (orientation !== "portrait") return; // landscape has no arced badge
+        const g = levelBadgeGeom(scene.layout.regions.hud);
 
         const badgeCircle = scene.shopLayer.children
           .filter((c: unknown): c is RecGraphics => c instanceof RecGraphics)
@@ -136,11 +136,8 @@ describe("level badge is wired into the real renderControls path", () => {
         expect(cx).toBeCloseTo(g.cx, 0);
         expect(cy).toBeCloseTo(g.cy, 0);
 
-        // Bottom-left: the badge center sits in the left third of the hud band.
-        const hud = layoutHud();
+        const hud = scene.layout.regions.hud;
         expect(cx!).toBeLessThan(hud.x + hud.w / 3);
-
-        function layoutHud() { return scene.layout.regions.hud; }
       });
 
       it("renders the level number and a current/threshold xp label", () => {
@@ -164,8 +161,9 @@ describe("level badge is wired into the real renderControls path", () => {
         const texts = scene.shopLayer.children
           .filter((c: unknown): c is RecText => c instanceof RecText)
           .map((t: RecText) => t.text);
-        // The XP button label and its gold cost both render.
-        expect(texts).toContain("XP");
+        // The XP button label (portrait "XP" / landscape "Buy XP") and its gold
+        // cost both render.
+        expect(texts.some((t: string) => t.includes("XP"))).toBe(true);
         const xpCost = String(gameData.economy.xpBuyCost);
         expect(texts.some((t: string) => t === xpCost || t === `${xpCost}g`)).toBe(true);
       });
