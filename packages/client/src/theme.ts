@@ -197,13 +197,14 @@ export const C = {
 
 // ─── Board perspective tilt (renderer-only) ──────────────────────────────────
 // Single tunable for the full-perspective board projection (boardProjection.ts).
-// 0 = today's flat board (the projection becomes the identity). A positive value
-// recedes the far (enemy/top) edge: the rendered board is a trapezoid whose top
-// edge is narrowed to (1 − BOARD_TILT) of the near edge, with true perspective
-// foreshortening between rows. Keep it subtle — a gentle recede, not a steep
-// angle. Sim/rules/protocol never see this; it is purely how the client draws +
-// hit-tests the board.
-export const BOARD_TILT = 0.22;
+// 0 = a flat board (the projection becomes the identity). A positive value recedes
+// the far (enemy/top) edge: the rendered board is a trapezoid whose top edge is
+// narrowed to (1 − BOARD_TILT) of the near edge, with true perspective
+// foreshortening between rows (far rows bunch toward the back the larger this is).
+// 0.4 lays the board well back — the far edge is 0.6× the near edge — while
+// keeping the back-row units readable. Sim/rules/protocol never see this; it is
+// purely how the client draws + hit-tests the board.
+export const BOARD_TILT = 0.4;
 
 export function tierColor(tier: number): number {
   return ([C.tier1, C.tier2, C.tier3, C.tier4, C.tier5] as const)[tier - 1] ?? C.tier1;

@@ -252,7 +252,7 @@ describe("landscape clusters", () => {
     }
   });
 
-  it("board (the rendered region) fits inside boardArea and preserves the hex-grid aspect ratio", () => {
+  it("board (the rendered region) fits inside boardArea and is a wide, shallow slab", () => {
     const { board } = layout.regions;
     const { boardArea } = clusters!;
     expect(board.x).toBeGreaterThanOrEqual(boardArea.x - 0.001);
@@ -260,23 +260,19 @@ describe("landscape clusters", () => {
     expect(board.x + board.w).toBeLessThanOrEqual(boardArea.x + boardArea.w + 0.001);
     expect(board.y + board.h).toBeLessThanOrEqual(boardArea.y + boardArea.h + 0.001);
 
-    const gridAspect = 336 / 348;
-    expect(board.w / board.h).toBeCloseTo(gridAspect, 2);
+    // The board is now a wide perspective slab (near edge spans most of the
+    // width, laid back via BOARD_TILT) — much wider than tall, not hex-aspect.
+    expect(board.w / board.h).toBeGreaterThan(1.5);
   });
 
-  it("board is centered on the safe-area center (not the residual-rect center) and vertically centered in the residual", () => {
+  it("board near edge targets ~75% of the design width and centers on the safe-area center", () => {
     const wide = resolveLayout({ viewportW: 844, viewportH: 390 });
-    const { boardArea, topBar, leftRail, rightRail, bottomBar } = wide.clusters!;
     const board = wide.regions.board;
-    // Horizontal: board centers on the safe-area center (= designW/2 with no
-    // insets), which differs from the asymmetric-rail residual center.
+    // Horizontal: board centers on the safe-area center (= designW/2 with no insets).
     const safeCenterX = wide.designW / 2;
     expect(Math.abs(board.x + board.w / 2 - safeCenterX)).toBeLessThanOrEqual(1);
-    // Vertical: centered within the residual band.
-    const topGap = board.y - boardArea.y;
-    const bottomGap = (boardArea.y + boardArea.h) - (board.y + board.h);
-    expect(Math.abs(topGap - bottomGap)).toBeLessThanOrEqual(1);
-    void topBar; void leftRail; void rightRail; void bottomBar;
+    // Near (bottom) edge ≈ 75% of the design width.
+    expect(board.w / wide.designW).toBeCloseTo(0.75, 2);
   });
 });
 
@@ -288,8 +284,8 @@ describe("landscapeClusterThickness clamp behavior", () => {
     const t = landscapeClusterThickness(1280, 592);
     expect(t.topBarH).toBeGreaterThanOrEqual(30);
     expect(t.topBarH).toBeLessThanOrEqual(56);
-    expect(t.bottomBarH).toBeGreaterThanOrEqual(106);
-    expect(t.bottomBarH).toBeLessThanOrEqual(132);
+    expect(t.bottomBarH).toBeGreaterThanOrEqual(52);
+    expect(t.bottomBarH).toBeLessThanOrEqual(72);
     expect(t.leftRailW).toBeGreaterThanOrEqual(96);
     expect(t.leftRailW).toBeLessThanOrEqual(160);
     expect(t.rightRailW).toBeGreaterThanOrEqual(80);
@@ -299,7 +295,7 @@ describe("landscapeClusterThickness clamp behavior", () => {
   it("never exceeds max even with a much larger design canvas (simulated 16:9 ultrawide)", () => {
     const t = landscapeClusterThickness(2560, 1184); // 2x the reference, still ~2.16:1
     expect(t.topBarH).toBeLessThanOrEqual(56);
-    expect(t.bottomBarH).toBeLessThanOrEqual(132);
+    expect(t.bottomBarH).toBeLessThanOrEqual(72);
     expect(t.leftRailW).toBeLessThanOrEqual(160);
     expect(t.rightRailW).toBeLessThanOrEqual(130);
   });
@@ -323,7 +319,7 @@ describe("landscapeClusterThickness clamp behavior", () => {
     expect(layout.designH).toBe(592);
     const c = layout.clusters!;
     expect(c.topBar.h).toBeGreaterThanOrEqual(30);
-    expect(c.bottomBar.h).toBeGreaterThanOrEqual(106);
+    expect(c.bottomBar.h).toBeGreaterThanOrEqual(52);
   });
 
   it("4:3 viewport (1.333, still ≥ LANDSCAPE_THRESHOLD) resolves landscape with valid clamped clusters", () => {
@@ -369,17 +365,18 @@ describe("landscape regions", () => {
     }
   });
 
-  it("board fills the full residual height and preserves the hex-grid aspect ratio", () => {
-    const gridW = 336;
-    const gridH = 348;
-    // boardArea is wider than the grid's native aspect needs at the 1280×592
-    // reference (asymmetric 120/220 rails leave a very wide residual), so the
-    // board is height-bound: it fills the entire residual height (no longer
-    // capped at the native 348px the way the old 844×390 design was) and its
-    // width follows from the locked aspect ratio — never the other way round.
+  it("board is a wide, shallow slab: near edge ~75% of width, clear of both rails", () => {
+    // The board's near (bottom) edge targets ~75% of the design width; its far
+    // (top) edge narrows via BOARD_TILT in the renderer (not in the region rect).
+    // The region rect is wide-and-short (board + bench fill the vertical space).
     expect(regions.board.h).toBeGreaterThan(0);
-    expect(regions.board.w / regions.board.h).toBeCloseTo(gridW / gridH, 2);
-    expect(regions.board.h).toBeGreaterThanOrEqual(300); // LS_BOARD_MIN_H
+    expect(regions.board.w / designW).toBeCloseTo(0.75, 2);
+    expect(regions.board.w / regions.board.h).toBeGreaterThan(1.5);
+    expect(regions.board.h).toBeGreaterThanOrEqual(240); // LS_BOARD_MIN_H
+    // Clears both rails (a small margin to each).
+    const { leftRail, rightRail } = layout.clusters!;
+    expect(regions.board.x).toBeGreaterThan(leftRail.x + leftRail.w);
+    expect(regions.board.x + regions.board.w).toBeLessThan(rightRail.x);
   });
 
   it("board sits in the central residual area (between leftRail and rightRail clusters)", () => {
@@ -407,11 +404,14 @@ describe("landscape regions", () => {
     expect(regions.statusRow.y + regions.statusRow.h).toBeLessThanOrEqual(topBar.y + topBar.h + 0.5);
   });
 
-  it("bench is centered below the board, inside the bottomBar cluster", () => {
+  it("bench butts the board's front edge (no gap), centered under the board", () => {
     const benchCx = regions.bench.x + regions.bench.w / 2;
     const boardCx = regions.board.x + regions.board.w / 2;
     expect(Math.abs(benchCx - boardCx)).toBeLessThanOrEqual(2);
-    expect(regions.bench.y).toBeGreaterThanOrEqual(layout.clusters!.bottomBar.y - 0.5);
+    // Bench top == board bottom: the two read as one continuous play area.
+    expect(regions.bench.y).toBeCloseTo(regions.board.y + regions.board.h, 0);
+    // Bench sits above the bottom controls row (bottomBar).
+    expect(regions.bench.y + regions.bench.h).toBeLessThanOrEqual(layout.clusters!.bottomBar.y + 0.5);
   });
 
   it("bench has 9 slot positions in a single 1×9 row that stay inside the bench rect", () => {

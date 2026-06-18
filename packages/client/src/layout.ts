@@ -48,20 +48,6 @@ export const PORTRAIT_H  = 844;
 export const LANDSCAPE_W = 1280;
 export const LANDSCAPE_H = 592;
 
-// ── Geometry ─────────────────────────────────────────────────────────────────
-// Board constants (mirrors hexUtils.ts — kept local so this module stays pure
-// with zero cross-package imports).
-const HEX_R    = 24;
-const HEX_W    = HEX_R * 2;         // 48
-const HEX_H    = Math.round(HEX_R * 1.732); // 42
-const BOARD_COLS = 7;
-const BOARD_ROWS = 4;
-
-// Full hex grid span (both sides share the same W; H = both sides).
-const BOARD_GRID_W = BOARD_COLS * HEX_W;             // 336
-const BOARD_GRID_H_SIDE = BOARD_ROWS * HEX_H;        // 168
-const BOARD_GRID_H = BOARD_GRID_H_SIDE * 2 + 12;     // 348  (12px gap between sides)
-
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface Rect { x: number; y: number; w: number; h: number }
@@ -361,22 +347,36 @@ export const LS_BASE_MARGIN = 12;
 export const LS_GAP = 10;
 
 // Per-cluster fixed reference dimension + clamp range.
-//   topBar    — only the thin statusRow band now (stage / timer / menu).
-//   bottomBar — TWO stacked rows: bench (top) + [econ | sell] (bottom).
+//   topBar    — only the thin statusRow band (stage / timer / menu).
+//   bottomBar — the single bottom controls row: [econ | sell | shop-toggle].
+//               The bench is NO LONGER here — it butts the board's front edge
+//               (see the board/bench solve below), so bottomBar shrank to just
+//               the corner controls and the freed height went to the board.
 //   leftRail  — trait tab bar + trait/items rail (unchanged).
 //   rightRail — opponentRail ONLY (a single 1×8 vertical column of seat tiles).
 const LS_TOPBAR_H_REF = 40,     LS_TOPBAR_H_MIN = 30,     LS_TOPBAR_H_MAX = 56;
-// bottomBar no longer hosts a docked shop row — only the bench row + corner econ
-// controls. Reduced from the prior 132/116/160 so the freed shop-row vertical
-// space is reclaimed by the residual board.
-const LS_BOTTOMBAR_H_REF = 114, LS_BOTTOMBAR_H_MIN = 106, LS_BOTTOMBAR_H_MAX = 132;
+const LS_BOTTOMBAR_H_REF = 60,  LS_BOTTOMBAR_H_MIN = 52,  LS_BOTTOMBAR_H_MAX = 72;
 const LS_LEFTRAIL_W_REF = 120,  LS_LEFTRAIL_W_MIN = 96,   LS_LEFTRAIL_W_MAX = 160;
 const LS_RIGHTRAIL_W_REF = 120, LS_RIGHTRAIL_W_MIN = 80, LS_RIGHTRAIL_W_MAX = 130;
 
-// Minimum board area so the 336×348 hex grid always has room to scale up from
-// its native size, never down to illegibility.
+// Minimum board footprint. The board is now a WIDE, SHALLOW perspective slab —
+// its near (bottom) edge spans most of the width between the rails and it lays
+// well back (boardProjection), so the floor is a wide-min / short-min pair.
 const LS_BOARD_MIN_W = 320;
-const LS_BOARD_MIN_H = 280;
+const LS_BOARD_MIN_H = 240;
+
+// ── Board / bench sizing (wide-shallow board butted directly by the bench) ────
+// The board's near (bottom) edge targets this fraction of the design width, then
+// is capped to clear both rails by a small margin (the board centers on the
+// safe-area center). The far (top) edge narrows via BOARD_TILT in the renderer.
+const LS_BOARD_NEAR_FRAC = 0.75;
+// Board + bench together fill this fraction of the vertical span between the top
+// bar and the bottom edge; the remainder is the bottom controls row.
+const LS_BOARD_BENCH_FRAC = 0.88;
+// Small clearance kept between the board's near edge and each rail.
+const LS_BOARD_RAIL_MARGIN = 8;
+// Tiny gap below the status bar before the board begins.
+const LS_BOARD_TOP_GAP = 4;
 
 /**
  * Pure cluster-dimension solve, exposed for tests: given the usable design
@@ -452,56 +452,64 @@ function landscapeRegionsFor(
   const bottomM = Math.max(safeDesign.bottom, LS_BASE_MARGIN);
 
   // The safe-area horizontal center — the board, the bench, and the statusRow
-  // cluster (stage + timer) all center on THIS, not on any residual-rect center.
+  // cluster (stage + timer) all center on THIS.
   const contentRight = designW - rightM;
   const safeCenterX = (leftX + contentRight) / 2;
 
-  const topBar: Rect    = { x: leftX, y: topY, w: contentRight - leftX, h: topBarH };
-  const bottomBar: Rect = { x: leftX, y: designH - bottomM - bottomBarH, w: contentRight - leftX, h: bottomBarH };
+  const topBar: Rect = { x: leftX, y: topY, w: contentRight - leftX, h: topBarH };
 
-  const midTop = topBar.y + topBar.h + LS_GAP;
-  const midBottom = bottomBar.y - LS_GAP;
-  const midH = Math.max(1, midBottom - midTop);
+  // ── Vertical budget: status bar → bottom edge splits into the board+bench
+  // band (≈88%) and the bottom controls row (the remainder). ────────────────
+  const vTop = topBar.y + topBar.h;
+  const vBot = designH - bottomM;
+  const vSpace = Math.max(1, vBot - vTop);
 
-  const leftRail: Rect  = { x: leftX, y: midTop, w: leftRailW, h: midH };
-  const rightRail: Rect = { x: contentRight - rightRailW, y: midTop, w: rightRailW, h: midH };
+  // Bottom controls row (econ | sell | shop-toggle) — pinned to the bottom. Its
+  // fixed thickness (LS_BOTTOMBAR_*) is ≈ the (1 − LS_BOARD_BENCH_FRAC) remainder
+  // of the vertical span; the board + bench claim the rest.
+  const controlsH = Math.min(bottomBarH, Math.max(LS_BOTTOMBAR_H_MIN, Math.round(vSpace * (1 - LS_BOARD_BENCH_FRAC))));
+  const controlsY = vBot - controlsH;
+  const bottomBar: Rect = { x: leftX, y: controlsY, w: contentRight - leftX, h: controlsH };
 
-  // Residual area between the rails (exposed for tests; the board centers on the
-  // safe-area center, not this rect's center — see below).
-  const boardArea: Rect = {
-    x: leftRail.x + leftRail.w + LS_GAP,
-    y: midTop,
-    w: Math.max(1, rightRail.x - LS_GAP - (leftRail.x + leftRail.w + LS_GAP)),
-    h: midH,
-  };
+  // Bench butts the board's front (bottom) edge — no gap — so board + bench read
+  // as one continuous play area. The bench stays flat/upright (not projected).
+  const boardTop = vTop + LS_BOARD_TOP_GAP;
+  const benchH = clamp(36, Math.round(vSpace * 0.085), 52);
+  const benchTop = controlsY - LS_BOARD_TOP_GAP - benchH;
+  const boardH = Math.max(LS_BOARD_MIN_H, benchTop - boardTop);
 
-  const clusters: LandscapeClusters = { topBar, leftRail, rightRail, bottomBar, boardArea };
+  // The rails flank the board+bench band, full height.
+  const railTop = boardTop;
+  const railH = Math.max(1, benchTop + benchH - railTop);
+  const leftRail: Rect  = { x: leftX, y: railTop, w: leftRailW, h: railH };
+  const rightRail: Rect = { x: contentRight - rightRailW, y: railTop, w: rightRailW, h: railH };
 
-  // ── Board: centered on the safe-area center, capped so it clears the WIDER
-  // rail symmetrically, then grown to the largest hex-aspect box that fits ───
-  // The horizontal half-width cap is the smaller of the two clearances from the
-  // safe center to each rail's inner edge — using the smaller (i.e. the wider
-  // rail's) clearance on BOTH sides keeps the board symmetric and clear of both
-  // rails. Height is the full topBar→bottomBar residual; width then follows the
-  // locked 336:348 hex-grid aspect, never the residual-rect width.
-  const gridAspect = BOARD_GRID_W / BOARD_GRID_H; // 336/348
-  const leftClear  = safeCenterX - (leftRail.x + leftRail.w + LS_GAP);
-  const rightClear = (rightRail.x - LS_GAP) - safeCenterX;
-  const halfCap = Math.max(1, Math.min(leftClear, rightClear));
-  const boardWCap = 2 * halfCap;
-
-  let boardH = midH;
-  let boardW = boardH * gridAspect;
-  if (boardW > boardWCap) {
-    boardW = boardWCap;
-    boardH = boardW / gridAspect;
-  }
+  // ── Board width: target the near edge at LS_BOARD_NEAR_FRAC of the design
+  // width, capped so it clears the WIDER rail symmetrically (smaller clearance
+  // on BOTH sides keeps it centered + clear). Wide near edge, shallow height. ─
+  const leftClear  = safeCenterX - (leftRail.x + leftRail.w);
+  const rightClear = rightRail.x - safeCenterX;
+  const halfCap = Math.max(1, Math.min(leftClear, rightClear) - LS_BOARD_RAIL_MARGIN);
+  const boardHalfW = Math.min((LS_BOARD_NEAR_FRAC * designW) / 2, halfCap);
+  const boardW = Math.max(LS_BOARD_MIN_W, 2 * boardHalfW);
   const board: Rect = {
     x: Math.round(safeCenterX - boardW / 2),
-    y: Math.round(midTop + (midH - boardH) / 2),
+    y: Math.round(boardTop),
     w: Math.round(boardW),
     h: Math.round(boardH),
   };
+
+  // Residual band between the rails that holds board + bench (board occupies the
+  // top, bench the bottom). Exposed for tests; the board centers on the safe-area
+  // center, not this rect's center.
+  const boardArea: Rect = {
+    x: leftRail.x + leftRail.w + LS_GAP,
+    y: railTop,
+    w: Math.max(1, rightRail.x - LS_GAP - (leftRail.x + leftRail.w + LS_GAP)),
+    h: railH,
+  };
+
+  const clusters: LandscapeClusters = { topBar, leftRail, rightRail, bottomBar, boardArea };
 
   // ── topBar content: statusRow — a thin band spanning the full topBar so its
   // center sits on the safe-area center (= the board center). ──────────────
@@ -521,28 +529,25 @@ function landscapeRegionsFor(
   // ── rightRail content: opponentRail ONLY (1×8 vertical column). ───────────
   const opponentRail: Rect = { x: rightRail.x, y: rightRail.y, w: rightRail.w, h: rightRail.h };
 
-  // ── bottomBar content: row 1 = bench (centered under the board); row 2 =
-  // [econ(hud) | sellControl], left + right corners (shop is drop-down-only). ─
-  const benchSlotSize = clamp(36, Math.floor(bottomBar.h * 0.32), 48);
+  // ── bench: a 1×9 row centered on the safe-area center, butted against the
+  // board's front edge (benchTop = board bottom). ───────────────────────────
+  const benchSlotSize = clamp(36, benchH, 52);
   const benchW = 9 * benchSlotSize;
-  const benchX = clamp(bottomBar.x, safeCenterX - benchW / 2, bottomBar.x + bottomBar.w - benchW);
-  const bench: Rect = { x: benchX, y: bottomBar.y, w: benchW, h: benchSlotSize };
+  const benchX = clamp(board.x, safeCenterX - benchW / 2, board.x + board.w - benchW);
+  const bench: Rect = { x: benchX, y: benchTop, w: benchW, h: benchSlotSize };
 
-  const rowGap = 6;
-  const row2Y = bench.y + bench.h + rowGap;
-  const row2H = Math.max(64, bottomBar.y + bottomBar.h - row2Y);
-
+  // ── bottomBar content: [econ(hud) | sellControl | shop-toggle] in one row. ─
   const econW = clamp(200, Math.round(bottomBar.w * 0.18), 250);
   const sellW = 64;
   const shopBtnW = 96;
   const colGap = 8;
-  const hud: Rect = { x: bottomBar.x, y: row2Y, w: econW, h: row2H };
+  const hud: Rect = { x: bottomBar.x, y: controlsY, w: econW, h: controlsH };
   // The money-sack shop toggle owns the bottom-RIGHTMOST corner (gold lives
   // inside it now); sell sits immediately to its left. `shop` carries the
   // toggle-button rect (the shop cards themselves remain drop-down-only).
   const shopX = bottomBar.x + bottomBar.w - shopBtnW;
-  const sellControl: Rect = { x: shopX - colGap - sellW, y: row2Y, w: sellW, h: row2H };
-  const shop: Rect = { x: shopX, y: row2Y, w: shopBtnW, h: row2H };
+  const sellControl: Rect = { x: shopX - colGap - sellW, y: controlsY, w: sellW, h: controlsH };
+  const shop: Rect = { x: shopX, y: controlsY, w: shopBtnW, h: controlsH };
 
   // readyButton is not rendered in landscape (READY is a DOM control) — zeroed.
   const readyButton: Rect = { x: 0, y: 0, w: 0, h: 0 };

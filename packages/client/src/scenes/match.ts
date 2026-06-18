@@ -347,53 +347,45 @@ export class MatchScene {
   private get isLandscape(): boolean { return this.layout.orientation === "landscape"; }
 
   /**
-   * Board hex-grid scale. Portrait renders the grid at native size (1). The full
-   * 7×4 grid spans BOARD_COLS*HEX_W × (BOARD_ROWS*HEX_H*2+12) = 336×348; in
-   * landscape that won't fit the shorter board region alongside the bottom shop,
-   * so the grid is scaled-to-fit its board region (capped at 1, never enlarged
-   * past native). The scaled mapping is fed to every hex call site + combat view.
+   * Board-space source frame the hex grid is laid out in (native size). The full
+   * 7×4 grid spans BOARD_COLS*HEX_W + HEX_R × (BOARD_ROWS*HEX_H*2+12) = 360×348;
+   * a BOARD_PAD margin on every side gives the frame. The perspective homography
+   * (see `proj`) stretches this frame onto the on-screen board footprint
+   * (regions.board), so the grid is always laid out at native scale here — the
+   * projection carries ALL the sizing + the wide/shallow perspective.
    */
-  private get boardScale(): number {
-    if (!this.isLandscape) return 1;
-    const b = this.layout.regions.board;
-    // FULL visual grid extent (hex radii included), so the scaled grid's
-    // bounding box — not just the cell centers — is contained by the frame:
-    //   width  = (centers span 6·HEX_W + HEX_R) + 2·HEX_R  = BOARD_COLS·HEX_W + HEX_R
-    //   height = (centers span 7·HEX_H + 12)     + HEX_H    = BOARD_ROWS·HEX_H·2 + 12
-    // A single BOARD_PAD inset on every side gives consistent padding.
-    const gridW = BOARD_COLS * HEX_W + HEX_R;
-    const gridH = BOARD_ROWS * HEX_H * 2 + 12;
-    return Math.min(1, (b.w - 2 * BOARD_PAD) / gridW, (b.h - 2 * BOARD_PAD) / gridH);
+  private get gridFrame(): { x: number; y: number; w: number; h: number } {
+    const gridW = BOARD_COLS * HEX_W + HEX_R; // 360
+    const gridH = BOARD_ROWS * HEX_H * 2 + 12; // 348
+    return { x: 0, y: 0, w: gridW + 2 * BOARD_PAD, h: gridH + 2 * BOARD_PAD };
   }
-  /** Scaled hex radius for drawHex / drag highlight (portrait = HEX_R). */
+  /** Board hex-grid scale — always native (1); the projection does the scaling. */
+  private get boardScale(): number {
+    return 1;
+  }
+  /** Hex radius for drawHex / drag highlight (board-space; projected per-vertex). */
   private get hexR(): number {
     return HEX_R * this.boardScale;
   }
-  /** Scaled unit-token radius on the board (portrait = 16). */
+  /** Unit-token base radius on the board (board-space; depth-scaled at draw). */
   private get boardTokenR(): number {
     return Math.round(16 * this.boardScale);
   }
 
-  /** Hex-board horizontal offset (centers the scaled grid's true bounding box in
-   *  the board frame — the grid and frame share one center). */
+  /** Hex-board horizontal offset — centers the grid in its source frame. */
   private get boardOffsetX(): number {
-    const b = this.layout.regions.board;
-    const s = this.boardScale;
+    const f = this.gridFrame;
     // Cell-center span is (BOARD_COLS-1)·HEX_W + HEX_R (the odd-row shift adds the
     // trailing HEX_R); centering that span centers the symmetric visual box too.
     const centerSpan = (BOARD_COLS - 1) * HEX_W + HEX_R;
-    return b.x + b.w / 2 - (centerSpan * s) / 2;
+    return f.x + f.w / 2 - centerSpan / 2;
   }
-  /** Player-zone top hex row center y (lower half of the board panel). */
+  /** Player-zone top hex row center y — centers the full grid in its source frame. */
   private get boardOffsetY(): number {
-    const b = this.layout.regions.board;
-    const s = this.boardScale;
-    // Portrait keeps the original half-gap nudge (its board region is tall
-    // enough). Landscape scales the grid to fit, so center the full scaled grid
-    // (both 4-row halves + the 12px inter-zone gap) vertically in the board
-    // region — the +6 nudge alone would ride the opponent back row off the top.
-    if (!this.isLandscape) return b.y + b.h / 2 + 6;
-    return b.y + b.h / 2 + (HEX_H + 12) * s / 2;
+    const f = this.gridFrame;
+    // Center the full grid (both 4-row halves + the 12px inter-zone gap) in the
+    // frame, then nudge so the player half lands in the lower portion.
+    return f.y + f.h / 2 + (HEX_H + 12) / 2;
   }
   /** Opponent-zone top hex row center y (mirrored above the player zone). */
   private get oppBoardOffsetY(): number {
@@ -406,10 +398,12 @@ export class MatchScene {
   // board panel rect; rebuilt only when that rect changes (layout/orientation).
   private projCache: { key: string; proj: BoardProjection } | null = null;
   private get proj(): BoardProjection {
-    const b = this.layout.regions.board;
-    const key = `${b.x},${b.y},${b.w},${b.h}`;
+    // Source = the native grid frame; destination = the on-screen board footprint.
+    // The homography stretches the (near-square) grid onto the wide/shallow board.
+    const dst = this.layout.regions.board;
+    const key = `${dst.x},${dst.y},${dst.w},${dst.h}`;
     if (!this.projCache || this.projCache.key !== key) {
-      this.projCache = { key, proj: makeBoardProjection(b, BOARD_TILT) };
+      this.projCache = { key, proj: makeBoardProjection(this.gridFrame, BOARD_TILT, dst) };
     }
     return this.projCache.proj;
   }
@@ -782,12 +776,12 @@ export class MatchScene {
     const quad = [c.tl.x, c.tl.y, c.tr.x, c.tr.y, c.br.x, c.br.y, c.bl.x, c.bl.y];
     panel.poly(quad).fill({ color: C.boardBg, alpha: 0.92 });
     panel.poly(quad).stroke({ width: 1, color: C.boardBorder, alpha: 0.9 });
-    // Inset rim: project a 1px-inset board-space rect through the same transform.
-    const b = this.layout.regions.board;
-    const i0 = this.fwd({ x: b.x + 1, y: b.y + 1 });
-    const i1 = this.fwd({ x: b.x + b.w - 1, y: b.y + 1 });
-    const i2 = this.fwd({ x: b.x + b.w - 1, y: b.y + b.h - 1 });
-    const i3 = this.fwd({ x: b.x + 1, y: b.y + b.h - 1 });
+    // Inset rim: project a 1px-inset board-space frame through the same transform.
+    const f = this.gridFrame;
+    const i0 = this.fwd({ x: f.x + 1, y: f.y + 1 });
+    const i1 = this.fwd({ x: f.x + f.w - 1, y: f.y + 1 });
+    const i2 = this.fwd({ x: f.x + f.w - 1, y: f.y + f.h - 1 });
+    const i3 = this.fwd({ x: f.x + 1, y: f.y + f.h - 1 });
     panel.poly([i0.x, i0.y, i1.x, i1.y, i2.x, i2.y, i3.x, i3.y]).stroke({ width: 1, color: C.surfaceFloat, alpha: 0.25 });
     panel.eventMode = "none";
     layer.addChild(panel);
@@ -2765,9 +2759,12 @@ export class MatchScene {
     const reducedMotion = this.opts.settings.get().reducedMotion;
     const player = new CombatPlayer(events, gameData.gameplay.ticksPerSec, gameData, { reducedMotion });
     player.setSpeed(this.playbackSpeed);
+    // Overtime banner sits near the top (far edge) of the board, in SCREEN space
+    // (boardOffset* are board-source coords now — route them through fwd()).
+    const banner = this.fwd(hexToPixel(Math.floor(BOARD_COLS / 2), 0, offX, oppY, s));
     const view = new CombatView(toPixel, {
       x: this.designW / 2,
-      y: playerY - BOARD_ROWS * HEX_H * s + 10,
+      y: banner.y - 8,
     }, { reducedMotion, scale: s, edge: { w: this.designW, h: this.designH }, entityScale });
     this.combatLayer.addChild(view.container);
 

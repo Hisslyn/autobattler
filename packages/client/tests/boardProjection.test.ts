@@ -89,6 +89,41 @@ describe("makeBoardProjection — depth scale", () => {
   });
 });
 
+describe("makeBoardProjection — source→destination (wide, shallow footprint)", () => {
+  // Near-square source grid frame warped onto a much wider, shorter screen slab.
+  const SRC: Rect = { x: 0, y: 0, w: 384, h: 372 };
+  const DST: Rect = { x: 160, y: 56, w: 960, h: 409 };
+  const p = makeBoardProjection(SRC, 0.4, DST);
+
+  it("maps the source rect onto the destination trapezoid (near = dst.w, far = 0.6·dst.w)", () => {
+    expect(p.corners.bl.x).toBeCloseTo(DST.x, 4);
+    expect(p.corners.br.x).toBeCloseTo(DST.x + DST.w, 4);
+    const farW = p.corners.tr.x - p.corners.tl.x;
+    expect(farW).toBeCloseTo(DST.w * (1 - 0.4), 4); // 0.6× the near edge
+    // Trapezoid spans the dst height exactly.
+    expect(p.corners.bl.y).toBeCloseTo(DST.y + DST.h, 4);
+    expect(p.corners.tl.y).toBeCloseTo(DST.y, 4);
+  });
+
+  it("forward/inverse stay exact inverses across the source grid", () => {
+    for (let gy = 0; gy <= 6; gy++) {
+      for (let gx = 0; gx <= 6; gx++) {
+        const bp = { x: SRC.x + (SRC.w * gx) / 6, y: SRC.y + (SRC.h * gy) / 6 };
+        const round = p.inverse(p.forward(bp));
+        expect(round).not.toBeNull();
+        near(round!, bp);
+      }
+    }
+  });
+
+  it("magnifies near (depth scale > 1) and foreshortens far (< near)", () => {
+    const sNear = p.scaleAt({ x: SRC.x + SRC.w / 2, y: SRC.y + SRC.h });
+    const sFar = p.scaleAt({ x: SRC.x + SRC.w / 2, y: SRC.y });
+    expect(sNear).toBeGreaterThan(1); // dst.w (960) > src.w (384)
+    expect(sFar).toBeLessThan(sNear);
+  });
+});
+
 describe("makeBoardProjection — off-board inverse is null", () => {
   const p = makeBoardProjection(RECT, 0.22);
   it("returns null well outside the projected board", () => {

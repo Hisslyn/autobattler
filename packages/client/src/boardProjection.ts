@@ -8,11 +8,17 @@
 // from a screen point (null when the screen point lies outside the board).
 //
 // forward/inverse are an exact pair: both come from one 3×3 homography and its
-// matrix inverse, so any point round-trips and BOARD_TILT = 0 is the identity
-// (byte-identical to the prior flat board). The mapping is a true projective
-// (perspective) transform — the far edge narrows AND rows foreshorten — so the
-// flat rectangle renders as a trapezoid: near edge (player/bottom) wide, far
-// edge (enemy/top) narrow.
+// matrix inverse, so any point round-trips. When the destination defaults to the
+// source rect, BOARD_TILT = 0 is the identity (byte-identical to a flat board).
+// The mapping is a true projective (perspective) transform — the far edge narrows
+// AND rows foreshorten — so the source rectangle renders as a trapezoid: near edge
+// (player/bottom) wide, far edge (enemy/top) narrow.
+//
+// A separate `dst` rect lets the (near-square) board-space grid be warped onto a
+// WIDE, SHALLOW on-screen footprint: the grid fills `rect` uniformly, and the
+// homography stretches it across `dst` (near edge = dst.w, far edge = dst.w·(1−t)),
+// so the hexes lay back as one coherent perspective grid. forward/inverse stay an
+// exact pair (still one homography + its inverse) regardless of dst.
 import { BOARD_TILT } from "./theme.js";
 
 export interface Pt {
@@ -112,14 +118,26 @@ export interface BoardProjection {
 }
 
 /**
- * Build a perspective projection for a board-space rectangle. `tilt` defaults to
- * the themed BOARD_TILT; 0 yields the identity transform (flat board).
+ * Build a perspective projection mapping board-space `rect` onto an on-screen
+ * destination trapezoid. `tilt` defaults to the themed BOARD_TILT.
+ *
+ * `dst` is the screen-space footprint the board renders into; it defaults to
+ * `rect` (in which case tilt = 0 is the exact identity, the flat-board case).
+ * The destination's near (bottom) edge spans `dst.w`; its far (top) edge narrows
+ * to `(1 − tilt)·dst.w` about the dst center. When `dst` differs from `rect` the
+ * homography also scales the grid from board space onto the wider/shallower
+ * footprint — forward/inverse remain exact inverses either way.
+ *
+ * forward/inverse operate in `rect`'s board space; inverse returns null when the
+ * recovered board point falls outside `rect` (+ a forgiving edge margin).
  */
-export function makeBoardProjection(rect: Rect, tilt: number = BOARD_TILT): BoardProjection {
+export function makeBoardProjection(
+  rect: Rect,
+  tilt: number = BOARD_TILT,
+  dst: Rect = rect
+): BoardProjection {
   const { x, y, w, h } = rect;
   const t = clamp(tilt, 0, 0.9);
-  const cx = x + w / 2;
-  const hw = w / 2;
   const k = 1 - t; // top-edge half-width factor (far edge narrows toward center)
 
   // Source rectangle (unit-square corner order: TL, TR, BR, BL).
@@ -127,12 +145,15 @@ export function makeBoardProjection(rect: Rect, tilt: number = BOARD_TILT): Boar
   const s1: Pt = { x: x + w, y };
   const s2: Pt = { x: x + w, y: y + h };
   const s3: Pt = { x, y: y + h };
-  // Destination trapezoid: top edge narrowed about center, bottom edge full
-  // width. The homography supplies the row foreshortening for free.
-  const d0: Pt = { x: cx - hw * k, y };
-  const d1: Pt = { x: cx + hw * k, y };
-  const d2: Pt = { x: x + w, y: y + h };
-  const d3: Pt = { x, y: y + h };
+  // Destination trapezoid (screen space): bottom edge full `dst` width, top edge
+  // narrowed about the dst center. The homography supplies the row foreshortening
+  // (and any source→dst scaling) for free.
+  const dcx = dst.x + dst.w / 2;
+  const dhw = dst.w / 2;
+  const d0: Pt = { x: dcx - dhw * k, y: dst.y };
+  const d1: Pt = { x: dcx + dhw * k, y: dst.y };
+  const d2: Pt = { x: dst.x + dst.w, y: dst.y + dst.h };
+  const d3: Pt = { x: dst.x, y: dst.y + dst.h };
 
   const fwdM = mul(squareToQuad(d0, d1, d2, d3), inv(squareToQuad(s0, s1, s2, s3)));
   const invM = inv(fwdM);
