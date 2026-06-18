@@ -8,7 +8,7 @@ import type { IDriver } from "../driver.js";
 import { CombatPlayer, toDisplayHex } from "../combat/player.js";
 import type { PlaybackSpeed } from "../combat/player.js";
 import { CombatView } from "../combat/view.js";
-import { C, tierColor, CHIP_TEXT_SIZE, CHIP_TEXT_FONT } from "../theme.js";
+import { C, tierColor, CHIP_TEXT_SIZE, CHIP_TEXT_FONT, BOARD_TILT } from "../theme.js";
 import { drawUnitToken } from "../unitToken.js";
 import { drawGlyph, glyphForTraits } from "../glyphs.js";
 import type { GlyphKind } from "../glyphs.js";
@@ -50,6 +50,7 @@ import {
   HEX_R, HEX_W, HEX_H, BOARD_COLS, BOARD_ROWS, BOARD_SLOTS,
   hexToPixel, hexFromPointer,
 } from "../hexUtils.js";
+import { makeBoardProjection, type BoardProjection } from "../boardProjection.js";
 
 // Item chip sizing (orientation-independent).
 const ITEM_SLOT = 30;          // item chip size
@@ -66,7 +67,12 @@ interface HexStyle {
   border?: { color: number; width: number; alpha?: number };
 }
 
-/** Flat-top hex tile centered at (x, y). */
+/**
+ * Flat-top hex tile centered at board-space (x, y). When `project` is supplied
+ * each vertex is mapped through it, so the ground tile renders as a true
+ * perspective-foreshortened polygon (the board's trapezoid). Without it the tile
+ * is the original flat hexagon.
+ */
 function drawHex(
   g: PIXI.Graphics,
   x: number,
@@ -74,12 +80,16 @@ function drawHex(
   r: number,
   fill: number,
   alpha = 1,
-  style: HexStyle = {}
+  style: HexStyle = {},
+  project?: (p: { x: number; y: number }) => { x: number; y: number }
 ): void {
   const pts: number[] = [];
   for (let i = 0; i < 6; i++) {
     const angle = (Math.PI / 3) * i;
-    pts.push(x + r * Math.cos(angle), y + r * Math.sin(angle));
+    const vx = x + r * Math.cos(angle);
+    const vy = y + r * Math.sin(angle);
+    const p = project ? project({ x: vx, y: vy }) : { x: vx, y: vy };
+    pts.push(p.x, p.y);
   }
   g.poly(pts).fill({ color: fill, alpha });
   if (style.border) g.poly(pts).stroke({ width: style.border.width, color: style.border.color, alpha: style.border.alpha ?? 1 });
@@ -389,6 +399,36 @@ export class MatchScene {
   private get oppBoardOffsetY(): number {
     const s = this.boardScale;
     return this.boardOffsetY - BOARD_ROWS * HEX_H * s - 12 * s;
+  }
+
+  // ─── PERSPECTIVE PROJECTION (renderer-only) ──────────────────────────────────
+  // Single transform for every board-space ⇄ screen conversion. Built from the
+  // board panel rect; rebuilt only when that rect changes (layout/orientation).
+  private projCache: { key: string; proj: BoardProjection } | null = null;
+  private get proj(): BoardProjection {
+    const b = this.layout.regions.board;
+    const key = `${b.x},${b.y},${b.w},${b.h}`;
+    if (!this.projCache || this.projCache.key !== key) {
+      this.projCache = { key, proj: makeBoardProjection(b, BOARD_TILT) };
+    }
+    return this.projCache.proj;
+  }
+  /** Board-space point → tilted screen point. */
+  private fwd(p: { x: number; y: number }): { x: number; y: number } {
+    return this.proj.forward(p);
+  }
+  /** Depth scale (≈1 near, smaller far) at a board-space point. */
+  private depthScaleAt(p: { x: number; y: number }): number {
+    return this.proj.scaleAt(p);
+  }
+  /**
+   * Screen pointer → player-half board slot, routed through the inverse
+   * projection. Returns -1 when the pointer is off-board or off every player hex.
+   */
+  private boardSlotAt(px: number, py: number): number {
+    const bp = this.proj.inverse({ x: px, y: py });
+    if (!bp) return -1;
+    return hexFromPointer(bp.x, bp.y, this.boardOffsetX, this.boardOffsetY, this.boardScale);
   }
 
   /** Resize the invisible drag-catcher to the current design space. */
@@ -731,15 +771,24 @@ export class MatchScene {
 
   // ─── BOARD ───────────────────────────────────────────────────────────────
 
-  /** Board-bg panel behind the hex tiles (shared by planning + combat). */
+  /** Board-bg panel behind the hex tiles (shared by planning + combat). The panel
+   *  is the board's ground plane, so it is projected to the perspective trapezoid
+   *  (its four corners become the projected board corners). */
   private drawBoardPanel(layer: PIXI.Container): void {
-    const b = this.layout.regions.board;
+    const c = this.proj.corners;
     const panel = new PIXI.Graphics();
-    // v8 path API: fill, outer border, then a faint inset rim so the board reads
-    // as a raised panel above the page rather than a flat rectangle.
-    panel.roundRect(b.x, b.y, b.w, b.h, 10).fill({ color: C.boardBg, alpha: 0.92 });
-    panel.roundRect(b.x, b.y, b.w, b.h, 10).stroke({ width: 1, color: C.boardBorder, alpha: 0.9 });
-    panel.roundRect(b.x + 1, b.y + 1, b.w - 2, b.h - 2, 9).stroke({ width: 1, color: C.surfaceFloat, alpha: 0.25 });
+    // Projected trapezoid: fill, outer border, then a faint inset rim so the
+    // board reads as a raised, tilted ground plane rather than a flat rectangle.
+    const quad = [c.tl.x, c.tl.y, c.tr.x, c.tr.y, c.br.x, c.br.y, c.bl.x, c.bl.y];
+    panel.poly(quad).fill({ color: C.boardBg, alpha: 0.92 });
+    panel.poly(quad).stroke({ width: 1, color: C.boardBorder, alpha: 0.9 });
+    // Inset rim: project a 1px-inset board-space rect through the same transform.
+    const b = this.layout.regions.board;
+    const i0 = this.fwd({ x: b.x + 1, y: b.y + 1 });
+    const i1 = this.fwd({ x: b.x + b.w - 1, y: b.y + 1 });
+    const i2 = this.fwd({ x: b.x + b.w - 1, y: b.y + b.h - 1 });
+    const i3 = this.fwd({ x: b.x + 1, y: b.y + b.h - 1 });
+    panel.poly([i0.x, i0.y, i1.x, i1.y, i2.x, i2.y, i3.x, i3.y]).stroke({ width: 1, color: C.surfaceFloat, alpha: 0.25 });
     panel.eventMode = "none";
     layer.addChild(panel);
   }
@@ -763,13 +812,14 @@ export class MatchScene {
     // creep round reads as PvE — the hex tiles stay non-interactive either way.
     const isPveRound = this.driver.isPveRound();
     const enemyZone = isPveRound ? C.mobZone : C.enemyHex;
+    const fwd = (p: { x: number; y: number }): { x: number; y: number } => this.fwd(p);
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
-        const { x, y } = hexToPixel(q, r, offX, oppY, s);
+        const bp = hexToPixel(q, r, offX, oppY, s);
         const g = new PIXI.Graphics();
-        drawHex(g, x, y, hexR, enemyZone, unitDragging ? 0.4 : 1, {
+        drawHex(g, bp.x, bp.y, hexR, enemyZone, unitDragging ? 0.4 : 1, {
           border: { color: C.boardBorder, width: 1, alpha: unitDragging ? 0.4 : 0.8 },
-        });
+        }, fwd);
         this.boardLayer.addChild(g);
       }
     }
@@ -785,7 +835,9 @@ export class MatchScene {
         for (const unit of mobBoard.units) {
           const displayRow = unit.pos.r - BOARD_ROWS; // enemy-half row → 0..BOARD_ROWS-1
           if (displayRow < 0 || displayRow >= BOARD_ROWS) continue;
-          const { x, y } = hexToPixel(unit.pos.q, displayRow, offX, oppY, s);
+          const bp = hexToPixel(unit.pos.q, displayRow, offX, oppY, s);
+          const sp = this.fwd(bp);
+          const sc = this.depthScaleAt(bp);
           const uc = new PIXI.Container();
           uc.eventMode = "static";
           uc.cursor = "default";
@@ -795,7 +847,8 @@ export class MatchScene {
           uc.on("pointerupoutside", () => this.clearPress());
           // withBars=false: the neutral mobTint ring fires automatically because
           // the mob defId is absent from data.units (no extra theming here).
-          drawUnit(uc, unit, x, y, tokR, false, false);
+          // Entities stay upright + screen-aligned; only depth-scaled.
+          drawUnit(uc, unit, sp.x, sp.y, Math.round(tokR * sc), false, false);
           this.boardLayer.addChild(uc);
         }
       }
@@ -806,38 +859,46 @@ export class MatchScene {
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
         const slotIdx = r * BOARD_COLS + q;
-        const { x, y } = hexToPixel(q, r, offX, playerY, s);
+        const bp = hexToPixel(q, r, offX, playerY, s);
         const isSelected = this.selectedBoardIdx === slotIdx && me.board[slotIdx] != null;
         const occupied = me.board[slotIdx] != null;
         const fill = isSelected
           ? C.bgBoardSel
           : unitDragging && occupied ? C.bgBoardDragOver : C.myHex;
         const g = new PIXI.Graphics();
-        drawHex(g, x, y, hexR, fill, 1, {
+        // Projected polygon fill → the Pixi hit area is the tilted tile, so a tap
+        // lands on the hex actually under the finger at the tilted angle.
+        drawHex(g, bp.x, bp.y, hexR, fill, 1, {
           border: unitDragging
             ? { color: C.hpGreen, width: 2, alpha: 0.6 }
             : { color: C.boardBorder, width: 1, alpha: 0.8 },
-        });
+        }, fwd);
+        const sp = this.fwd(bp);
         g.eventMode = "static";
         g.cursor = "pointer";
-        g.on("pointerdown", () => this.onHexPointerDown(slotIdx, me, x, y));
+        g.on("pointerdown", () => this.onHexPointerDown(slotIdx, me, sp.x, sp.y));
         this.boardLayer.addChild(g);
       }
     }
 
-    // Draw units
+    // Draw units. Slot index order already runs back row → front row, so units
+    // are added back-to-front and a nearer (larger, depth-scaled) unit renders in
+    // front of a farther one. Each is positioned at forward(its board hex) but
+    // drawn UPRIGHT and screen-aligned (no tile warp) — only depth-scaled.
     for (let idx = 0; idx < BOARD_SLOTS; idx++) {
       const unit = me.board[idx];
       if (!unit) continue;
       if (this.dragUnit?.uid === unit.uid) continue; // being dragged
       const q = idx % BOARD_COLS;
       const r = Math.floor(idx / BOARD_COLS);
-      const { x, y } = hexToPixel(q, r, offX, playerY, s);
+      const bp = hexToPixel(q, r, offX, playerY, s);
+      const sp = this.fwd(bp);
+      const r2 = Math.round(tokR * this.depthScaleAt(bp));
       // Selected (tap-to-move) unit gets a halo ring OUTSIDE its tier ring so it
       // reads as "this unit is selected" — the hex fill alone is hidden behind it.
       if (this.selectedBoardIdx === idx && !this.isDragging) {
         const halo = new PIXI.Graphics();
-        halo.circle(x, y, tokR + 4).stroke({ width: 2, color: C.tier3, alpha: 0.75 });
+        halo.circle(sp.x, sp.y, r2 + 4).stroke({ width: 2, color: C.tier3, alpha: 0.75 });
         halo.eventMode = "none";
         this.boardLayer.addChild(halo);
       }
@@ -847,7 +908,7 @@ export class MatchScene {
       uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBoard(idx, unit, e));
       uc.on("pointerup", () => this.clearPress());
       uc.on("pointerupoutside", () => this.clearPress());
-      drawUnit(uc, unit, x, y, tokR, this.selectedBenchIdx !== null || (this.selectedBoardIdx !== null && this.selectedBoardIdx !== idx));
+      drawUnit(uc, unit, sp.x, sp.y, r2, this.selectedBenchIdx !== null || (this.selectedBoardIdx !== null && this.selectedBoardIdx !== idx));
       this.boardLayer.addChild(uc);
     }
   }
@@ -1154,7 +1215,7 @@ export class MatchScene {
     // 0) Consumables target a UNIT only (board/bench) — never combine onto another
     // item. If dropped anywhere but a unit, the consumable stays put (no-op).
     if (itemModel(drag.id, gameData)?.consumable) {
-      const cBoard = hexFromPointer(px, py, this.boardOffsetX, this.boardOffsetY, this.boardScale);
+      const cBoard = this.boardSlotAt(px, py);
       if (cBoard >= 0 && me.board[cBoard]) { this.useConsumableOnUnit(drag.id, me.board[cBoard]!); return; }
       const cBench = this.benchSlotAt(px, py);
       if (cBench !== null && me.bench[cBench]) { this.useConsumableOnUnit(drag.id, me.bench[cBench]!); return; }
@@ -1162,7 +1223,7 @@ export class MatchScene {
     }
 
     // 1) Dropped on a board hex with a unit → EQUIP.
-    const boardSlot = hexFromPointer(px, py, this.boardOffsetX, this.boardOffsetY, this.boardScale);
+    const boardSlot = this.boardSlotAt(px, py);
     if (boardSlot >= 0 && me.board[boardSlot]) {
       this.tryEquip(me.board[boardSlot]!.uid);
       return;
@@ -1291,7 +1352,8 @@ export class MatchScene {
     if (!me) return null;
     const bIdx = me.board.findIndex((x) => x?.uid === uid);
     if (bIdx >= 0) {
-      return hexToPixel(bIdx % BOARD_COLS, Math.floor(bIdx / BOARD_COLS), this.boardOffsetX, this.boardOffsetY, this.boardScale);
+      // Board-anchored VFX → forward through the perspective transform.
+      return this.fwd(hexToPixel(bIdx % BOARD_COLS, Math.floor(bIdx / BOARD_COLS), this.boardOffsetX, this.boardOffsetY, this.boardScale));
     }
     const benchIdx = me.bench.findIndex((x) => x.uid === uid);
     if (benchIdx >= 0) {
@@ -2052,8 +2114,8 @@ export class MatchScene {
     if (!this.dragUnit) return;
     if (!me) { this.dragUnit = null; return; }
 
-    // Check if dropped on board area
-    const boardSlot = hexFromPointer(px, py, this.boardOffsetX, this.boardOffsetY, this.boardScale);
+    // Check if dropped on board area (screen → board via the inverse projection)
+    const boardSlot = this.boardSlotAt(px, py);
     if (boardSlot >= 0) {
       const result = this.driver.playerCommand({
         type: "MOVE",
@@ -2248,8 +2310,7 @@ export class MatchScene {
     for (let idx = 0; idx < me.board.length; idx++) {
       const u = me.board[idx];
       if (u && u.star >= 2 && (before.get(u.uid) ?? 0) < u.star) {
-        const { x, y } = hexToPixel(idx % BOARD_COLS, Math.floor(idx / BOARD_COLS), this.boardOffsetX, this.boardOffsetY, this.boardScale);
-        return { x, y };
+        return this.fwd(hexToPixel(idx % BOARD_COLS, Math.floor(idx / BOARD_COLS), this.boardOffsetX, this.boardOffsetY, this.boardScale));
       }
     }
     for (let i = 0; i < me.bench.length; i++) {
@@ -2618,20 +2679,21 @@ export class MatchScene {
     const hexR = this.hexR - 2 * s;
     const tokR = this.boardTokenR;
     const enemyZone = isPve ? C.mobZone : C.enemyHex;
+    const fwd = (p: { x: number; y: number }): { x: number; y: number } => this.fwd(p);
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
         const opp = hexToPixel(q, r, offX, oppY, s);
         const og = new PIXI.Graphics();
         drawHex(og, opp.x, opp.y, hexR, enemyZone, 1, {
           border: { color: C.boardBorder, width: 1, alpha: 0.8 },
-        });
+        }, fwd);
         this.combatLayer.addChild(og);
 
         const own = hexToPixel(q, r, offX, playerY, s);
         const g = new PIXI.Graphics();
         drawHex(g, own.x, own.y, hexR, C.myHex, 1, {
           border: { color: C.boardBorder, width: 1, alpha: 0.8 },
-        });
+        }, fwd);
         this.combatLayer.addChild(g);
       }
     }
@@ -2648,9 +2710,10 @@ export class MatchScene {
         if (!unit) continue;
         const q = idx % BOARD_COLS;
         const r = Math.floor(idx / BOARD_COLS);
-        const { x, y } = hexToPixel(q, r, offX, playerY, s);
+        const bp = hexToPixel(q, r, offX, playerY, s);
+        const sp = this.fwd(bp);
         const uc = new PIXI.Container();
-        drawUnit(uc, unit, x, y, tokR);
+        drawUnit(uc, unit, sp.x, sp.y, Math.round(tokR * this.depthScaleAt(bp)));
         this.combatLayer.addChild(uc);
       }
       this.driver.combatPlaybackDone();
@@ -2686,12 +2749,18 @@ export class MatchScene {
     const playerY = this.boardOffsetY;
     const oppY = this.oppBoardOffsetY;
     const s = this.boardScale;
-    const toPixel = (hex: HexCoord): { x: number; y: number } => {
+    // Board-space position of a display hex (flat). Every combat conversion —
+    // unit positions, projectiles, ability/VFX anchors — is routed from here
+    // through the perspective forward(), and the depth scale comes from the same
+    // board-space point so combat entities scale with the tilted ground.
+    const toBoard = (hex: HexCoord): { x: number; y: number } => {
       const d = toDisplayHex(hex, side);
       return d.r < BOARD_ROWS
         ? hexToPixel(d.q, d.r, offX, oppY, s)
         : hexToPixel(d.q, d.r - BOARD_ROWS, offX, playerY, s);
     };
+    const toPixel = (hex: HexCoord): { x: number; y: number } => this.fwd(toBoard(hex));
+    const entityScale = (hex: HexCoord): number => this.depthScaleAt(toBoard(hex));
 
     const reducedMotion = this.opts.settings.get().reducedMotion;
     const player = new CombatPlayer(events, gameData.gameplay.ticksPerSec, gameData, { reducedMotion });
@@ -2699,7 +2768,7 @@ export class MatchScene {
     const view = new CombatView(toPixel, {
       x: this.designW / 2,
       y: playerY - BOARD_ROWS * HEX_H * s + 10,
-    }, { reducedMotion, scale: s, edge: { w: this.designW, h: this.designH } });
+    }, { reducedMotion, scale: s, edge: { w: this.designW, h: this.designH }, entityScale });
     this.combatLayer.addChild(view.container);
 
     const tickerFn = (ticker: PIXI.Ticker): void => {

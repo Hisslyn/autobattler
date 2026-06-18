@@ -87,7 +87,7 @@ export class CombatView {
   private recoil = new Map<number, number>();
   private pop = new Map<number, number>();
   /** Dying units kept around to animate the dissolve after they leave the frame. */
-  private dissolves = new Map<number, { ageMs: number; x: number; y: number; defId: string; tier: number; star: 1 | 2 | 3 }>();
+  private dissolves = new Map<number, { ageMs: number; x: number; y: number; defId: string; tier: number; star: 1 | 2 | 3; r: number }>();
   private shakeMs = 0;
   private shakeMag = 0;
   private readonly bannerX: number;
@@ -98,11 +98,13 @@ export class CombatView {
   private readonly reducedMotion: boolean;
   /** Board render scale (landscape shrinks the board to fit; portrait = 1). */
   private readonly scale: number;
+  /** Per-hex depth scale (perspective: farther back = smaller; default 1). */
+  private readonly entityScale: (hex: HexCoord) => number;
 
   constructor(
     private toPixel: HexToPixel,
     bannerPos: { x: number; y: number },
-    opts: { reducedMotion?: boolean; scale?: number; edge?: { w: number; h: number } } = {}
+    opts: { reducedMotion?: boolean; scale?: number; edge?: { w: number; h: number }; entityScale?: (hex: HexCoord) => number } = {}
   ) {
     this.container.addChild(this.unitLayer);
     this.container.addChild(this.fxLayer);
@@ -112,11 +114,15 @@ export class CombatView {
     this.edgeH = opts.edge?.h ?? bannerPos.y * 2;
     this.reducedMotion = opts.reducedMotion ?? false;
     this.scale = opts.scale ?? 1;
+    this.entityScale = opts.entityScale ?? (() => 1);
   }
 
   renderFrame(frame: PlaybackFrame, dtMs: number): void {
     this.unitLayer.removeChildren();
-    for (const u of frame.units) {
+    // Depth-sort back-row-first: a nearer (lower-on-screen, larger) unit draws in
+    // front of a farther one once the board is tilted.
+    const ordered = [...frame.units].sort((a, b) => this.toPixel(a.hex).y - this.toPixel(b.hex).y);
+    for (const u of ordered) {
       if (u.alive) this.drawUnit(u, dtMs);
       else this.bars.delete(u.uid);
     }
@@ -152,6 +158,8 @@ export class CombatView {
 
   private drawUnit(u: UnitFrame, dtMs: number): void {
     const { x, y } = this.unitPixel(u);
+    // Upright + screen-aligned token; only its radius is depth-scaled.
+    const r = UNIT_R * this.scale * this.entityScale(u.hex);
     const tier = gameData.units.find((d) => d.id === u.defId)?.tier ?? 1;
     const hpTarget = u.maxHp > 0 ? u.hp / u.maxHp : 0;
     const manaTarget = u.maxMana > 0 ? u.mana / u.maxMana : 0;
@@ -174,11 +182,11 @@ export class CombatView {
     const recMs = this.recoil.get(u.uid);
     if (recMs) uc.y -= 3 * (recMs / RECOIL_MS);
     drawUnitToken(uc, u.defId, tier, u.star, 0, 0, {
-      radius: UNIT_R * this.scale,
+      radius: r,
       bars: { hpFrac: st.hp, manaFrac: st.mana, hpChipFrac: st.hpChip },
     });
     this.unitLayer.addChild(uc);
-    this.lastUnit.set(u.uid, { x, y, defId: u.defId, tier, star: u.star });
+    this.lastUnit.set(u.uid, { x, y, defId: u.defId, tier, star: u.star, r });
   }
 
   // ─── fx spawning ───────────────────────────────────────────────────────────
@@ -318,7 +326,7 @@ export class CombatView {
     // after it leaves the alive set. Identity from the last frame's draw.
     const last = this.lastUnit.get(uid);
     if (!last) return;
-    this.dissolves.set(uid, { ageMs: 0, x: last.x, y: last.y, defId: last.defId, tier: last.tier, star: last.star });
+    this.dissolves.set(uid, { ageMs: 0, x: last.x, y: last.y, defId: last.defId, tier: last.tier, star: last.star, r: last.r });
     this.bars.delete(uid);
     this.recoil.delete(uid);
     this.pop.delete(uid);
@@ -334,7 +342,7 @@ export class CombatView {
       uc.position.set(d.x, d.y + 8 * k);
       uc.scale.set(1 - 0.25 * k);
       uc.alpha = 1 - k;
-      drawUnitToken(uc, d.defId, d.tier, d.star, 0, 0, { radius: UNIT_R * this.scale });
+      drawUnitToken(uc, d.defId, d.tier, d.star, 0, 0, { radius: d.r });
       this.unitLayer.addChild(uc);
     }
   }
@@ -412,6 +420,6 @@ export class CombatView {
     this.shakeMs = SHAKE_MS;
   }
 
-  // Identity cache for dissolve snapshots (defId/tier/star/pixel of last draw).
-  private lastUnit = new Map<number, { x: number; y: number; defId: string; tier: number; star: 1 | 2 | 3 }>();
+  // Identity cache for dissolve snapshots (defId/tier/star/pixel/radius of last draw).
+  private lastUnit = new Map<number, { x: number; y: number; defId: string; tier: number; star: 1 | 2 | 3; r: number }>();
 }
