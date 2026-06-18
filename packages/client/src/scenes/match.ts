@@ -137,6 +137,14 @@ export class MatchScene {
   private frameLayer!: PIXI.Container;
   /** Planning-phase juice (star-up flourish, buy/sell pops); not cleared by render(). */
   private planningFxLayer!: PIXI.Container;
+  /** Drop-down shop panel (toggled by the money-sack button) + its toggle button. */
+  private shopPanelLayer!: PIXI.Container;
+  private shopToggleLayer!: PIXI.Container;
+  /** Drop-down shop UI state (view-only; never persisted). */
+  private shopPanelOpen = false;
+  /** Current vertical slide offset of the panel (0 = open, -panelH = hidden up). */
+  private shopPanelOffsetY = -9999;
+  private shopPanelAnimFn: ((t: PIXI.Ticker) => void) | null = null;
 
   private selectedBenchIdx: number | null = null;
   private selectedBoardIdx: number | null = null;
@@ -264,6 +272,8 @@ export class MatchScene {
     this.hudLayer = new PIXI.Container();
     this.shopLayer = new PIXI.Container();
     this.traitLayer = new PIXI.Container();
+    this.shopPanelLayer = new PIXI.Container();
+    this.shopToggleLayer = new PIXI.Container();
     this.combatLayer = new PIXI.Container();
     this.combatLayer.sortableChildren = true; // keeps its own internal z-stack
     this.lootLayer = new PIXI.Container();
@@ -280,6 +290,8 @@ export class MatchScene {
     this.hudLayer.zIndex = L5_HUD;
     this.shopLayer.zIndex = L5_HUD;
     this.traitLayer.zIndex = L5_HUD;
+    this.shopPanelLayer.zIndex = L5_HUD;
+    this.shopToggleLayer.zIndex = L5_HUD;
     this.combatLayer.zIndex = L5_HUD;
     this.lootLayer.zIndex = L5_HUD;
     this.toastLayer.zIndex = L8_TOAST;
@@ -296,6 +308,9 @@ export class MatchScene {
     this.container.addChild(this.hudLayer);
     this.container.addChild(this.shopLayer);
     this.container.addChild(this.traitLayer);
+    // Panel + toggle sit above the docked shop/board, below combat overlay + modals.
+    this.container.addChild(this.shopPanelLayer);
+    this.container.addChild(this.shopToggleLayer);
     this.container.addChild(this.combatLayer);
     this.container.addChild(this.lootLayer);
     this.container.addChild(this.toastLayer);
@@ -399,6 +414,8 @@ export class MatchScene {
       if (this.isLandscape) this.renderRailTabs(me);
       else this.renderTraitStrip(me);
       this.renderShop(me);
+      this.renderShopToggle(me);
+      this.renderShopPanel(me);
     }
   }
 
@@ -1303,22 +1320,37 @@ export class MatchScene {
   private renderShop(me: PlayerState): void {
     this.shopLayer.removeChildren();
     this.renderControls(me);
+    // Landscape has no docked shop row — the shop lives only in the drop-down
+    // panel (money-sack toggle). Portrait keeps its docked shop strip.
+    if (!this.isLandscape) {
+      this.drawShopCards(this.shopLayer, this.layout.regions.shop, me, this.isLandscape);
+    }
+  }
 
-    // ── E. Shop cards (5) ────────────────────────────────────────────────────
-    const shop = this.layout.regions.shop;
-    const shopY = shop.y;
-    const cardH = shop.h;
-    // Portrait keeps the existing 71px card width; landscape caps the card width
-    // and centers the 5-card strip within the (wide) shop region.
+  /**
+   * Draw the 5 shop cards into `layer` within `area`. Shared by the docked
+   * bottom shop and the drop-down shop panel so both render the SAME live shop
+   * (me.shop) and route taps through `onShopBuy` — one shop, two surfaces.
+   * `centered` caps the card width and centers the 5-card strip (landscape +
+   * panel); otherwise the original portrait fixed 71px, left-aligned.
+   */
+  private drawShopCards(
+    layer: PIXI.Container,
+    area: { x: number; y: number; w: number; h: number },
+    me: PlayerState,
+    centered: boolean
+  ): void {
+    const shopY = area.y;
+    const cardH = area.h;
     const gap = 4;
     let cardW: number, startX: number;
-    if (this.isLandscape) {
-      cardW = Math.min(110, Math.floor((shop.w - 4 * gap) / 5));
+    if (centered) {
+      cardW = Math.min(110, Math.floor((area.w - 4 * gap) / 5));
       const totalW = 5 * cardW + 4 * gap;
-      startX = shop.x + Math.max(0, (shop.w - totalW) / 2);
+      startX = area.x + Math.max(0, (area.w - totalW) / 2);
     } else {
       cardW = 71;
-      startX = shop.x;
+      startX = area.x;
     }
     for (let i = 0; i < 5; i++) {
       const x = startX + i * (cardW + gap);
@@ -1326,7 +1358,7 @@ export class MatchScene {
 
       if (!slot) {
         // Empty slots read as non-interactive: dimmer fill + subdued border.
-        this.chip(this.shopLayer, x, shopY, cardW, cardH, {
+        this.chip(layer, x, shopY, cardW, cardH, {
           fill: C.bgShopEmpty, fillAlpha: 0.4, border: C.borderSubtle,
         });
         continue;
@@ -1336,7 +1368,7 @@ export class MatchScene {
       const tc = tierColor(slot.tier);
       const cardCx = x + cardW / 2;
 
-      const card = this.chip(this.shopLayer, x, shopY, cardW, cardH, {
+      const card = this.chip(layer, x, shopY, cardW, cardH, {
         fill: C.bgShopCard,
       });
       // Tier-colored top accent bar — top corners rounded to tuck inside the
@@ -1353,7 +1385,7 @@ export class MatchScene {
       top.closePath();
       top.fill({ color: tc });
       top.eventMode = "none";
-      this.shopLayer.addChild(top);
+      layer.addChild(top);
 
       card.eventMode = "static";
       card.hitArea = new PIXI.Rectangle(x, shopY, cardW, cardH);
@@ -1376,9 +1408,9 @@ export class MatchScene {
       const tokenC = new PIXI.Container();
       tokenC.eventMode = "none";
       drawUnitToken(tokenC, slot.defId, slot.tier, 0, cardCx, shopY + cl.discY, { radius: cl.discR });
-      this.shopLayer.addChild(tokenC);
+      layer.addChild(tokenC);
 
-      this.text(this.shopLayer, def?.name ?? slot.defId, cardCx, shopY + cl.nameY, 8, C.textPrimary, [0.5, 0]);
+      this.text(layer, def?.name ?? slot.defId, cardCx, shopY + cl.nameY, 8, C.textPrimary, [0.5, 0]);
 
       const traitNames = [def?.origin, ...(def?.classes ?? [])]
         .map((tid) => gameData.traits.find((t) => t.id === tid)?.name)
@@ -1387,12 +1419,139 @@ export class MatchScene {
       const traitStr = traitNames.length > 1
         ? `${traitNames[0]!.slice(0, 6)}·${traitNames[1]!.slice(0, 6)}`
         : (traitNames[0] ?? "");
-      this.text(this.shopLayer, traitStr, cardCx, shopY + cl.traitY, 7, C.textMuted, [0.5, 0]);
+      this.text(layer, traitStr, cardCx, shopY + cl.traitY, 7, C.textMuted, [0.5, 0]);
 
-      this.glyph(this.shopLayer, "coin", x + 12, shopY + cl.tierY, 9, C.accentGold);
-      this.text(this.shopLayer, `${slot.tier}`, x + 20, shopY + cl.tierY, 11, C.textGold, [0, 0.5]);
+      this.glyph(layer, "coin", x + 12, shopY + cl.tierY, 9, C.accentGold);
+      this.text(layer, `${slot.tier}`, x + 20, shopY + cl.tierY, 11, C.textGold, [0, 0.5]);
     }
+  }
 
+  // ─── Drop-down shop panel + money-sack toggle ────────────────────────────────
+
+  /**
+   * Money-sack toggle button rect — anchored in the bottom-right HUD corner,
+   * directly above the sell drop-zone so the two coexist (sell keeps its spot).
+   */
+  private shopToggleRect(): { x: number; y: number; w: number; h: number } {
+    const sr = this.layout.regions.sellControl;
+    const size = Math.min(sr.w, sr.h, 48);
+    return { x: sr.x + (sr.w - size) / 2, y: sr.y - size - 6, w: size, h: size };
+  }
+
+  /**
+   * Drop-down shop panel rect — anchored to the top + right edge, width 80% of
+   * the design width, spanning leftward from the right edge. Tall enough for one
+   * row of shop cards under a slim title strip.
+   */
+  private shopPanelRect(): { x: number; y: number; w: number; h: number } {
+    const w = Math.round(this.designW * 0.8);
+    const cardH = Math.max(72, Math.min(this.layout.regions.shop.h, Math.round(this.designH * 0.22)));
+    const titleH = 22;
+    const pad = 10;
+    return { x: this.designW - w, y: 0, w, h: titleH + cardH + 2 * pad };
+  }
+
+  /** Money-sack button that toggles the drop-down shop panel. */
+  private renderShopToggle(me: PlayerState): void {
+    this.shopToggleLayer.removeChildren();
+    const r = this.shopToggleRect();
+    const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    const g = this.chip(this.shopToggleLayer, r.x, r.y, r.w, r.h, {
+      fill: this.shopPanelOpen ? C.bgSellArmed : C.panelBg,
+      border: C.accentGold, borderW: 2, radius: 8,
+    });
+    g.eventMode = "static";
+    g.cursor = "pointer";
+    g.hitArea = new PIXI.Rectangle(r.x, r.y, r.w, r.h);
+    this.pressFeedback(g, () => this.toggleShopPanel(me), { cx, cy });
+    // Money sack: bag silhouette + a coin marking its face.
+    this.glyph(this.shopToggleLayer, "bag", cx, cy + 1, r.w * 0.42, C.accentGold);
+    this.glyph(this.shopToggleLayer, "coin", cx, cy + 3, r.w * 0.15, C.textGold);
+  }
+
+  /** Render the drop-down panel's bg + the shared shop cards, then position it. */
+  private renderShopPanel(me: PlayerState): void {
+    this.shopPanelLayer.removeChildren();
+    const pr = this.shopPanelRect();
+    const pad = 10;
+    const titleH = 22;
+    this.chip(this.shopPanelLayer, pr.x, pr.y, pr.w, pr.h, {
+      fill: C.bgInspect, border: C.accentGold, borderW: 2, radius: 8,
+    });
+    // Reroll button — top-left of the title strip (replaces the former "Shop"
+    // label). Rerolls the same shared shop state; cost unchanged.
+    const rrW = 70, rrH = titleH - 4;
+    const rrX = pr.x + pad, rrY = pr.y + 2;
+    const rrCy = rrY + rrH / 2;
+    const rr = this.chip(this.shopPanelLayer, rrX, rrY, rrW, rrH, { fill: C.bgReroll, radius: 6 });
+    rr.eventMode = "static";
+    rr.hitArea = new PIXI.Rectangle(rrX, rrY, rrW, rrH);
+    rr.cursor = "pointer";
+    this.pressFeedback(rr, () => this.onReroll(), { cx: rrX + rrW / 2, cy: rrCy });
+    this.glyph(this.shopPanelLayer, "refresh", rrX + 13, rrCy, 12, C.textPrimary);
+    this.glyph(this.shopPanelLayer, "coin", rrX + 32, rrCy, 8, C.accentGold);
+    this.text(this.shopPanelLayer, `${gameData.economy.rerollCost}`, rrX + 40, rrCy, 11, C.textGold, [0, 0.5]);
+    const cardsArea = { x: pr.x + pad, y: pr.y + titleH, w: pr.w - 2 * pad, h: pr.h - titleH - pad };
+    this.drawShopCards(this.shopPanelLayer, cardsArea, me, true);
+
+    // Resting position when no slide is animating (keeps the panel in place across
+    // re-renders, e.g. after a buy): open → flush with the top, closed → hidden up.
+    if (this.shopPanelAnimFn === null) {
+      this.shopPanelOffsetY = this.shopPanelOpen ? 0 : -pr.h;
+    }
+    this.shopPanelLayer.y = this.shopPanelOffsetY;
+    this.shopPanelLayer.eventMode = this.shopPanelOpen ? "auto" : "none";
+  }
+
+  /** Flip the panel open/closed and (re)start the slide animation. */
+  private toggleShopPanel(me: PlayerState): void {
+    this.shopPanelOpen = !this.shopPanelOpen;
+    this.opts.audio.play("tap");
+    this.renderShopToggle(me); // repaint the button's open/closed fill
+    this.animateShopPanel();
+  }
+
+  /** Slide the panel down (open) / up (closed); reduced-motion snaps. */
+  private animateShopPanel(): void {
+    const pr = this.shopPanelRect();
+    const target = this.shopPanelOpen ? 0 : -pr.h;
+    if (this.shopPanelAnimFn !== null) {
+      this.app.ticker.remove(this.shopPanelAnimFn);
+      this.shopPanelAnimFn = null;
+    }
+    const settle = (): void => {
+      this.shopPanelOffsetY = target;
+      this.shopPanelLayer.y = target;
+      this.shopPanelLayer.eventMode = this.shopPanelOpen ? "auto" : "none";
+    };
+    if (this.opts.settings.get().reducedMotion) { settle(); return; }
+    this.shopPanelLayer.eventMode = "auto"; // interactive while sliding
+    const speed = pr.h / 180; // ~180ms full travel
+    const fn = (ticker: PIXI.Ticker): void => {
+      const dir = target > this.shopPanelOffsetY ? 1 : -1;
+      this.shopPanelOffsetY += dir * speed * ticker.deltaMS;
+      if ((dir > 0 && this.shopPanelOffsetY >= target) || (dir < 0 && this.shopPanelOffsetY <= target)) {
+        this.app.ticker.remove(fn);
+        this.shopPanelAnimFn = null;
+        settle();
+        return;
+      }
+      this.shopPanelLayer.y = this.shopPanelOffsetY;
+    };
+    this.shopPanelAnimFn = fn;
+    this.app.ticker.add(fn);
+  }
+
+  /** Tear down the panel slide ticker + reset to closed (phase change / destroy). */
+  private resetShopPanel(): void {
+    if (this.shopPanelAnimFn !== null) {
+      this.app.ticker.remove(this.shopPanelAnimFn);
+      this.shopPanelAnimFn = null;
+    }
+    this.shopPanelOpen = false;
+    this.shopPanelOffsetY = -9999;
+    this.shopPanelLayer.removeChildren();
+    this.shopToggleLayer.removeChildren();
   }
 
   // ─── D. HUD row: level / gold / streak / reroll / buy-xp ──────────────────────
@@ -1491,8 +1650,8 @@ export class MatchScene {
 
   /**
    * Landscape econ cluster (now the left unit of the bottom row): gold +
-   * win-streak (left), refresh button (bottom-left), and the buy-XP button with
-   * its XP progress bar directly below it (right). Grouped as one block.
+   * win-streak (left) and the buy-XP button with its XP progress bar (right).
+   * Reroll moved to the drop-down shop panel's title strip. Grouped as one block.
    */
   private renderControlsLandscape(me: PlayerState): void {
     const hud = this.layout.regions.hud;
@@ -1514,17 +1673,7 @@ export class MatchScene {
       );
     }
 
-    // ── Bottom-left: reroll button ──────────────────────────────────────────
-    const rrW = 100, rrH = 24;
-    const rrX = x0 + 6, rrY = y0 + H - rrH - 4;
-    const rr = this.chip(this.shopLayer, rrX, rrY, rrW, rrH, { fill: C.bgReroll });
-    rr.eventMode = "static";
-    rr.hitArea = new PIXI.Rectangle(rrX, rrY, rrW, rrH);
-    rr.cursor = "pointer";
-    this.pressFeedback(rr, () => this.onReroll(), { cx: rrX + rrW / 2, cy: rrY + rrH / 2 });
-    this.glyph(this.shopLayer, "refresh", rrX + 13, rrY + rrH / 2, 12, C.textPrimary);
-    this.glyph(this.shopLayer, "coin", rrX + 30, rrY + rrH / 2, 8, C.accentGold);
-    this.text(this.shopLayer, `${gameData.economy.rerollCost}`, rrX + 38, rrY + rrH / 2, 11, C.textGold, [0, 0.5]);
+    // Reroll now lives in the drop-down shop panel's title strip (renderShopPanel).
 
     // ── Right: circular Buy XP button (absorbs the level + xp progress) ─────
     const colW = 96;
@@ -2335,7 +2484,7 @@ export class MatchScene {
       this.renderCombat(state);
       return;
     }
-    const planning = [this.boardLayer, this.benchLayer, this.shopLayer, this.traitLayer];
+    const planning = [this.boardLayer, this.benchLayer, this.shopLayer, this.traitLayer, this.shopPanelLayer, this.shopToggleLayer];
     let t = 0;
     const fade = (ticker: PIXI.Ticker): void => {
       t += ticker.deltaMS;
@@ -2365,6 +2514,7 @@ export class MatchScene {
     this.benchLayer.removeChildren();
     this.shopLayer.removeChildren();
     this.traitLayer.removeChildren();
+    this.resetShopPanel();
     this.closeCombineHint();
     this.clearLootReveal();
     this.dragItem = null;
@@ -3028,6 +3178,7 @@ export class MatchScene {
   /** Tear down the scene: stop playback/timers, unsubscribe, drop the container. */
   destroy(): void {
     this.teardownPlayback();
+    this.resetShopPanel();
     this.clearPlanningTimerTick();
     this.clearResolutionTimer();
     this.clearLootReveal();

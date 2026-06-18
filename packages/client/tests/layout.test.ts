@@ -288,8 +288,8 @@ describe("landscapeClusterThickness clamp behavior", () => {
     const t = landscapeClusterThickness(1280, 592);
     expect(t.topBarH).toBeGreaterThanOrEqual(30);
     expect(t.topBarH).toBeLessThanOrEqual(56);
-    expect(t.bottomBarH).toBeGreaterThanOrEqual(116);
-    expect(t.bottomBarH).toBeLessThanOrEqual(160);
+    expect(t.bottomBarH).toBeGreaterThanOrEqual(106);
+    expect(t.bottomBarH).toBeLessThanOrEqual(132);
     expect(t.leftRailW).toBeGreaterThanOrEqual(96);
     expect(t.leftRailW).toBeLessThanOrEqual(160);
     expect(t.rightRailW).toBeGreaterThanOrEqual(120);
@@ -299,7 +299,7 @@ describe("landscapeClusterThickness clamp behavior", () => {
   it("never exceeds max even with a much larger design canvas (simulated 16:9 ultrawide)", () => {
     const t = landscapeClusterThickness(2560, 1184); // 2x the reference, still ~2.16:1
     expect(t.topBarH).toBeLessThanOrEqual(56);
-    expect(t.bottomBarH).toBeLessThanOrEqual(160);
+    expect(t.bottomBarH).toBeLessThanOrEqual(132);
     expect(t.leftRailW).toBeLessThanOrEqual(160);
     expect(t.rightRailW).toBeLessThanOrEqual(200);
   });
@@ -323,7 +323,7 @@ describe("landscapeClusterThickness clamp behavior", () => {
     expect(layout.designH).toBe(592);
     const c = layout.clusters!;
     expect(c.topBar.h).toBeGreaterThanOrEqual(30);
-    expect(c.bottomBar.h).toBeGreaterThanOrEqual(116);
+    expect(c.bottomBar.h).toBeGreaterThanOrEqual(106);
   });
 
   it("4:3 viewport (1.333, still ≥ LANDSCAPE_THRESHOLD) resolves landscape with valid clamped clusters", () => {
@@ -468,21 +468,14 @@ describe("landscape regions", () => {
     expect(regions.opponentRail.h).toBe(rightRail.h);
   });
 
-  it("shop sits between the econ cluster and the sell control, pinned to the bottom edge of bottomBar", () => {
-    const { bottomBar } = layout.clusters!;
-    expect(regions.shop.x).toBeGreaterThanOrEqual(regions.hud.x + regions.hud.w);
-    expect(regions.shop.x + regions.shop.w).toBeLessThanOrEqual(regions.sellControl.x + 0.5);
-    expect(regions.shop.y + regions.shop.h).toBeCloseTo(bottomBar.y + bottomBar.h, 0);
-    expect(regions.shop.h).toBeGreaterThanOrEqual(64); // touch-target floor
+  it("shop is zeroed in landscape (drop-down panel only, no docked row)", () => {
+    expect(regions.shop.w).toBe(0);
+    expect(regions.shop.h).toBe(0);
   });
 
-  it("bottom row lays out econ → shop → sell left-to-right without overlap", () => {
-    const row = [regions.hud, regions.shop, regions.sellControl];
-    for (let i = 1; i < row.length; i++) {
-      expect(row[i]!.x).toBeGreaterThanOrEqual(row[i - 1]!.x + row[i - 1]!.w);
-    }
-    // All three share the bottom row's vertical band.
-    expect(regions.shop.y).toBeCloseTo(regions.hud.y, 0);
+  it("bottom row lays out econ (left) + sell (right) without overlap", () => {
+    expect(regions.sellControl.x).toBeGreaterThanOrEqual(regions.hud.x + regions.hud.w);
+    // Both share the bottom row's vertical band.
     expect(regions.sellControl.y).toBeCloseTo(regions.hud.y, 0);
   });
 
@@ -492,7 +485,6 @@ describe("landscape regions", () => {
   });
 
   it("interactive regions meet their touch-target minimums", () => {
-    expect(regions.shop.h).toBeGreaterThanOrEqual(64);
     expect(regions.bench.h).toBeGreaterThanOrEqual(32);
     expect(regions.hud.h).toBeGreaterThanOrEqual(32);
     expect(regions.sellControl.h).toBeGreaterThanOrEqual(32);

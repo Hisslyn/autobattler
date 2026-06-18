@@ -338,14 +338,14 @@ function portraitLayout(viewportW: number, viewportH: number, safe: SafeInsets):
 //  │  rail)    │                                                │  column)   │
 //  ├───────────┴───────────────────────────────────────────────┴────────────┤
 //  │  bench row (centered under the board)                                    │
-//  │  [ econ cluster ]      [ shop ×5 ]                        [ sell ]        │
+//  │  [ econ cluster ]                                         [ sell ]        │
 //  └───────────────────────────────────────────────────────────────────────-┘
 //
 // Cluster contents:
 //   topBar    = statusRow (stage label left, timer center, menu right)
 //   leftRail  = traitTabBar + traitRail
 //   rightRail = opponentRail ONLY (1×8 vertical seat column)
-//   bottomBar = two stacked rows: bench (top) + [econ | shop | sell] (bottom)
+//   bottomBar = two stacked rows: bench (top) + [econ | sell] (bottom)
 //   board     = residual central rect, centered on the safe-area center
 //
 // Each edge cluster has a FIXED reference thickness, clamped to a per-cluster
@@ -362,11 +362,14 @@ export const LS_GAP = 10;
 
 // Per-cluster fixed reference dimension + clamp range.
 //   topBar    — only the thin statusRow band now (stage / timer / menu).
-//   bottomBar — TWO stacked rows: bench (top) + [econ | shop | sell] (bottom).
+//   bottomBar — TWO stacked rows: bench (top) + [econ | sell] (bottom).
 //   leftRail  — trait tab bar + trait/items rail (unchanged).
 //   rightRail — opponentRail ONLY (a single 1×8 vertical column of seat tiles).
 const LS_TOPBAR_H_REF = 40,     LS_TOPBAR_H_MIN = 30,     LS_TOPBAR_H_MAX = 56;
-const LS_BOTTOMBAR_H_REF = 132, LS_BOTTOMBAR_H_MIN = 116, LS_BOTTOMBAR_H_MAX = 160;
+// bottomBar no longer hosts a docked shop row — only the bench row + corner econ
+// controls. Reduced from the prior 132/116/160 so the freed shop-row vertical
+// space is reclaimed by the residual board.
+const LS_BOTTOMBAR_H_REF = 114, LS_BOTTOMBAR_H_MIN = 106, LS_BOTTOMBAR_H_MAX = 132;
 const LS_LEFTRAIL_W_REF = 120,  LS_LEFTRAIL_W_MIN = 96,   LS_LEFTRAIL_W_MAX = 160;
 const LS_RIGHTRAIL_W_REF = 150, LS_RIGHTRAIL_W_MIN = 120, LS_RIGHTRAIL_W_MAX = 200;
 
@@ -425,7 +428,7 @@ export function landscapeClusterThickness(
  *   topBar    = statusRow (stage · timer · menu)
  *   leftRail  = traitTabBar + traitRail
  *   rightRail = opponentRail ONLY (1×8 vertical seat column)
- *   bottomBar = bench (top row) + [econ(hud) | shop | sellControl] (bottom row)
+ *   bottomBar = bench (top row) + [econ(hud) | sellControl] (bottom row)
  *   board     = residual central rect, CENTERED on the safe-area center, grown
  *               to the largest hex-aspect (336:348) box that clears the WIDER of
  *               leftRail/rightRail symmetrically on both sides
@@ -519,7 +522,7 @@ function landscapeRegionsFor(
   const opponentRail: Rect = { x: rightRail.x, y: rightRail.y, w: rightRail.w, h: rightRail.h };
 
   // ── bottomBar content: row 1 = bench (centered under the board); row 2 =
-  // [econ(hud) | shop ×5 | sellControl], left to right. ─────────────────────
+  // [econ(hud) | sellControl], left + right corners (shop is drop-down-only). ─
   const benchSlotSize = clamp(36, Math.floor(bottomBar.h * 0.32), 48);
   const benchW = 9 * benchSlotSize;
   const benchX = clamp(bottomBar.x, safeCenterX - benchW / 2, bottomBar.x + bottomBar.w - benchW);
@@ -531,16 +534,10 @@ function landscapeRegionsFor(
 
   const econW = clamp(200, Math.round(bottomBar.w * 0.18), 250);
   const sellW = 64;
-  const sideGap = 8;
   const hud: Rect = { x: bottomBar.x, y: row2Y, w: econW, h: row2H };
   const sellControl: Rect = { x: bottomBar.x + bottomBar.w - sellW, y: row2Y, w: sellW, h: row2H };
-  const shopX = hud.x + hud.w + sideGap;
-  const shop: Rect = {
-    x: shopX,
-    y: row2Y,
-    w: Math.max(1, sellControl.x - sideGap - shopX),
-    h: row2H,
-  };
+  // Shop is a drop-down panel only (money-sack toggle) — no docked row.
+  const shop: Rect = { x: 0, y: 0, w: 0, h: 0 };
 
   // readyButton is not rendered in landscape (READY is a DOM control) — zeroed.
   const readyButton: Rect = { x: 0, y: 0, w: 0, h: 0 };
