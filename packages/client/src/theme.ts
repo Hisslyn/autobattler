@@ -75,6 +75,17 @@ export const C = {
   xpPurple:     0x9b87f5,
   streakOrange: 0xe2603a,
 
+  // ─── Circular Buy XP button (econ cluster) ───────────────────────────────
+  // Ornate gold/bronze rim + blue inner disc + teal progress arc + dark badge.
+  xpBtnRim:      0xd8a24a,  // gilded outer rim
+  xpBtnRimDeep:  0x7a5526,  // bronze inner rim shadow / notches
+  xpBtnDisc:     0x1d3a63,  // blue inner disc
+  xpBtnDiscHi:   0x2f568c,  // disc top highlight
+  xpArcTrack:    0x10131c,  // xp progress arc track (unfilled)
+  xpArcFill:     0x36c8b4,  // teal xp progress fill (clockwise)
+  xpBadgeBg:     0x0e1320,  // dark level badge disc (bottom-right)
+  xpBtnDisabled: 0x2a2f3c,  // greyed disc when unaffordable / at max level
+
   // ─── Visual overhaul stage 4: DOM meta screens ───────────────────────────
   // Surface + accent tokens used by the themed menus (panel surfaces reuse
   // panelBg/chipBorder above; these add the bits the DOM needs on top).

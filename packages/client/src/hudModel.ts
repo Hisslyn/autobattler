@@ -97,39 +97,68 @@ export function xpProgress(
   return { level, inLevel, needed: span, frac, maxed: false };
 }
 
-/** Geometry for the circular level badge + arced xp progress in the hud region. */
-export interface LevelBadgeGeom {
-  /** Badge disc center (within the hud region). */
+/** Geometry for the circular Buy XP button (econ cluster), pure of any Pixi. */
+export interface BuyXpGeom {
+  /** Main circle center + radius. */
   cx: number;
   cy: number;
-  /** Badge disc radius. */
-  badgeR: number;
-  /** XP progress arc radius (≥ badgeR). */
+  r: number;
+  /** Ornate outer-rim stroke width. */
+  rimW: number;
+  /** XP progress arc hugging the outer-right edge (90°, clockwise fill). */
   arcR: number;
-  /** Arc stroke width. */
   arcW: number;
-  /** y at which the small "current/threshold" label sits. */
+  arcStart: number;
+  arcEnd: number;
+  /** Small dark level badge overlapping the button's bottom-right. */
+  badgeCx: number;
+  badgeCy: number;
+  badgeR: number;
+  /** Stacked-content y positions (level-up glyph / "Buy XP" / coin+cost). */
+  glyphY: number;
   labelY: number;
+  costY: number;
+  /** Floating current/needed xp text, just ABOVE the button (outside it). */
+  fracY: number;
+  /** Base content font size, derived from the radius. */
+  fontSize: number;
 }
 
 /**
- * Pure badge+arc geometry from the hud region (mirrors benchGeom). The badge
- * sits at the left of the hud region; its disc + arc + label all stay within
- * the hud bounds across the portrait/landscape hud heights.
+ * Pure geometry for the circular Buy XP control from its econ-cluster region
+ * (mirrors benchGeom: render strictly off this, no Pixi/game logic here). The
+ * circle is anchored to the left of the region and vertically centered; the
+ * radius scales with the region but is clamped so it fits the thin portrait HUD
+ * band and the taller landscape cluster alike.
  */
-export function levelBadgeGeom(hud: { x: number; y: number; w: number; h: number }): LevelBadgeGeom {
-  // Badge radius scales with hud height but is capped (≈18 portrait / ≈14 short
-  // landscape); the arc is slightly larger; the label tucks just below the arc.
-  const arcW = 5;
-  // The arc is the outer bound; it must fit vertically within the region. Derive
-  // it first, then size the badge disc strictly inside it so the invariant
-  // arcR ≥ badgeR holds for every hud height (tall portrait → short landscape).
-  const arcR = Math.max(8, Math.min(18, hud.h / 2 - arcW / 2));
-  const badgeR = Math.max(7, arcR - 3);
-  // Center the badge a little in from the left edge, vertically centered with a
-  // small lift so the label fits under the arc within the region.
-  const cx = hud.x + arcR + 2;
-  const cy = hud.y + Math.min(arcR + arcW / 2, hud.h - 8);
-  const labelY = Math.min(cy + arcR + 2, hud.y + hud.h - 4);
-  return { cx, cy, badgeR, arcR, arcW, labelY };
+export function buyXpGeom(region: { x: number; y: number; w: number; h: number }): BuyXpGeom {
+  const r = Math.max(16, Math.min(region.h / 2 - 1, region.w * 0.34, 30));
+  const rimW = Math.max(2.5, r * 0.16);
+  const cx = region.x + r + rimW;
+  const cy = region.y + region.h / 2;
+
+  // Progress arc: a 90° sweep centered on 3 o'clock (the outer-right edge),
+  // filling clockwise (start → end, screen y-down) proportional to xp fraction.
+  const arcR = r + rimW * 0.5 + 3;
+  const arcW = Math.max(3, r * 0.14);
+  const arcStart = -Math.PI / 4;
+  const arcEnd = Math.PI / 4;
+
+  // Level badge overlapping bottom-right at ~45°.
+  const badgeR = Math.max(7, r * 0.44);
+  const bd = r + rimW * 0.3;
+  const badgeCx = cx + bd * Math.cos(Math.PI / 4);
+  const badgeCy = cy + bd * Math.sin(Math.PI / 4);
+
+  const fontSize = Math.max(6, Math.round(r * 0.32));
+  return {
+    cx, cy, r, rimW,
+    arcR, arcW, arcStart, arcEnd,
+    badgeCx, badgeCy, badgeR,
+    glyphY: cy - r * 0.46,
+    labelY: cy - r * 0.02,
+    costY: cy + r * 0.44,
+    fracY: cy - r - rimW - 7,
+    fontSize,
+  };
 }

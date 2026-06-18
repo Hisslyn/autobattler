@@ -12,7 +12,7 @@ import { C, tierColor, CHIP_TEXT_SIZE, CHIP_TEXT_FONT } from "../theme.js";
 import { drawUnitToken } from "../unitToken.js";
 import { drawGlyph, glyphForTraits } from "../glyphs.js";
 import type { GlyphKind } from "../glyphs.js";
-import { traitStripModel, xpProgress, levelBadgeGeom } from "../hudModel.js";
+import { traitStripModel, xpProgress, buyXpGeom } from "../hudModel.js";
 import type { TraitChip } from "../hudModel.js";
 import { inspectModel } from "../inspectModel.js";
 import { traitDetailModel } from "../traitDetailModel.js";
@@ -1398,47 +1398,90 @@ export class MatchScene {
   // ─── D. HUD row: level / gold / streak / reroll / buy-xp ──────────────────────
 
   /**
-   * Circular level badge + arced xp progress + numeric label, drawn at the
-   * bottom-left of the hud region (the band just above the shop). Replaces the
-   * former level chip + straight xp bar. Pure geometry comes from
-   * `levelBadgeGeom`; this only paints — no game logic (renderer-is-dumb).
-   * Returns the badge's right edge so the caller lays out gold/streak after it.
+   * Circular "Buy XP" button (econ cluster), replacing the former rounded-rect
+   * Buy XP button + separate linear XP bar + standalone "L#" text. Anatomy:
+   * ornate gold/bronze rim around a blue disc; stacked level-up glyph + "Buy XP"
+   * + coin·cost in the center; the current/needed xp text floats just above; a
+   * 90° teal progress arc hugs the outer-right edge (the xp bar, clockwise); a
+   * small dark badge overlaps the bottom-right showing the level. Pure geometry
+   * comes from `buyXpGeom`; this only paints + wires the BUY_XP command (greyed
+   * + inert when gold < cost or at max level). Returns the control's right edge.
    */
-  private renderLevelBadge(me: PlayerState, region?: { x: number; y: number; w: number; h: number }): number {
-    const hud = region ?? this.layout.regions.hud;
-    const g = levelBadgeGeom(hud);
+  private renderBuyXpButton(me: PlayerState, region?: { x: number; y: number; w: number; h: number }): number {
+    const reg = region ?? this.layout.regions.hud;
+    const g = buyXpGeom(reg);
     const xp = xpProgress(me.xp, me.level, gameData.economy.levelXpThresholds);
+    const cost = gameData.economy.xpBuyCost;
+    const disabled = me.gold < cost || xp.maxed;
 
-    const gfx = new PIXI.Graphics();
-    // Disc.
-    gfx.circle(g.cx, g.cy, g.badgeR).fill({ color: C.tokenBg });
-    gfx.circle(g.cx, g.cy, g.badgeR).stroke({ width: 1, color: C.chipBorder });
-    gfx.eventMode = "none";
-    this.shopLayer.addChild(gfx);
+    const rimCol = disabled ? C.xpBtnRimDeep : C.xpBtnRim;
+    const discCol = disabled ? C.xpBtnDisabled : C.xpBtnDisc;
+    const inkCol = disabled ? C.textMuted : C.textPrimary;
 
-    // XP progress arc: full track + filled sweep, clockwise from 12 o'clock.
-    // Drawn on its OWN Graphics so the arc never inherits the disc subpath's pen
-    // position — otherwise Pixi v8 connects the disc to the arc start with a
-    // stray diagonal line (the thin line that streaked across the board).
-    const arcGfx = new PIXI.Graphics();
-    const start = -Math.PI / 2;
-    const track = Math.max(0.0001, g.arcR);
-    arcGfx.arc(g.cx, g.cy, track, start, start + Math.PI * 2)
-      .stroke({ width: g.arcW, color: C.bgShopEmpty, cap: "round" });
-    if (xp.frac > 0) {
-      arcGfx.arc(g.cx, g.cy, track, start, start + Math.PI * 2 * xp.frac)
-        .stroke({ width: g.arcW, color: C.xpPurple, cap: "round" });
+    // ── Button body: ornate rim + blue inner disc ──────────────────────────
+    const body = new PIXI.Graphics();
+    // Outer gilded rim.
+    body.circle(g.cx, g.cy, g.r).stroke({ width: g.rimW, color: rimCol });
+    // Bronze inner shadow line inside the rim.
+    body.circle(g.cx, g.cy, g.r - g.rimW * 0.55).stroke({ width: Math.max(1, g.rimW * 0.4), color: C.xpBtnRimDeep, alpha: disabled ? 0.5 : 0.9 });
+    // Blue inner disc + a soft top highlight for a domed read.
+    const discR = g.r - g.rimW * 0.5;
+    body.circle(g.cx, g.cy, discR).fill({ color: discCol });
+    if (!disabled) {
+      body.circle(g.cx, g.cy - discR * 0.32, discR * 0.7).fill({ color: C.xpBtnDiscHi, alpha: 0.22 });
     }
-    arcGfx.eventMode = "none";
-    this.shopLayer.addChild(arcGfx);
+    // Ornate rim notches (8 small ticks) for the bronze filigree read.
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const nx = g.cx + Math.cos(a) * g.r;
+      const ny = g.cy + Math.sin(a) * g.r;
+      body.circle(nx, ny, Math.max(0.8, g.rimW * 0.22)).fill({ color: C.xpBtnRimDeep, alpha: disabled ? 0.4 : 0.85 });
+    }
+    body.eventMode = disabled ? "none" : "static";
+    if (!disabled) {
+      const hit = new PIXI.Circle(g.cx, g.cy, g.r + g.rimW);
+      body.hitArea = hit;
+      body.cursor = "pointer";
+      this.pressFeedback(body, () => this.onBuyXp(), { cx: g.cx, cy: g.cy });
+    }
+    this.shopLayer.addChild(body);
 
-    // Level number, centered in the disc.
-    this.text(this.shopLayer, `${me.level}`, g.cx, g.cy, 13, C.textPrimary, [0.5, 0.5]);
-    // Numeric "current/threshold" label under the arc (∞ when maxed).
-    const label = xp.maxed ? "MAX" : `${xp.inLevel}/${xp.needed}`;
-    this.text(this.shopLayer, label, g.cx, g.labelY, 9, C.textMuted, [0.5, 0]);
+    // ── Progress arc on the outer-right edge (the xp bar) ───────────────────
+    // Own Graphics so the disc subpath's pen never streaks into the arc start.
+    const arc = new PIXI.Graphics();
+    arc.arc(g.cx, g.cy, g.arcR, g.arcStart, g.arcEnd)
+      .stroke({ width: g.arcW, color: C.xpArcTrack, cap: "round" });
+    if (xp.frac > 0) {
+      const fillEnd = g.arcStart + (g.arcEnd - g.arcStart) * xp.frac;
+      arc.arc(g.cx, g.cy, g.arcR, g.arcStart, fillEnd)
+        .stroke({ width: g.arcW, color: disabled ? C.xpBtnRimDeep : C.xpArcFill, cap: "round" });
+    }
+    arc.eventMode = "none";
+    this.shopLayer.addChild(arc);
 
-    return g.cx + g.arcR;
+    // ── Stacked center content: glyph / "Buy XP" / coin + cost ──────────────
+    this.glyph(this.shopLayer, "levelUp", g.cx, g.glyphY, Math.max(7, g.fontSize + 1), disabled ? C.textMuted : C.accentGold);
+    this.text(this.shopLayer, "Buy XP", g.cx, g.labelY, g.fontSize, inkCol, [0.5, 0.5]);
+    const coinSize = Math.max(6, g.fontSize - 1);
+    const costStr = `${cost}`;
+    const costW = costStr.length * g.fontSize * 0.6;
+    const coinX = g.cx - costW / 2 - coinSize * 0.35;
+    this.glyph(this.shopLayer, "coin", coinX, g.costY, coinSize, disabled ? C.textMuted : C.accentGold);
+    this.text(this.shopLayer, costStr, coinX + coinSize * 0.7, g.costY, g.fontSize, disabled ? C.textMuted : C.textGold, [0, 0.5]);
+
+    // ── Floating current/needed xp text, just ABOVE the button ──────────────
+    const fracLabel = xp.maxed ? "MAX" : `${xp.inLevel}/${xp.needed}`;
+    this.text(this.shopLayer, fracLabel, g.cx, g.fracY, Math.max(8, g.fontSize), C.textMuted, [0.5, 0.5]);
+
+    // ── Level badge overlapping the bottom-right ────────────────────────────
+    const badge = new PIXI.Graphics();
+    badge.circle(g.badgeCx, g.badgeCy, g.badgeR).fill({ color: C.xpBadgeBg });
+    badge.circle(g.badgeCx, g.badgeCy, g.badgeR).stroke({ width: Math.max(1.2, g.badgeR * 0.16), color: rimCol });
+    badge.eventMode = "none";
+    this.shopLayer.addChild(badge);
+    this.text(this.shopLayer, `${me.level}`, g.badgeCx, g.badgeCy, Math.max(8, g.badgeR * 0.95), inkCol, [0.5, 0.5]);
+
+    return g.cx + g.r + g.arcW + 2;
   }
 
   private renderControls(me: PlayerState): void {
@@ -1483,33 +1526,9 @@ export class MatchScene {
     this.glyph(this.shopLayer, "coin", rrX + 30, rrY + rrH / 2, 8, C.accentGold);
     this.text(this.shopLayer, `${gameData.economy.rerollCost}`, rrX + 38, rrY + rrH / 2, 11, C.textGold, [0, 0.5]);
 
-    // ── Right: buy-XP button (top) + XP progress bar directly below it ──────
-    const colW = 104;
-    const cx = x0 + W - colW - 6;
-    const xpW = colW, xpH = 24;
-    const xpY = y0 + 6;
-    const xpBtn = this.chip(this.shopLayer, cx, xpY, xpW, xpH, { fill: C.bgXp });
-    xpBtn.eventMode = "static";
-    xpBtn.hitArea = new PIXI.Rectangle(cx, xpY, xpW, xpH);
-    xpBtn.cursor = "pointer";
-    this.pressFeedback(xpBtn, () => this.onBuyXp(), { cx: cx + xpW / 2, cy: xpY + xpH / 2 });
-    this.text(this.shopLayer, "Buy XP", cx + 8, xpY + xpH / 2, 10, C.textPrimary, [0, 0.5]);
-    this.glyph(this.shopLayer, "coin", cx + xpW - 26, xpY + xpH / 2, 8, C.accentGold);
-    this.text(this.shopLayer, `${gameData.economy.xpBuyCost}`, cx + xpW - 18, xpY + xpH / 2, 10, C.textGold, [0, 0.5]);
-
-    // XP progress bar directly below the buy-XP button.
-    const xp = xpProgress(me.xp, me.level, gameData.economy.levelXpThresholds);
-    const barY = xpY + xpH + 8, barH = 8;
-    const bar = new PIXI.Graphics();
-    bar.roundRect(cx, barY, xpW, barH, 3).fill({ color: C.bgShopEmpty });
-    if (xp.frac > 0) {
-      bar.roundRect(cx, barY, Math.max(barH, Math.round(xpW * xp.frac)), barH, 3).fill({ color: C.xpPurple });
-    }
-    bar.eventMode = "none";
-    this.shopLayer.addChild(bar);
-    const xpLabel = xp.maxed ? "MAX" : `${xp.inLevel}/${xp.needed}`;
-    this.text(this.shopLayer, `L${me.level}`, cx, barY + barH + 9, 9, C.textMuted, [0, 0.5]);
-    this.text(this.shopLayer, xpLabel, cx + xpW, barY + barH + 9, 9, C.textMuted, [1, 0.5]);
+    // ── Right: circular Buy XP button (absorbs the level + xp progress) ─────
+    const colW = 96;
+    void this.renderBuyXpButton(me, { x: x0 + W - colW, y: y0, w: colW, h: H });
   }
 
   /** Portrait HUD: the prior single horizontal band (unchanged). */
@@ -1518,11 +1537,11 @@ export class MatchScene {
     const y = hud.y;
     const h = hud.h;
     const x0 = hud.x;
-    const off = { goldG: 83, goldT: 95, streakG: 147, streakT: 159, rrX: 233, rrW: 62, xpX: 303, xpW: 70, levelW: 66 };
+    const off = { goldG: 83, goldT: 95, streakG: 147, streakT: 159, rrX: 233, rrW: 62 };
 
-    // Circular level badge + arced xp progress (replaces the old chip + bar),
-    // anchored bottom-left of the hud band (the strip just above the shop).
-    void this.renderLevelBadge(me);
+    // Circular Buy XP button (absorbs the level badge + xp progress), anchored
+    // bottom-left of the hud band (the strip between the trait rail and bench).
+    void this.renderBuyXpButton(me);
 
     // Gold (large, gold + coin glyph)
     this.glyph(this.shopLayer, "coin", x0 + off.goldG, y + h / 2, 13, C.accentGold);
@@ -1550,17 +1569,6 @@ export class MatchScene {
     this.glyph(this.shopLayer, "refresh", rrX + 13, btnY + btnH / 2, 13, C.textPrimary);
     this.glyph(this.shopLayer, "coin", rrX + 30, btnY + btnH / 2, 8, C.accentGold);
     this.text(this.shopLayer, `${gameData.economy.rerollCost}`, rrX + 38, btnY + btnH / 2, 11, C.textGold, [0, 0.5]);
-
-    // Buy XP button (label + cost)
-    const xpX = x0 + off.xpX, xpW = off.xpW;
-    const xpBtn = this.chip(this.shopLayer, xpX, btnY, xpW, btnH, { fill: C.bgXp });
-    xpBtn.eventMode = "static";
-    xpBtn.hitArea = new PIXI.Rectangle(xpX, btnY, xpW, btnH);
-    xpBtn.cursor = "pointer";
-    this.pressFeedback(xpBtn, () => this.onBuyXp(), { cx: xpX + xpW / 2, cy: btnY + btnH / 2 });
-    this.text(this.shopLayer, "XP", xpX + 8, btnY + btnH / 2, 11, C.textPrimary, [0, 0.5]);
-    this.glyph(this.shopLayer, "coin", xpX + 36, btnY + btnH / 2, 8, C.accentGold);
-    this.text(this.shopLayer, `${gameData.economy.xpBuyCost}`, xpX + 44, btnY + btnH / 2, 11, C.textGold, [0, 0.5]);
   }
 
   // ─── C. TRAIT STRIP (horizontal, wraps) ──────────────────────────────────────

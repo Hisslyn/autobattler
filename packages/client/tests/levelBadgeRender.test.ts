@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Integration test: drive the REAL renderControls* methods of MatchScene and
-// assert the new circular level badge (arced xp progress + numeric label) is
-// actually drawn from the wired render path — not merely that the pure
-// levelBadgeGeom helper returns correct numbers in isolation. This is the
-// regression guard for the "helper defined but never called" bug class: a unit
-// test on levelBadgeGeom alone passed while the scene still drew the old chip.
+// assert the new circular Buy XP button (ornate rim + blue disc + a quarter-
+// circle xp progress arc + an overlapping level badge) is actually drawn from
+// the wired render path — not merely that the pure buyXpGeom helper returns
+// correct numbers in isolation. This is the regression guard for the "helper
+// defined but never called" bug class: a unit test on buyXpGeom alone passed
+// while the scene still drew the old chip/bar.
 
 // ── Recording Pixi double ────────────────────────────────────────────────────
 // Captures every Graphics path op so we can assert arc() (the xp arc) ran and
-// the old straight rect xp bar did not appear as the level indicator.
+// the old straight rect xp bar / "L#" text no longer act as the indicator.
 interface GfxOp { fn: string; args: unknown[] }
 
 class RecGraphics {
@@ -26,6 +27,7 @@ class RecGraphics {
   moveTo(...a: unknown[]) { return this.rec("moveTo", a); }
   lineTo(...a: unknown[]) { return this.rec("lineTo", a); }
   arcTo(...a: unknown[]) { return this.rec("arcTo", a); }
+  closePath(...a: unknown[]) { return this.rec("closePath", a); }
   fill(...a: unknown[]) { return this.rec("fill", a); }
   stroke(...a: unknown[]) { return this.rec("stroke", a); }
   clear(...a: unknown[]) { return this.rec("clear", a); }
@@ -47,21 +49,24 @@ class RecContainer {
 }
 
 class RecRectangle { constructor(..._a: unknown[]) {} }
+class RecCircle { constructor(..._a: unknown[]) {} }
 
 vi.mock("pixi.js", () => ({
   Graphics: RecGraphics,
   Text: RecText,
   Container: RecContainer,
   Rectangle: RecRectangle,
+  Circle: RecCircle,
 }));
 
 // Import AFTER the mock is registered.
 const { MatchScene } = await import("../src/scenes/match.js");
 const { resolveLayout } = await import("../src/layout.js");
-const { levelBadgeGeom } = await import("../src/hudModel.js");
+const { buyXpGeom } = await import("../src/hudModel.js");
 const { gameData } = await import("@autobattler/data");
 
-// A PlayerState shaped enough for renderControls*: mid-level so xp.frac ∈ (0,1).
+// A PlayerState shaped enough for renderControls*: mid-level so xp.frac ∈ (0,1),
+// and enough gold to afford xp (so the button is enabled).
 function mePlayer() {
   return {
     level: 4,
@@ -91,7 +96,7 @@ function makeScene(orientation: "portrait" | "landscape") {
   return scene;
 }
 
-describe("level badge is wired into the real renderControls path", () => {
+describe("circular Buy XP button is wired into the real renderControls path", () => {
   for (const orientation of ["portrait", "landscape"] as const) {
     describe(orientation, () => {
       let scene: any;
@@ -104,68 +109,58 @@ describe("level badge is wired into the real renderControls path", () => {
         scene.renderControls(me);
       });
 
-      it("draws the xp progress indicator (portrait = arced badge; landscape = xp bar)", () => {
-        const gfxChildren = scene.shopLayer.children.filter(
-          (c: unknown): c is RecGraphics => c instanceof RecGraphics
-        );
-        const allOps = gfxChildren.flatMap((g: RecGraphics) => g.ops);
-        const arcs = allOps.filter((o: GfxOp) => o.fn === "arc");
-
-        if (orientation === "portrait") {
-          const circles = allOps.filter((o: GfxOp) => o.fn === "circle");
-          expect(circles.length).toBeGreaterThanOrEqual(1); // badge disc
-          expect(arcs.length).toBeGreaterThanOrEqual(2);     // track + fill arc
-        } else {
-          // Landscape econ cluster uses an XP progress BAR (roundRect track +
-          // fill) directly below the Buy-XP button — no arced badge.
-          const roundRects = allOps.filter((o: GfxOp) => o.fn === "roundRect");
-          expect(roundRects.length).toBeGreaterThanOrEqual(1);
-        }
-      });
-
-      it("portrait places the badge at the hud bottom-left (matches levelBadgeGeom)", () => {
-        if (orientation !== "portrait") return; // landscape has no arced badge
-        const g = levelBadgeGeom(scene.layout.regions.hud);
-
-        const badgeCircle = scene.shopLayer.children
+      function allOps(): GfxOp[] {
+        return scene.shopLayer.children
           .filter((c: unknown): c is RecGraphics => c instanceof RecGraphics)
-          .flatMap((gfx: RecGraphics) => gfx.ops)
-          .find((o: GfxOp) => o.fn === "circle");
-        expect(badgeCircle).toBeDefined();
-        const [cx, cy] = badgeCircle!.args as number[];
-        expect(cx).toBeCloseTo(g.cx, 0);
-        expect(cy).toBeCloseTo(g.cy, 0);
-
-        const hud = scene.layout.regions.hud;
-        expect(cx!).toBeLessThan(hud.x + hud.w / 3);
-      });
-
-      it("renders the level number and a current/threshold xp label", () => {
-        const texts = scene.shopLayer.children
+          .flatMap((g: RecGraphics) => g.ops);
+      }
+      function texts(): string[] {
+        return scene.shopLayer.children
           .filter((c: unknown): c is RecText => c instanceof RecText)
           .map((t: RecText) => t.text);
-        // Level number inside the disc.
-        expect(texts).toContain(String(me.level));
-        // Numeric current/threshold label under the arc (inLevel/needed).
-        expect(texts.some((t: string) => /^\d+\/\d+$/.test(t))).toBe(true);
+      }
+
+      it("draws the circular body (rim + disc) and the quarter-circle xp arc", () => {
+        const ops = allOps();
+        // Disc + rim are circles; the progress indicator is an arc (track + fill).
+        expect(ops.filter((o) => o.fn === "circle").length).toBeGreaterThanOrEqual(2);
+        expect(ops.filter((o) => o.fn === "arc").length).toBeGreaterThanOrEqual(2);
       });
 
-      it("does NOT render the old 'Lv N' chip label", () => {
-        const texts = scene.shopLayer.children
-          .filter((c: unknown): c is RecText => c instanceof RecText)
-          .map((t: RecText) => t.text);
-        expect(texts.some((t: string) => /^Lv\s/.test(t))).toBe(false);
+      it("anchors the button bottom-left of the econ cluster (matches buyXpGeom)", () => {
+        const reg =
+          orientation === "portrait"
+            ? scene.layout.regions.hud
+            : (() => {
+                const h = scene.layout.regions.hud;
+                return { x: h.x + h.w - 96, y: h.y, w: 96, h: h.h };
+              })();
+        const g = buyXpGeom(reg);
+        // The button body is a circle of radius g.r centered at g.cx/g.cy
+        // (other circles exist — coin glyphs, badge — so match by geometry).
+        const bodyCircle = allOps().find(
+          (o) =>
+            o.fn === "circle" &&
+            Math.abs((o.args[0] as number) - g.cx) < 0.5 &&
+            Math.abs((o.args[1] as number) - g.cy) < 0.5 &&
+            Math.abs((o.args[2] as number) - g.r) < 0.5
+        );
+        expect(bodyCircle).toBeDefined();
       });
 
-      it("keeps the buy-XP button present and reachable (cost label rendered)", () => {
-        const texts = scene.shopLayer.children
-          .filter((c: unknown): c is RecText => c instanceof RecText)
-          .map((t: RecText) => t.text);
-        // The XP button label (portrait "XP" / landscape "Buy XP") and its gold
-        // cost both render.
-        expect(texts.some((t: string) => t.includes("XP"))).toBe(true);
-        const xpCost = String(gameData.economy.xpBuyCost);
-        expect(texts.some((t: string) => t === xpCost || t === `${xpCost}g`)).toBe(true);
+      it("renders the 'Buy XP' label, the level number, and a current/needed xp text", () => {
+        const t = texts();
+        expect(t.some((s) => /Buy XP/i.test(s))).toBe(true);  // center label
+        expect(t).toContain(String(me.level));                 // level badge
+        expect(t.some((s) => /^\d+\/\d+$/.test(s))).toBe(true); // floating inLevel/needed
+      });
+
+      it("does NOT render the old standalone 'L#' level text", () => {
+        expect(texts().some((s) => /^L\d+$/.test(s))).toBe(false);
+      });
+
+      it("keeps the buy-XP cost reachable (cost label rendered)", () => {
+        expect(texts().some((s) => s === String(gameData.economy.xpBuyCost))).toBe(true);
       });
     });
   }

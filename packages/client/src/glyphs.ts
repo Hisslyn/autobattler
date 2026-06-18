@@ -11,7 +11,7 @@ export type GlyphKind =
   | "flame" | "bolt" | "droplet" | "snowflake" | "leaf" | "claw"
   | "star" | "sun" | "moon" | "spark" | "skull" | "eye" | "orb" | "heart"
   // non-trait HUD icons (stage 2): not in TRAIT_GLYPH
-  | "coin" | "refresh"
+  | "coin" | "refresh" | "levelUp"
   // non-trait item icons (phase 10b): not in TRAIT_GLYPH
   | "gem" | "component" | "bag";
 
@@ -283,6 +283,12 @@ export function drawGlyph(
       fillIt();
       g.arc(cx, cy - s * 0.3, s * 0.4, Math.PI, 0);
       g.stroke({ width: lw, color, alpha: 1, cap: "round", join: "round" });
+      break;
+    case "levelUp":
+      // Double up-chevron (level-up cue).
+      g.moveTo(cx - s * 0.7, cy - s * 0.05).lineTo(cx, cy - s * 0.7).lineTo(cx + s * 0.7, cy - s * 0.05);
+      g.moveTo(cx - s * 0.7, cy + s * 0.6).lineTo(cx, cy - s * 0.05).lineTo(cx + s * 0.7, cy + s * 0.6);
+      strokeIt();
       break;
     case "orb":
     default:

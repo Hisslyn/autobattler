@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { gameData } from "@autobattler/data";
 import type { UnitInstance } from "@autobattler/sim/src/types.js";
-import { traitStripModel, xpProgress, levelBadgeGeom } from "../src/hudModel.js";
+import { traitStripModel, xpProgress, buyXpGeom } from "../src/hudModel.js";
 import { traitColor } from "../src/theme.js";
 import { resolveLayout } from "../src/layout.js";
 
@@ -81,29 +81,36 @@ describe("xpProgress", () => {
   });
 });
 
-describe("levelBadgeGeom", () => {
-  // Exercise across the portrait + landscape hud heights the layout produces.
-  const hudRegions = [
+describe("buyXpGeom", () => {
+  // Exercise across the portrait + landscape econ-cluster regions. Portrait
+  // passes the full hud band; landscape passes the right sub-column.
+  const regions = [
     resolveLayout({ viewportW: 390, viewportH: 844 }).regions.hud,   // portrait tall
     resolveLayout({ viewportW: 390, viewportH: 606 }).regions.hud,   // portrait short floor
-    resolveLayout({ viewportW: 844, viewportH: 390 }).regions.hud,   // landscape
-    resolveLayout({ viewportW: 640, viewportH: 360 }).regions.hud,   // short landscape
+    (() => { const h = resolveLayout({ viewportW: 844, viewportH: 390 }).regions.hud; return { x: h.x + h.w - 96, y: h.y, w: 96, h: h.h }; })(), // landscape sub-column
+    (() => { const h = resolveLayout({ viewportW: 640, viewportH: 360 }).regions.hud; return { x: h.x + h.w - 96, y: h.y, w: 96, h: h.h }; })(),
   ];
 
-  for (const hud of hudRegions) {
-    it(`badge disc + arc + label stay within the hud bounds (h=${hud.h})`, () => {
-      const g = levelBadgeGeom(hud);
-      // Disc fully inside the region.
-      expect(g.cx - g.arcR).toBeGreaterThanOrEqual(hud.x - 0.001);
-      expect(g.cy - g.arcR).toBeGreaterThanOrEqual(hud.y - 0.001);
-      expect(g.cy + g.arcR + g.arcW / 2).toBeLessThanOrEqual(hud.y + hud.h + 0.001);
-      // Arc is at least the badge radius; badge is a positive disc.
-      expect(g.arcR).toBeGreaterThanOrEqual(g.badgeR);
+  for (const reg of regions) {
+    it(`circle + arc + badge stay coherent (region h=${reg.h})`, () => {
+      const g = buyXpGeom(reg);
+      // Positive sizes.
+      expect(g.r).toBeGreaterThan(0);
+      expect(g.rimW).toBeGreaterThan(0);
       expect(g.badgeR).toBeGreaterThan(0);
       expect(g.arcW).toBeGreaterThan(0);
-      // Label tucks under the arc but still inside the region.
-      expect(g.labelY).toBeGreaterThan(g.cy);
-      expect(g.labelY).toBeLessThanOrEqual(hud.y + hud.h);
+      expect(g.fontSize).toBeGreaterThanOrEqual(6);
+      // Anchored to the left of the region, vertically centered.
+      expect(g.cx).toBeGreaterThanOrEqual(reg.x + g.r);
+      expect(g.cy).toBeCloseTo(reg.y + reg.h / 2, 5);
+      // Arc sits outside the disc; spans a quarter circle (90°) on the right.
+      expect(g.arcR).toBeGreaterThanOrEqual(g.r);
+      expect(g.arcEnd - g.arcStart).toBeCloseTo(Math.PI / 2, 5);
+      // Badge overlaps the bottom-right (both coords beyond the center).
+      expect(g.badgeCx).toBeGreaterThan(g.cx);
+      expect(g.badgeCy).toBeGreaterThan(g.cy);
+      // The floating xp text sits above the button (outside it).
+      expect(g.fracY).toBeLessThan(g.cy - g.r);
     });
   }
 });
