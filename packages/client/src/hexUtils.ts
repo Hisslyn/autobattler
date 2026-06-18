@@ -6,6 +6,19 @@ export const BOARD_ROWS = 4;
 export const BOARD_SLOTS = BOARD_COLS * BOARD_ROWS;
 
 /**
+ * Circumradius (center→vertex) of the regular POINTY-TOP hexagon that tessellates
+ * the offset lattice `hexToPixel` produces. The lattice is row-offset (each row
+ * shifted by HEX_R), so its nearest neighbours are HEX_W apart in a row and
+ * √(HEX_R²+HEX_H²) apart diagonally — i.e. a pointy-top packing (vertical edges
+ * shared left/right, slanted edges shared on the diagonals). Two regular hexes
+ * share an edge when their centres are R·√3 apart; sizing R to the (larger)
+ * diagonal distance makes the slanted edges meet exactly and the vertical edges
+ * overlap by a sub-pixel hair, so the field tiles with zero gaps (drawn in flat
+ * board space, then projected — the homography preserves shared edges).
+ */
+export const HEX_TILE_R = Math.sqrt(HEX_R * HEX_R + HEX_H * HEX_H) / Math.sqrt(3);
+
+/**
  * Convert board slot index to pixel center.
  * `scale` (default 1) shrinks/grows the grid spacing about (offsetX, offsetY);
  * landscape renders the fixed 7×4 grid scaled-to-fit its board region while

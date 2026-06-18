@@ -47,7 +47,7 @@ export interface MatchSceneOptions {
   layout: MatchLayout;
 }
 import {
-  HEX_R, HEX_W, HEX_H, BOARD_COLS, BOARD_ROWS, BOARD_SLOTS,
+  HEX_R, HEX_W, HEX_H, HEX_TILE_R, BOARD_COLS, BOARD_ROWS, BOARD_SLOTS,
   hexToPixel, hexFromPointer,
 } from "../hexUtils.js";
 import { makeBoardProjection, type BoardProjection } from "../boardProjection.js";
@@ -68,10 +68,13 @@ interface HexStyle {
 }
 
 /**
- * Flat-top hex tile centered at board-space (x, y). When `project` is supplied
- * each vertex is mapped through it, so the ground tile renders as a true
- * perspective-foreshortened polygon (the board's trapezoid). Without it the tile
- * is the original flat hexagon.
+ * Pointy-top hex tile centered at board-space (x, y). The orientation matches the
+ * row-offset lattice (see HEX_TILE_R): vertical edges shared left/right, slanted
+ * edges on the diagonals — so neighbouring tiles share edges and tessellate with
+ * no gaps. When `project` is supplied each vertex is mapped through it, so the
+ * ground tile renders as a true perspective-foreshortened polygon (the board's
+ * trapezoid); shared edges stay shared after projection (the homography maps a
+ * line segment to a line segment).
  */
 function drawHex(
   g: PIXI.Graphics,
@@ -85,7 +88,7 @@ function drawHex(
 ): void {
   const pts: number[] = [];
   for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 3) * i;
+    const angle = (Math.PI / 3) * i + Math.PI / 6;
     const vx = x + r * Math.cos(angle);
     const vy = y + r * Math.sin(angle);
     const p = project ? project({ x: vx, y: vy }) : { x: vx, y: vy };
@@ -363,9 +366,17 @@ export class MatchScene {
   private get boardScale(): number {
     return 1;
   }
-  /** Hex radius for drawHex / drag highlight (board-space; projected per-vertex). */
+  /** Hex radius for drag highlight (board-space; projected per-vertex). */
   private get hexR(): number {
     return HEX_R * this.boardScale;
+  }
+  /**
+   * Circumradius for the drawn ground tiles — the tessellating pointy-top size
+   * (HEX_TILE_R) so adjacent tiles share edges and the field reads as one
+   * continuous surface (no inter-hex gap), scaled by boardScale like the grid.
+   */
+  private get hexTileR(): number {
+    return HEX_TILE_R * this.boardScale;
   }
   /** Unit-token base radius on the board (board-space; depth-scaled at draw). */
   private get boardTokenR(): number {
@@ -794,7 +805,7 @@ export class MatchScene {
     const playerY = this.boardOffsetY;
     const oppY = this.oppBoardOffsetY;
     const s = this.boardScale;
-    const hexR = this.hexR - 2 * s;
+    const hexR = this.hexTileR; // tessellating tile size — no inter-hex gap
     const tokR = this.boardTokenR;
 
     // Only a UNIT drag (not an item drag) makes player hexes valid drop targets.
@@ -812,7 +823,7 @@ export class MatchScene {
         const bp = hexToPixel(q, r, offX, oppY, s);
         const g = new PIXI.Graphics();
         drawHex(g, bp.x, bp.y, hexR, enemyZone, unitDragging ? 0.4 : 1, {
-          border: { color: C.boardBorder, width: 1, alpha: unitDragging ? 0.4 : 0.8 },
+          border: { color: C.boardBorder, width: 1, alpha: unitDragging ? 0.12 : 0.3 },
         }, fwd);
         this.boardLayer.addChild(g);
       }
@@ -865,7 +876,7 @@ export class MatchScene {
         drawHex(g, bp.x, bp.y, hexR, fill, 1, {
           border: unitDragging
             ? { color: C.hpGreen, width: 2, alpha: 0.6 }
-            : { color: C.boardBorder, width: 1, alpha: 0.8 },
+            : { color: C.boardBorder, width: 1, alpha: 0.3 },
         }, fwd);
         const sp = this.fwd(bp);
         g.eventMode = "static";
@@ -2670,7 +2681,7 @@ export class MatchScene {
     const playerY = this.boardOffsetY;
     const oppY = this.oppBoardOffsetY;
     const s = this.boardScale;
-    const hexR = this.hexR - 2 * s;
+    const hexR = this.hexTileR; // tessellating tile size — no inter-hex gap
     const tokR = this.boardTokenR;
     const enemyZone = isPve ? C.mobZone : C.enemyHex;
     const fwd = (p: { x: number; y: number }): { x: number; y: number } => this.fwd(p);
@@ -2679,14 +2690,14 @@ export class MatchScene {
         const opp = hexToPixel(q, r, offX, oppY, s);
         const og = new PIXI.Graphics();
         drawHex(og, opp.x, opp.y, hexR, enemyZone, 1, {
-          border: { color: C.boardBorder, width: 1, alpha: 0.8 },
+          border: { color: C.boardBorder, width: 1, alpha: 0.3 },
         }, fwd);
         this.combatLayer.addChild(og);
 
         const own = hexToPixel(q, r, offX, playerY, s);
         const g = new PIXI.Graphics();
         drawHex(g, own.x, own.y, hexR, C.myHex, 1, {
-          border: { color: C.boardBorder, width: 1, alpha: 0.8 },
+          border: { color: C.boardBorder, width: 1, alpha: 0.3 },
         }, fwd);
         this.combatLayer.addChild(g);
       }
