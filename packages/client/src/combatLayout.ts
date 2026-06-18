@@ -53,11 +53,14 @@ export const Z_RESOLUTION_BUTTON = 70;
 // ── 2. Scene-level 9-layer stack (stage 1 of the design-bible rewrite) ────────
 //
 // Bottom to top by VALUE (see the IMPORTANT note above re: suffix vs value).
-// Each constant's value is its stack ORDER (not a Pixi zIndex — the
-// match-scene root container is built by addChild in this exact VALUE order,
-// so these are documentation/assertion constants a test can check pairwise;
-// they are not separately applied as `.zIndex` unless a future stage turns
-// the root container sortable too).
+// Each constant's value is BOTH its stack order AND the literal Pixi `.zIndex`
+// applied to the matching scene container: the match-scene root container is
+// `sortableChildren = true` and `scenes/match.ts`'s `buildSceneLayers` binds
+// every layer's `zIndex` to its constant 1:1, so stacking derives from these
+// values, not addChild insertion order. Several containers may share one layer
+// (L2_UNITS / L5_HUD / L6_INSPECT); equal zIndex falls back to the stable
+// insertion order (see `buildSceneLayers`). These also remain assertion
+// constants a test checks pairwise.
 //
 //   L0_BOARD_ENV   — board environment/background (Pixi)
 //   L1_HEX_GRID    — hex grid + deploy highlights (Pixi)

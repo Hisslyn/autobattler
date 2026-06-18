@@ -26,7 +26,10 @@ import { lootRevealModel } from "../lootReveal.js";
 import type { RevealStep } from "../lootReveal.js";
 import { onUnitArtReady } from "../sprites.js";
 import { drawItemIcon, onItemArtReady } from "../itemIconDraw.js";
-import { Z_COMBAT_HEADER, Z_RESOLUTION_OVERLAY, Z_RESOLUTION_BUTTON, Z_RESOLUTION_CONTROL, L3_WATERMARK, L4_FRAME } from "../combatLayout.js";
+import {
+  Z_COMBAT_HEADER, Z_RESOLUTION_OVERLAY, Z_RESOLUTION_BUTTON, Z_RESOLUTION_CONTROL,
+  L0_BOARD_ENV, L2_UNITS, L3_WATERMARK, L4_FRAME, L5_HUD, L6_INSPECT, L8_TOAST,
+} from "../combatLayout.js";
 import { benchGeom, benchSlotAtX } from "../benchLayout.js";
 import { landscapeHudControls, HUD_BTN_Y_OFFSET } from "../hudControlsLayout.js";
 import type { SettingsStore } from "../settings.js";
@@ -111,26 +114,27 @@ export class MatchScene {
   readonly container: PIXI.Container;
   private app: PIXI.Application;
   private driver: IDriver;
-  private boardLayer: PIXI.Container;
-  private benchLayer: PIXI.Container;
-  private shopLayer: PIXI.Container;
-  private hudLayer: PIXI.Container;
-  private toastLayer: PIXI.Container;
-  private combatLayer: PIXI.Container;
-  private traitLayer: PIXI.Container;
+  // Layer containers — created + z-bound in buildSceneLayers() (constructor).
+  private boardLayer!: PIXI.Container;
+  private benchLayer!: PIXI.Container;
+  private shopLayer!: PIXI.Container;
+  private hudLayer!: PIXI.Container;
+  private toastLayer!: PIXI.Container;
+  private combatLayer!: PIXI.Container;
+  private traitLayer!: PIXI.Container;
   /** Landscape left-column rail tab (view-only UI state; never persisted). */
   private activeRailTab: "traits" | "items" = "traits";
-  private scoutLayer: PIXI.Container;
+  private scoutLayer!: PIXI.Container;
   /** Loot-orb reveal overlay (PvE resolution). */
-  private lootLayer: PIXI.Container;
+  private lootLayer!: PIXI.Container;
   /** Inspect / trait-detail panels (topmost, modal). */
-  private inspectLayer: PIXI.Container;
+  private inspectLayer!: PIXI.Container;
   /** L3_WATERMARK — board-anchored center watermark. Reserved empty layer (no content yet). */
-  private watermarkLayer: PIXI.Container;
+  private watermarkLayer!: PIXI.Container;
   /** L4_FRAME — ornate edge frame, 9-slice. Reserved empty layer, non-interactive (no content yet). */
-  private frameLayer: PIXI.Container;
+  private frameLayer!: PIXI.Container;
   /** Planning-phase juice (star-up flourish, buy/sell pops); not cleared by render(). */
-  private planningFxLayer: PIXI.Container;
+  private planningFxLayer!: PIXI.Container;
 
   private selectedBenchIdx: number | null = null;
   private selectedBoardIdx: number | null = null;
@@ -187,41 +191,12 @@ export class MatchScene {
     this.layout = opts.layout;
     this.playbackSpeed = opts.settings.get().defaultSpeed;
 
-    this.hudLayer = new PIXI.Container();
-    this.boardLayer = new PIXI.Container();
-    this.benchLayer = new PIXI.Container();
-    this.shopLayer = new PIXI.Container();
-    this.traitLayer = new PIXI.Container();
-    this.combatLayer = new PIXI.Container();
-    this.combatLayer.sortableChildren = true;
-    this.scoutLayer = new PIXI.Container();
-    this.toastLayer = new PIXI.Container();
-    this.planningFxLayer = new PIXI.Container();
-    this.inspectLayer = new PIXI.Container();
-    this.lootLayer = new PIXI.Container();
-    // L3_WATERMARK / L4_FRAME (combatLayout.ts) — reserved empty layers, styling deferred.
-    this.watermarkLayer = new PIXI.Container();
-    this.frameLayer = new PIXI.Container();
-    this.frameLayer.eventMode = "none"; // L4_FRAME is non-interactive per spec
-
-    this.container.addChild(this.hudLayer);
-    this.container.addChild(this.boardLayer);
-    this.container.addChild(this.benchLayer);
-    this.container.addChild(this.shopLayer);
-    this.container.addChild(this.traitLayer);
-    // L3_WATERMARK, L4_FRAME: above board/unit content (L1/L2), below HUD/combat/modal chrome.
-    this.container.addChild(this.watermarkLayer);
-    this.container.addChild(this.frameLayer);
-    this.container.addChild(this.planningFxLayer);
-    this.container.addChild(this.combatLayer);
-    this.container.addChild(this.lootLayer);
-    this.container.addChild(this.scoutLayer);
-    this.container.addChild(this.toastLayer);
-    this.container.addChild(this.inspectLayer);
+    this.buildSceneLayers();
 
     // Invisible full-screen drag target for pointer-up — only active while dragging
     const dragCatcher = new PIXI.Graphics();
     dragCatcher.eventMode = "none"; // disabled until drag starts
+    dragCatcher.zIndex = 900; // magic-ok: backstop above every L* layer, below the 999 drag sprite
     dragCatcher.on("pointermove", (e: PIXI.FederatedPointerEvent) => this.onDragMove(e));
     dragCatcher.on("pointerup", (e: PIXI.FederatedPointerEvent) => this.onDragEnd(e));
     dragCatcher.on("pointerupoutside", (e: PIXI.FederatedPointerEvent) => this.onDragEnd(e));
@@ -252,6 +227,78 @@ export class MatchScene {
 
     this.render(driver.getState());
     driver.startPlanning();
+  }
+
+  /**
+   * Build the scene's layer containers and bind their stacking to the named
+   * L*_* z-stack constants from combatLayout.ts — the documented 9-layer stack
+   * becomes the real, enforced render order. The root is `sortableChildren`, and
+   * every layer's `zIndex` IS its layer constant (1:1), so stacking derives from
+   * the constants, NOT addChild insertion order.
+   *
+   * Several containers legitimately share one layer (L2_UNITS, L5_HUD,
+   * L6_INSPECT); within a shared zIndex the stable tie-break is the addChild
+   * order below, chosen so the intended sub-order holds:
+   *   • planning VFX (`planningFxLayer`) over the board/bench unit tokens;
+   *   • the combat overlay (`combatLayer`) — and the loot reveal (`lootLayer`)
+   *     above it — over the persistent HUD chrome, so a full-screen RESOLUTION
+   *     scrim covers the opponent rail (the combat overlay's own internal stack
+   *     is consumed at L2/L5 — see combatLayout.ts);
+   *   • the inspect panel (`inspectLayer`) over the scout overlay (`scoutLayer`).
+   * Toast sits above the HUD but below the inspect/scout modals (L8_TOAST <
+   * L6_INSPECT), per the spec's toast bullet.
+   */
+  private buildSceneLayers(): void {
+    // Stacking is by zIndex, not insertion order.
+    this.container.sortableChildren = true;
+
+    this.boardLayer = new PIXI.Container();
+    this.benchLayer = new PIXI.Container();
+    this.planningFxLayer = new PIXI.Container();
+    // L3_WATERMARK / L4_FRAME — reserved empty layers, styling deferred.
+    this.watermarkLayer = new PIXI.Container();
+    this.frameLayer = new PIXI.Container();
+    this.frameLayer.eventMode = "none"; // L4_FRAME is non-interactive per spec
+    this.hudLayer = new PIXI.Container();
+    this.shopLayer = new PIXI.Container();
+    this.traitLayer = new PIXI.Container();
+    this.combatLayer = new PIXI.Container();
+    this.combatLayer.sortableChildren = true; // keeps its own internal z-stack
+    this.lootLayer = new PIXI.Container();
+    this.toastLayer = new PIXI.Container();
+    this.scoutLayer = new PIXI.Container();
+    this.inspectLayer = new PIXI.Container();
+
+    // zIndex IS the layer constant (1:1) — the enforced z-stack.
+    this.boardLayer.zIndex = L0_BOARD_ENV;
+    this.benchLayer.zIndex = L2_UNITS;
+    this.planningFxLayer.zIndex = L2_UNITS;
+    this.watermarkLayer.zIndex = L3_WATERMARK;
+    this.frameLayer.zIndex = L4_FRAME;
+    this.hudLayer.zIndex = L5_HUD;
+    this.shopLayer.zIndex = L5_HUD;
+    this.traitLayer.zIndex = L5_HUD;
+    this.combatLayer.zIndex = L5_HUD;
+    this.lootLayer.zIndex = L5_HUD;
+    this.toastLayer.zIndex = L8_TOAST;
+    this.scoutLayer.zIndex = L6_INSPECT;
+    this.inspectLayer.zIndex = L6_INSPECT;
+
+    // Added back-to-front; addChild order is only the stable tie-break within a
+    // shared layer (see the method doc).
+    this.container.addChild(this.boardLayer);
+    this.container.addChild(this.benchLayer);
+    this.container.addChild(this.planningFxLayer);
+    this.container.addChild(this.watermarkLayer);
+    this.container.addChild(this.frameLayer);
+    this.container.addChild(this.hudLayer);
+    this.container.addChild(this.shopLayer);
+    this.container.addChild(this.traitLayer);
+    this.container.addChild(this.combatLayer);
+    this.container.addChild(this.lootLayer);
+    this.container.addChild(this.toastLayer);
+    this.container.addChild(this.scoutLayer);
+    this.container.addChild(this.inspectLayer);
   }
 
   // ─── LAYOUT GEOMETRY (derived from this.layout) ──────────────────────────────
