@@ -58,6 +58,11 @@ const ITEM_SLOT = 30;          // item chip size
 // Consistent inset between the hex grid's bounding box and the board frame.
 const BOARD_PAD = 12;
 
+// Extra travel past the panel height when sliding the drop-down shop CLOSED, so
+// its bottom border clears the screen top (the panel's top sits at y=0) instead
+// of leaving a 1–2px gold rim peeking as a stray line.
+const SHOP_PANEL_HIDE_MARGIN = 4;
+
 // Match the driver/server resolution window (data-driven) so the visible
 // countdown can never drift from the real auto-advance.
 const RESOLUTION_AUTO_ADVANCE_MS = gameData.economy.resolutionSeconds * 1000;
@@ -641,11 +646,12 @@ export class MatchScene {
     if (this.driver.getState().phase !== "PLANNING") return;
 
     const status = this.layout.regions.statusRow;
+    const board = this.layout.regions.board;
     const w = 52;
     const h = 20;
-    const cx = status.x + status.w / 2; // safe-area center, matching the timer
+    const cx = board.x + board.w / 2; // board center, beneath the stage/timer cluster
     const x = cx - w / 2;
-    const y = status.y + 24; // directly below the stage chip / timer row
+    const y = status.y + 24; // directly below the stage chip / timer cluster
     const g = this.chip(this.skipLayer, x, y, w, h, {
       fill: C.panelBg,
       fillAlpha: 0.95,
@@ -675,14 +681,20 @@ export class MatchScene {
     this.hudLayer.addChild(bg);
 
     // ── A. Status row ──────────────────────────────────────────────────────
-    // Stage chip (left), timer (center on the SAFE-AREA center = status center),
-    // menu (DOM ☰, right).
+    // One centered cluster over the BOARD center X: [Stage X-Y chip] [timer].
+    // The DOM ☰ pause / exit "X" stays a standalone top-LEFT control (untouched).
     const stage = Math.floor((state.round - 1) / 5) + 1;
     const sub = ((state.round - 1) % 5) + 1;
     const stageW = 96;
     const sy = status.y;
-    const stageX = status.x + 6;
-    const centerX = status.x + status.w / 2; // safe-area center
+    const clusterGap = 8;
+    const timerW = 34; // reserved width for the m:ss timer to the chip's right
+    // Center the whole [chip][gap][timer] cluster over the board's center X.
+    const board = regions.board;
+    const boardCenterX = board.x + board.w / 2;
+    const clusterW = stageW + clusterGap + timerW;
+    const stageX = Math.round(boardCenterX - clusterW / 2);
+    const timerCx = stageX + stageW + clusterGap + timerW / 2;
     this.chip(this.hudLayer, stageX, sy, stageW, 20, { fillAlpha: 0.9 });
     this.glyph(this.hudLayer, "swords", stageX + 11, sy + 10, 13, C.starGold);
     this.text(this.hudLayer, `Stage ${stage}-${sub}`, stageX + 22, sy + 10, 10, C.textPrimary, [0, 0.5]);
@@ -690,7 +702,8 @@ export class MatchScene {
     // (PvE creeps are previewed directly on the enemy half of the main board
     // during planning — see renderBoard — so there's no scout chip here.)
 
-    // Planning timer (center): m:ss, muted; tint toward hp-low under 5s.
+    // Planning timer, attached immediately to the RIGHT of the stage label so the
+    // two read as one centered cluster. m:ss, muted; tint toward hp-low under 5s.
     // The node is retained + driven by a per-second ticker (see
     // startPlanningTimerTick) so the countdown visibly drains instead of
     // freezing at the value captured on phase entry.
@@ -701,14 +714,14 @@ export class MatchScene {
       const m = Math.floor(secs / 60);
       const ss = (secs % 60).toString().padStart(2, "0");
       this.planningTimerText = this.text(
-        this.hudLayer, `${m}:${ss}`, centerX, sy + 10, 12,
+        this.hudLayer, `${m}:${ss}`, timerCx, sy + 10, 12,
         secs <= 5 ? C.hpLow : C.textMuted, [0.5, 0.5]
       );
     } else {
       // Same 12px as the timer so phase transitions don't jitter the slot.
-      this.text(this.hudLayer, state.phase, centerX, sy + 10, 12, C.textMuted, [0.5, 0.5]);
+      this.text(this.hudLayer, state.phase, timerCx, sy + 10, 12, C.textMuted, [0.5, 0.5]);
     }
-    // Right slot reserved for the DOM ☰ pause button (existing hook).
+    // Top-LEFT slot reserved for the DOM ☰ pause / exit control (existing hook).
 
     // ── B. Opponent rail: 8 seat tiles ──────────────────────────────────────
     // Portrait: a single horizontal row of 8 tiles. Landscape: a single 1×8
@@ -1776,7 +1789,11 @@ export class MatchScene {
       return { x: s.x, y: s.y, w: s.w, h: s.h };
     }
     const sr = this.layout.regions.sellControl;
-    const size = Math.min(sr.w, sr.h, 48);
+    // Match the Buy XP button's EXACT diameter (shared medallion base): the slot
+    // is its full circle (2·(r + rimW)), centered over the sell control, so the
+    // toggle never renders smaller than Buy XP (no corner-fit clamp shrinks it).
+    const bx = buyXpGeom(this.layout.regions.hud);
+    const size = 2 * (bx.r + bx.rimW);
     return { x: sr.x + (sr.w - size) / 2, y: sr.y - size - 6, w: size, h: size };
   }
 
@@ -1803,10 +1820,11 @@ export class MatchScene {
     }
     const r = this.shopToggleRect();
     const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
-    // Same diameter as the Buy XP button (shared medallion base): take its
-    // geometry's radius, capped so it still fits inside this slot.
+    // EXACTLY the Buy XP button's diameter (shared medallion base): use its
+    // geometry's radius directly — no corner-fit clamp (the slot rect is already
+    // sized to the full circle), so the two buttons render identically sized.
     const bx = buyXpGeom(this.isLandscape ? this.buyXpRegionLandscape() : this.layout.regions.hud);
-    const R = Math.min(bx.r, Math.min(r.w, r.h) / 2 - 2); // shared diameter, inscribed in the slot
+    const R = bx.r;
     const rimW = bx.rimW;
 
     // Shared medallion base: blue disc + ornate gold/bronze rim (same scheme as
@@ -1918,8 +1936,10 @@ export class MatchScene {
 
     // Resting position when no slide is animating (keeps the panel in place across
     // re-renders, e.g. after a buy): open → flush with the top, closed → hidden up.
+    // Closed clears the full height PLUS the border so the bottom gold rim doesn't
+    // peek as a stray line across the screen top (the panel's top is at y=0).
     if (this.shopPanelAnimFn === null) {
-      this.shopPanelOffsetY = this.shopPanelOpen ? 0 : -pr.h;
+      this.shopPanelOffsetY = this.shopPanelOpen ? 0 : -(pr.h + SHOP_PANEL_HIDE_MARGIN);
     }
     this.shopPanelLayer.y = this.shopPanelOffsetY;
     this.shopPanelLayer.eventMode = this.shopPanelOpen ? "auto" : "none";
@@ -1936,7 +1956,7 @@ export class MatchScene {
   /** Slide the panel down (open) / up (closed); reduced-motion snaps. */
   private animateShopPanel(): void {
     const pr = this.shopPanelRect();
-    const target = this.shopPanelOpen ? 0 : -pr.h;
+    const target = this.shopPanelOpen ? 0 : -(pr.h + SHOP_PANEL_HIDE_MARGIN);
     if (this.shopPanelAnimFn !== null) {
       this.app.ticker.remove(this.shopPanelAnimFn);
       this.shopPanelAnimFn = null;
