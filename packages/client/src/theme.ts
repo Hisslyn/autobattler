@@ -188,6 +188,15 @@ export const C = {
   // already established (no new tint invented for the radiant badge itself).
   radiantBadge:       0xf0a830,  // = lootLegendary
 
+  // ─── Arena torch pillars (gold meter, renderer-only) ─────────────────────
+  // Cylindrical pillars flanking the board edges; lit count = a side's gold meter.
+  torchStone:     0x3a4152,  // column body (warm-grey stone, reads on the dark board)
+  torchStoneDark: 0x20263a,  // bowl interior / outline / contact shadow
+  torchUnlit:     0x4a4456,  // cold extinguished ember pooled in the bowl
+  torchFlame:     0xf08a30,  // outer flame body (warm orange)
+  torchFlameCore: 0xffe08a,  // inner flame core (bright yellow-white)
+  torchGlow:      0xf0a830,  // soft radial glow behind a lit flame (low alpha)
+
   // Trait tracker
   traitActive:  0x3a6a3a,
   traitPending: 0x1e2830,

@@ -31,6 +31,7 @@ import {
   L0_BOARD_ENV, L2_UNITS, L3_WATERMARK, L4_FRAME, L5_HUD, L6_INSPECT, L8_TOAST,
 } from "../combatLayout.js";
 import { benchGeom, benchSlotAtX } from "../benchLayout.js";
+import { TORCHES_PER_SIDE, torchLit } from "../torchMeter.js";
 import type { SettingsStore } from "../settings.js";
 import type { AudioManager } from "../audio/manager.js";
 import { phaseToMusicState } from "../audio/director.js";
@@ -57,6 +58,17 @@ const ITEM_SLOT = 30;          // item chip size
 
 // Consistent inset between the hex grid's bounding box and the board frame.
 const BOARD_PAD = 12;
+
+// ─── Arena torch pillars (gold meter, renderer-only) ─────────────────────────
+// Cylinder width/height in SCREEN px at depth-scale 1 (the near/front pillar);
+// each pillar is depth-scaled by the board projection so front pillars read
+// larger than the receding back ones. TORCH_FRONT/TORCH_BACK are board-space y
+// fractions of the grid frame (0 = far/enemy edge, 1 = near/player edge) for the
+// back-most and front-most pillar; the rest interpolate evenly between them.
+const TORCH_W = 12;
+const TORCH_H = 46;
+const TORCH_FRONT = 0.9;
+const TORCH_BACK = 0.1;
 
 // Extra travel past the panel height when sliding the drop-down shop CLOSED, so
 // its bottom border clears the screen top (the panel's top sits at y=0) instead
@@ -874,9 +886,109 @@ export class MatchScene {
     layer.addChild(panel);
   }
 
+  /**
+   * Arena torch pillars flanking the board as a gold meter (renderer-only). Five
+   * cylindrical pillars stand along each board edge on the SAME ground plane as
+   * the hexes — projected through the board homography so they recede with the
+   * perspective (front larger, back smaller) and depth-sorted so nearer pillars
+   * draw over farther ones. The gold→torch mapping is pure presentation
+   * (`torchMeter`): lit = floor(gold/10) capped at 5.
+   *
+   * LEFT column = MY gold, always (planning + combat), lit front→back. RIGHT
+   * column = the OPPONENT's gold, shown only during combat (0 for PvE mobs / bye),
+   * lit back→front; hidden entirely during planning.
+   */
+  private drawArenaTorches(layer: PIXI.Container, me: PlayerState, combat: boolean): void {
+    const f = this.gridFrame;
+    const leftX = f.x;            // board-space left frame edge
+    const rightX = f.x + f.w;     // board-space right frame edge
+    // board-space y for pillar index i (0 = back/far, last = front/near).
+    const yAt = (i: number): number => {
+      const t = TORCH_BACK + (TORCH_FRONT - TORCH_BACK) * (i / (TORCHES_PER_SIDE - 1));
+      return f.y + t * f.h;
+    };
+
+    type Pillar = { sx: number; sy: number; scale: number; lit: boolean; y: number };
+    const pillars: Pillar[] = [];
+
+    const pushColumn = (boardX: number, flags: boolean[]): void => {
+      for (let i = 0; i < TORCHES_PER_SIDE; i++) {
+        const by = yAt(i);
+        const base = this.fwd({ x: boardX, y: by });
+        pillars.push({ sx: base.x, sy: base.y, scale: this.depthScaleAt({ x: boardX, y: by }), lit: flags[i]!, y: by });
+      }
+    };
+
+    pushColumn(leftX, torchLit(me.gold, "left"));
+    if (combat) pushColumn(rightX, torchLit(this.opponentGold(), "right"));
+
+    // Depth-sort: far (smaller board y) first so nearer pillars overlap them.
+    pillars.sort((a, b) => a.y - b.y);
+    for (const p of pillars) {
+      const g = new PIXI.Graphics();
+      g.eventMode = "none";
+      this.drawTorchPillar(g, p.sx, p.sy, p.scale, p.lit);
+      layer.addChild(g);
+    }
+  }
+
+  /**
+   * Opponent gold for the RIGHT torch column during combat. Read straight off the
+   * match snapshot (presentation only); 0 for PvE / bye / ghost or when the
+   * opponent's gold is private (online — opponent gold isn't in the public
+   * snapshot, so the column simply reads empty).
+   */
+  private opponentGold(): number {
+    if (this.driver.isPveRound()) return 0;
+    const pairing = this.driver.getMyPairing();
+    if (!pairing || pairing.isGhost || pairing.opponentId < 0) return 0;
+    return this.driver.getState().players[pairing.opponentId]?.gold ?? 0;
+  }
+
+  /** One torch pillar: a depth-scaled cylinder with a flame (lit) / cold bowl (unlit). */
+  private drawTorchPillar(g: PIXI.Graphics, cx: number, baseY: number, scale: number, lit: boolean): void {
+    const w = TORCH_W * scale;
+    const h = TORCH_H * scale;
+    const half = w / 2;
+    const topY = baseY - h;            // bowl sits at the column top
+    const sw = Math.max(1, scale);     // depth-scaled outline weight
+
+    // Contact shadow on the ground plane.
+    g.ellipse(cx, baseY, half * 1.2, half * 0.42).fill({ color: C.torchStoneDark, alpha: 0.45 });
+    // Cylinder body + shaded outline.
+    g.roundRect(cx - half, topY, w, h, half * 0.5).fill({ color: C.torchStone });
+    g.roundRect(cx - half, topY, w, h, half * 0.5).stroke({ width: sw, color: C.torchStoneDark, alpha: 0.85 });
+    // Bowl (top ellipse).
+    g.ellipse(cx, topY, half * 1.15, half * 0.5).fill({ color: C.torchStoneDark });
+
+    if (lit) {
+      const fh = h * 0.62;
+      const fw = w * 0.62;
+      // Soft warm glow behind the flame.
+      g.circle(cx, topY - fh * 0.4, fw * 1.7).fill({ color: C.torchGlow, alpha: 0.16 });
+      // Outer flame teardrop.
+      g.moveTo(cx, topY);
+      g.quadraticCurveTo(cx - fw, topY - fh * 0.45, cx, topY - fh);
+      g.quadraticCurveTo(cx + fw, topY - fh * 0.45, cx, topY);
+      g.fill({ color: C.torchFlame });
+      // Inner bright core.
+      const ih = fh * 0.58;
+      const iw = fw * 0.5;
+      const iy = topY - fh * 0.1;
+      g.moveTo(cx, iy);
+      g.quadraticCurveTo(cx - iw, iy - ih * 0.45, cx, iy - ih);
+      g.quadraticCurveTo(cx + iw, iy - ih * 0.45, cx, iy);
+      g.fill({ color: C.torchFlameCore });
+    } else {
+      // Extinguished: a cold dim ember pooled in the bowl.
+      g.ellipse(cx, topY, half * 0.62, half * 0.3).fill({ color: C.torchUnlit, alpha: 0.7 });
+    }
+  }
+
   private renderBoard(me: PlayerState): void {
     this.boardLayer.removeChildren();
     this.drawBoardPanel(this.boardLayer);
+    this.drawArenaTorches(this.boardLayer, me, false);
     const offX = this.boardOffsetX;
     const playerY = this.boardOffsetY;
     const oppY = this.oppBoardOffsetY;
@@ -3026,6 +3138,8 @@ export class MatchScene {
 
     // Board-bg panel first so banners/tiles/tokens layer on top of it.
     this.drawBoardPanel(this.combatLayer);
+    // Arena torches: LEFT = my gold, RIGHT = opponent gold (combat-only).
+    this.drawArenaTorches(this.combatLayer, me, true);
 
     const pairing = this.driver.getMyPairing();
     const isGhost = pairing?.isGhost ?? false;
