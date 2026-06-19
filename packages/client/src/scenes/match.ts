@@ -46,12 +46,10 @@ export interface MatchSceneOptions {
   /** Called to leave the match and return to the menu (pause panel or match-over). */
   onLeave: () => void;
   /**
-   * Notified when the drop-down shop panel opens/closes. The DOM ☰ pause button
-   * lives in a higher overlay layer than the Pixi canvas, so the shell hides it
-   * while the shop is open (true) and restores it on close (false) — letting the
-   * shop fully overlay the menu button.
+   * Open the pause panel. The ☰ button lives in the Pixi HUD layer (so it scales
+   * with the viewport); the shell owns the pause panel modal itself.
    */
-  onShopPanelToggle?: (open: boolean) => void;
+  onPause: () => void;
   /** Active orientation-aware layout (design dims + named region rects). */
   layout: MatchLayout;
 }
@@ -785,6 +783,31 @@ export class MatchScene {
     this.hudLayer.addChild(g);
   }
 
+  /**
+   * Top-LEFT ☰ pause button, drawn into the HUD layer so it scales/positions
+   * with the viewport. Fires `onPause` on tap (the shell owns the pause modal).
+   * The shop panel layer is above the HUD, so an open shop overlays it via z.
+   */
+  private renderPauseButton(status: { x: number; y: number; w: number; h: number }): void {
+    const w = 30, h = 22;
+    const x = status.x + 6;
+    const y = status.y + 6;
+    const g = new PIXI.Graphics();
+    g.roundRect(x, y, w, h, 6).fill({ color: C.panelBg, alpha: 0.95 });
+    g.roundRect(x, y, w, h, 6).stroke({ width: 1, color: C.chipBorder });
+    // ☰ glyph: three horizontal bars.
+    const barW = 14;
+    const bx = x + (w - barW) / 2;
+    for (let i = 0; i < 3; i++) {
+      g.rect(bx, y + 6 + i * 5, barW, 1.6).fill({ color: C.textPrimary });
+    }
+    g.eventMode = "static";
+    g.hitArea = new PIXI.Rectangle(x, y, w, h);
+    g.cursor = "pointer";
+    this.pressFeedback(g, () => this.opts.onPause(), { cx: x + w / 2, cy: y + h / 2 });
+    this.hudLayer.addChild(g);
+  }
+
   private renderHud(state: MatchState, me: PlayerState): void {
     this.hudLayer.removeChildren();
     const { designW, regions } = this.layout;
@@ -854,7 +877,11 @@ export class MatchScene {
       // Same 12px as the timer so phase transitions don't jitter the slot.
       this.text(this.hudLayer, state.phase, timerCx, sy + 10, 12, C.textMuted, [0.5, 0.5]);
     }
-    // Top-LEFT slot reserved for the DOM ☰ pause / exit control (existing hook).
+    // Top-LEFT ☰ pause button — rendered in the HUD layer so it scales and
+    // repositions with the viewport like the rest of the chrome. The shop panel
+    // layer sits above the HUD, so it overlays this button via z-ordering (no
+    // hide-while-shop workaround needed).
+    this.renderPauseButton(status);
 
     // ── B. Opponent rail: 8 seat tiles ──────────────────────────────────────
     // Portrait: a single horizontal row of 8 tiles. Landscape: a single 1×8
@@ -2232,8 +2259,6 @@ export class MatchScene {
     this.opts.audio.play("tap");
     this.renderShopToggle(me);   // repaint the button's open/closed fill
     this.renderShopBackdrop(me); // create (open) / tear down (closed) the scrim
-    // Hide the DOM ☰ pause button while the shop overlays it; restore on close.
-    this.opts.onShopPanelToggle?.(this.shopPanelOpen);
     this.animateShopPanel();
   }
 
@@ -2294,8 +2319,6 @@ export class MatchScene {
       this.app.ticker.remove(this.shopPanelAnimFn);
       this.shopPanelAnimFn = null;
     }
-    // Restore the DOM ☰ pause button if the panel was open when we tore down.
-    if (this.shopPanelOpen) this.opts.onShopPanelToggle?.(false);
     this.shopPanelOpen = false;
     this.shopPanelOffsetY = -9999;
     this.shopPanelLayer.removeChildren();

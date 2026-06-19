@@ -29,7 +29,6 @@ ${themeCssVars()}
 #ui-root.hidden { display: none; }
 #match-overlay { z-index: 20; pointer-events: none; }
 #match-overlay.hidden { display: none; }
-.match-pause-btn.hidden { display: none; }
 
 .ui-screen {
   min-height: 100%;
@@ -183,14 +182,7 @@ ${themeCssVars()}
 .ui-howto-nav { display: flex; justify-content: space-between; width: 100%; align-items: center; }
 .ui-toast { color: ${cssVar("textToast")}; font-size: 12px; min-height: 16px; }
 
-/* In-match pause control + panel */
-.match-pause-btn {
-  position: absolute; top: 8px; left: 8px; pointer-events: auto;
-  background: ${cssVar("panelBg")}; color: ${cssVar("textPrimary")};
-  border: 1px solid ${cssVar("chipBorder")}; border-radius: 7px;
-  font-family: inherit; font-size: 14px; padding: 6px 11px; cursor: pointer; z-index: 21;
-}
-.match-pause-btn:hover { border-color: ${cssVar("accentGold")}; }
+/* In-match pause panel (the ☰ button itself lives in the Pixi HUD layer) */
 .match-modal {
   position: absolute; inset: 0; pointer-events: auto; z-index: 22;
   background: rgba(0,0,0,0.62); display: flex; align-items: center; justify-content: center;
@@ -240,13 +232,6 @@ ${themeCssVars()}
   /* Modal cards (pause, etc.) never exceed the short viewport — scroll inside. */
   .ui-card { max-height: calc(100vh - 32px); overflow-y: auto; }
   .match-modal .ui-card { max-width: 420px; }
-  /* Trait rail sits at the left edge in landscape; the opponent rail (with the
-     "Player N" labels) hugs the right edge and now starts at the top corner
-     (Player 1 aligned to this button's row), so park the pause button just to the
-     LEFT of Player 1 — reading [menu] [Player 1] across the top — with a small gap,
-     not overlapping. The smaller offset hugs the rail across the supported scale
-     range instead of sitting far to its left. */
-  .match-pause-btn { left: auto; right: 96px; top: 12px; }
 }
 
 /* Extra compression for very short landscape viewports. */

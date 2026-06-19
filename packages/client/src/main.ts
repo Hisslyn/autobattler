@@ -126,7 +126,7 @@ async function main(): Promise<void> {
       : new LocalDriver(undefined, ui.auth?.profile.name);
     scene = new MatchScene(app, driver, {
       settings, audio, onLeave: leaveMatch, layout: activeLayout,
-      onShopPanelToggle: (open) => ui.setMenuButtonHidden(open),
+      onPause: () => ui.openPausePanel(),
     });
     app.stage.addChild(scene.container);
     ui.enterMatch(leaveMatch);
