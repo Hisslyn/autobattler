@@ -65,8 +65,11 @@ export const C = {
   myHex:       0x1d2336,
   boardBg:     0x0d1019,  // slightly lifted from surfaceBase for the rounded panel
   boardBorder: 0x2a3048,  // legible hex grid line on the darker board surface
+  benchPlatform: 0x171c2b, // tilted bench front platform (stone slab, lighter than board, butts the board's near edge)
   // Token
   tokenBg:  0x0f1220,  // deeper token disc
+  tokenSide: 0x070910, // extruded "checkers piece" side wall (darker band under the front edge)
+  tokenShadow: 0x05070c, // soft contact shadow cast on the board plane
   starGold: 0xf0a830,
 
   // ─── Visual overhaul stage 2: in-match HUD + shop chrome ──────────────────

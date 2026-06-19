@@ -36,7 +36,7 @@ import type { AudioManager } from "../audio/manager.js";
 import { phaseToMusicState } from "../audio/director.js";
 
 import type { MatchLayout } from "../layout.js";
-import { centeredModal, landscapeBenchSlotCenter, landscapeBenchSlotAt, opponentRailTile, shopCardContentLayout } from "../layout.js";
+import { centeredModal, opponentRailTile, shopCardContentLayout } from "../layout.js";
 
 export interface MatchSceneOptions {
   settings: SettingsStore;
@@ -98,7 +98,37 @@ function drawHex(
   if (style.border) g.poly(pts).stroke({ width: style.border.width, color: style.border.color, alpha: style.border.alpha ?? 1 });
 }
 
-/** Render a unit token (board/combat with bars, bench without) at (x, y). */
+/**
+ * Push a single pointy-top hex outline (same geometry as `drawHex`) as a SUBPATH
+ * into `g` without filling or stroking it. Many cells accumulated this way and
+ * then stroked in ONE `g.stroke()` call rasterize as a single stroke region, so
+ * shared (tessellated) edges composite once — uniform grid-line alpha across the
+ * field. Vertices are computed in flat board space, then projected, so the cells
+ * follow the perspective tilt while the stroke width stays crisp in screen space.
+ */
+function addHexPath(
+  g: PIXI.Graphics,
+  x: number,
+  y: number,
+  r: number,
+  project?: (p: { x: number; y: number }) => { x: number; y: number }
+): void {
+  const pts: number[] = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i + Math.PI / 6;
+    const vx = x + r * Math.cos(angle);
+    const vy = y + r * Math.sin(angle);
+    const p = project ? project({ x: vx, y: vy }) : { x: vx, y: vy };
+    pts.push(p.x, p.y);
+  }
+  g.poly(pts);
+}
+
+/**
+ * Render a unit token (board/combat with bars, bench without) at (x, y).
+ * `piece` gives it "checkers piece" volume (board + bench only); flat surfaces
+ * (drag ghost, scout overlay) leave it off.
+ */
 function drawUnit(
   container: PIXI.Container,
   unit: UnitInstance,
@@ -106,7 +136,8 @@ function drawUnit(
   y: number,
   r = 16,
   dimmed = false,
-  withBars = true
+  withBars = true,
+  piece = false
 ): void {
   const bars = withBars
     ? {
@@ -122,6 +153,7 @@ function drawUnit(
   const opts: import("../unitToken.js").UnitTokenOpts = { radius: r, dimmed };
   if (bars) opts.bars = bars;
   if (items) opts.items = items;
+  if (piece) opts.piece = {};
   drawUnitToken(container, unit.defId, unit.tier, unit.star, x, y, opts);
 }
 
@@ -434,6 +466,37 @@ export class MatchScene {
     const bp = this.proj.inverse({ x: px, y: py });
     if (!bp) return -1;
     return hexFromPointer(bp.x, bp.y, this.boardOffsetX, this.boardOffsetY, this.boardScale);
+  }
+
+  // ─── TILTED BENCH (landscape) ────────────────────────────────────────────────
+  // The bench lives on the SAME ground plane as the board: a board-space strip
+  // butted directly against the grid frame's front (bottom) edge, projected
+  // through the board's homography so it reads as a continuous front platform.
+  // Its top edge maps exactly onto the board's near edge; perspective magnifies
+  // it slightly toward the viewer. All rendering AND hit-testing go through the
+  // same forward/inverse projection, so a drag lands on the right slot.
+
+  /**
+   * Board-space rect for the bench band (landscape only). Top = the grid frame's
+   * front edge; bottom = the bench region's on-screen bottom mapped back onto the
+   * board plane via the raw (off-board) inverse, so the projected platform lands
+   * exactly in the bench region's vertical slot.
+   */
+  private benchBandRect(): { x: number; y: number; w: number; h: number } {
+    const f = this.gridFrame;
+    const dst = this.layout.regions.board;
+    const bench = this.layout.regions.bench;
+    const topY = f.y + f.h;
+    const centerScreenX = dst.x + dst.w / 2; // board's vertical center line on screen
+    const bottom = this.proj.inverseRaw({ x: centerScreenX, y: bench.y + bench.h });
+    return { x: f.x, y: topY, w: f.w, h: Math.max(1, bottom.y - topY) };
+  }
+
+  /** Board-space rect for bench slot `i` (landscape; 9 equal columns of the band). */
+  private benchSlotBoardRect(i: number): { x: number; y: number; w: number; h: number } {
+    const band = this.benchBandRect();
+    const slotW = band.w / 9;
+    return { x: band.x + i * slotW, y: band.y, w: slotW, h: band.h };
   }
 
   /** Resize the invisible drag-catcher to the current design space. */
@@ -818,16 +881,35 @@ export class MatchScene {
     const isPveRound = this.driver.isPveRound();
     const enemyZone = isPveRound ? C.mobZone : C.enemyHex;
     const fwd = (p: { x: number; y: number }): { x: number; y: number } => this.fwd(p);
+
+    // ── Enemy zone fills (top 4 rows) — seamless tessellation, NO per-tile
+    // borders (the grid pass below draws the uniform cell lines so neighbour
+    // fills can never paint over them). Dimmed while dragging a unit;
+    // non-interactive. ───────────────────────────────────────────────────────
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
         const bp = hexToPixel(q, r, offX, oppY, s);
         const g = new PIXI.Graphics();
-        drawHex(g, bp.x, bp.y, hexR, enemyZone, unitDragging ? 0.4 : 1, {
-          border: { color: C.boardBorder, width: 1, alpha: unitDragging ? 0.12 : 0.3 },
-        }, fwd);
+        drawHex(g, bp.x, bp.y, hexR, enemyZone, unitDragging ? 0.4 : 1, {}, fwd);
+        g.eventMode = "none";
         this.boardLayer.addChild(g);
       }
     }
+
+    // Enemy-zone grid lines: clean, uniform cell borders computed in flat board
+    // space and projected with the tilt, drawn over the fills but under the mob
+    // tokens. One stroke pass → shared tessellated edges composite once (uniform
+    // line alpha). Dimmed while dragging (not a valid drop zone).
+    const enemyGrid = new PIXI.Graphics();
+    for (let r = 0; r < BOARD_ROWS; r++) {
+      for (let q = 0; q < BOARD_COLS; q++) {
+        const bp = hexToPixel(q, r, offX, oppY, s);
+        addHexPath(enemyGrid, bp.x, bp.y, hexR, fwd);
+      }
+    }
+    enemyGrid.stroke({ width: 1, color: C.boardBorder, alpha: unitDragging ? 0.12 : 0.4 });
+    enemyGrid.eventMode = "none";
+    this.boardLayer.addChild(enemyGrid);
 
     // PvE creep preview: render the upcoming mob board (real BoardState from rules
     // via the driver) on the enemy half so the planned-for round is visible inline
@@ -852,15 +934,17 @@ export class MatchScene {
           uc.on("pointerupoutside", () => this.clearPress());
           // withBars=false: the neutral mobTint ring fires automatically because
           // the mob defId is absent from data.units (no extra theming here).
-          // Entities stay upright + screen-aligned; only depth-scaled.
-          drawUnit(uc, unit, sp.x, sp.y, Math.round(tokR * sc), false, false);
+          // Depth-scaled piece; bars/pips stay upright + screen-aligned.
+          drawUnit(uc, unit, sp.x, sp.y, Math.round(tokR * sc), false, false, true);
           this.boardLayer.addChild(uc);
         }
       }
     }
 
-    // Player zone (bottom 4 rows) — lighter tint; valid drop hexes glow green
-    // while dragging a unit; an occupied hex (a valid swap) gets a lighter fill.
+    // Player zone (bottom 4 rows) fills — selection / occupied-swap tints; each
+    // tile's projected polygon is its own Pixi hit area, so a tap lands on the
+    // hex actually under the finger at the tilted angle. Borders come from the
+    // grid pass below (no per-tile border here).
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
         const slotIdx = r * BOARD_COLS + q;
@@ -871,13 +955,7 @@ export class MatchScene {
           ? C.bgBoardSel
           : unitDragging && occupied ? C.bgBoardDragOver : C.myHex;
         const g = new PIXI.Graphics();
-        // Projected polygon fill → the Pixi hit area is the tilted tile, so a tap
-        // lands on the hex actually under the finger at the tilted angle.
-        drawHex(g, bp.x, bp.y, hexR, fill, 1, {
-          border: unitDragging
-            ? { color: C.hpGreen, width: 2, alpha: 0.6 }
-            : { color: C.boardBorder, width: 1, alpha: 0.3 },
-        }, fwd);
+        drawHex(g, bp.x, bp.y, hexR, fill, 1, {}, fwd);
         const sp = this.fwd(bp);
         g.eventMode = "static";
         g.cursor = "pointer";
@@ -885,6 +963,24 @@ export class MatchScene {
         this.boardLayer.addChild(g);
       }
     }
+
+    // Player-zone grid lines: uniform cell borders over the fills, under the unit
+    // tokens (one stroke pass → uniform alpha). While dragging a unit these cells
+    // highlight green to read as valid drop targets.
+    const playerGrid = new PIXI.Graphics();
+    for (let r = 0; r < BOARD_ROWS; r++) {
+      for (let q = 0; q < BOARD_COLS; q++) {
+        const bp = hexToPixel(q, r, offX, playerY, s);
+        addHexPath(playerGrid, bp.x, bp.y, hexR, fwd);
+      }
+    }
+    playerGrid.stroke(
+      unitDragging
+        ? { width: 2, color: C.hpGreen, alpha: 0.6 }
+        : { width: 1, color: C.boardBorder, alpha: 0.4 }
+    );
+    playerGrid.eventMode = "none";
+    this.boardLayer.addChild(playerGrid);
 
     // Draw units. Slot index order already runs back row → front row, so units
     // are added back-to-front and a nearer (larger, depth-scaled) unit renders in
@@ -913,7 +1009,7 @@ export class MatchScene {
       uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBoard(idx, unit, e));
       uc.on("pointerup", () => this.clearPress());
       uc.on("pointerupoutside", () => this.clearPress());
-      drawUnit(uc, unit, sp.x, sp.y, r2, this.selectedBenchIdx !== null || (this.selectedBoardIdx !== null && this.selectedBoardIdx !== idx));
+      drawUnit(uc, unit, sp.x, sp.y, r2, this.selectedBenchIdx !== null || (this.selectedBoardIdx !== null && this.selectedBoardIdx !== idx), true, true);
       this.boardLayer.addChild(uc);
     }
   }
@@ -932,14 +1028,28 @@ export class MatchScene {
 
   /** Pixel center of bench slot `i` (orientation-aware). */
   private benchSlotCenter(i: number): { x: number; y: number } {
-    if (this.isLandscape) return landscapeBenchSlotCenter(i, this.layout.regions.bench);
+    if (this.isLandscape) {
+      // Tilted bench: project the board-space slot center through the board's
+      // own homography (same plane as the board).
+      const r = this.benchSlotBoardRect(i);
+      return this.fwd({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+    }
     const { slotW, startCx } = this.benchGeom();
     return { x: startCx + i * slotW, y: this.benchCenterY };
   }
 
   /** Bench slot index under a pointer, or null (orientation-aware). */
   private benchSlotAt(px: number, py: number): number | null {
-    if (this.isLandscape) return landscapeBenchSlotAt(px, py, this.layout.regions.bench);
+    if (this.isLandscape) {
+      // Map the screen point back onto the board plane (raw inverse — the bench
+      // band lies BELOW the board rect) and resolve the column it falls in.
+      const band = this.benchBandRect();
+      const bp = this.proj.inverseRaw({ x: px, y: py });
+      const marginY = band.h * 0.25; // forgiving band above/below the platform
+      if (bp.x < band.x || bp.x > band.x + band.w) return null;
+      if (bp.y < band.y - marginY || bp.y > band.y + band.h + marginY) return null;
+      return Math.max(0, Math.min(8, Math.floor((bp.x - band.x) / (band.w / 9))));
+    }
     const r = this.layout.regions.bench;
     if (py < r.y - 7 || py > r.y + r.h + 7) return null; // forgiving vertical band
     return benchSlotAtX(px, this.benchGeom());
@@ -957,6 +1067,13 @@ export class MatchScene {
         .fill({ color: C.bgHud, alpha: 0.4 });
       colBg.eventMode = "none";
       this.benchLayer.addChild(colBg);
+    }
+
+    // Landscape: the bench is a tilted front platform on the board's plane.
+    if (this.isLandscape) {
+      this.renderTiltedBench(me);
+      this.renderSellControl(me);
+      return;
     }
 
     for (let i = 0; i < 9; i++) {
@@ -1012,12 +1129,95 @@ export class MatchScene {
         uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBench(i, unit, e));
         uc.on("pointerup", () => this.clearPress());
         uc.on("pointerupoutside", () => this.clearPress());
-        drawUnit(uc, unit, cx, cy, 13, false, false);
+        drawUnit(uc, unit, cx, cy, 13, false, false, true);
         this.benchLayer.addChild(uc);
       }
     }
 
     this.renderSellControl(me);
+  }
+
+  /**
+   * Landscape bench: a tilted front platform on the board's ground plane. The
+   * band is a projected stone slab butting the board's near edge; its 9 slots are
+   * board-space rectangles projected to trapezoids (rectangular cells lying on
+   * the tilted plane). Tokens stay upright/screen-aligned, sized to the projected
+   * slot. All geometry uses the SAME forward/inverse projection as the board, so
+   * dragging a unit to/from a slot lands on the correct one (see benchSlotAt).
+   */
+  private renderTiltedBench(me: PlayerState): void {
+    const band = this.benchBandRect();
+    const fwd = (p: { x: number; y: number }): { x: number; y: number } => this.fwd(p);
+
+    // Platform base slab — a slightly lighter shade than the board, seamless with
+    // its front edge (the band's top edge maps exactly onto the board near edge).
+    const base = new PIXI.Graphics();
+    const b0 = fwd({ x: band.x, y: band.y });
+    const b1 = fwd({ x: band.x + band.w, y: band.y });
+    const b2 = fwd({ x: band.x + band.w, y: band.y + band.h });
+    const b3 = fwd({ x: band.x, y: band.y + band.h });
+    const baseQuad = [b0.x, b0.y, b1.x, b1.y, b2.x, b2.y, b3.x, b3.y];
+    base.poly(baseQuad).fill({ color: C.benchPlatform, alpha: 0.96 });
+    base.poly(baseQuad).stroke({ width: 1, color: C.boardBorder, alpha: 0.6 });
+    base.eventMode = "none";
+    this.benchLayer.addChild(base);
+
+    const slotW = band.w / 9;
+    const insetX = slotW * 0.06;     // small board-space gaps so cells read distinct
+    const insetY = band.h * 0.1;
+    for (let i = 0; i < 9; i++) {
+      const unit = me.bench[i];
+      const isSelected = this.selectedBenchIdx === i && unit != null;
+      const occupied = unit != null;
+
+      const sx = band.x + i * slotW + insetX;
+      const sw = slotW - 2 * insetX;
+      const sy = band.y + insetY;
+      const sh = band.h - 2 * insetY;
+      const p0 = fwd({ x: sx, y: sy });
+      const p1 = fwd({ x: sx + sw, y: sy });
+      const p2 = fwd({ x: sx + sw, y: sy + sh });
+      const p3 = fwd({ x: sx, y: sy + sh });
+      const poly = [p0.x, p0.y, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y];
+
+      const g = new PIXI.Graphics();
+      g.poly(poly).fill({
+        color: isSelected ? C.bgBenchSel : occupied ? C.benchOccupied : C.benchEmpty,
+        alpha: occupied ? 1.0 : 0.55,
+      });
+      g.poly(poly).stroke({
+        width: 1,
+        color: isSelected ? C.tier3 : occupied ? C.chipBorder : C.benchEmptyRim,
+        alpha: occupied ? 0.9 : 0.6,
+      });
+      g.eventMode = "static";
+      g.cursor = "pointer";
+      g.on("pointerdown", () => this.onBenchSlotClick(i, me));
+      this.benchLayer.addChild(g);
+
+      if (unit) {
+        if (this.dragUnit?.uid === unit.uid) continue;
+        // Fit the token to the PROJECTED slot size (perspective magnifies the
+        // near platform), and keep it upright/screen-aligned like board tokens.
+        const center = fwd({ x: sx + sw / 2, y: sy + sh / 2 });
+        const screenW = Math.hypot(p2.x - p3.x, p2.y - p3.y); // bottom edge length
+        const screenH = Math.hypot(p3.x - p0.x, p3.y - p0.y); // left edge length
+        const r = Math.max(9, Math.min(22, Math.round(0.42 * Math.min(screenW, screenH))));
+        const minX = Math.min(p0.x, p1.x, p2.x, p3.x);
+        const maxX = Math.max(p0.x, p1.x, p2.x, p3.x);
+        const minY = Math.min(p0.y, p1.y, p2.y, p3.y);
+        const maxY = Math.max(p0.y, p1.y, p2.y, p3.y);
+        const uc = new PIXI.Container();
+        uc.eventMode = "static";
+        uc.cursor = "grab";
+        uc.hitArea = new PIXI.Rectangle(minX, minY, maxX - minX, maxY - minY);
+        uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBench(i, unit, e));
+        uc.on("pointerup", () => this.clearPress());
+        uc.on("pointerupoutside", () => this.clearPress());
+        drawUnit(uc, unit, center.x, center.y, r, false, false, true);
+        this.benchLayer.addChild(uc);
+      }
+    }
   }
 
   /**
@@ -2718,7 +2918,7 @@ export class MatchScene {
         const bp = hexToPixel(q, r, offX, playerY, s);
         const sp = this.fwd(bp);
         const uc = new PIXI.Container();
-        drawUnit(uc, unit, sp.x, sp.y, Math.round(tokR * this.depthScaleAt(bp)));
+        drawUnit(uc, unit, sp.x, sp.y, Math.round(tokR * this.depthScaleAt(bp)), false, true, true);
         this.combatLayer.addChild(uc);
       }
       this.driver.combatPlaybackDone();

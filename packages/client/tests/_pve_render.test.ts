@@ -50,10 +50,11 @@ describe("PvE creeps render inline on the enemy half (read-only)", () => {
 
   it("renders the upcoming creep board via the pure driver accessor with withBars=false", () => {
     expect(body).toContain("this.driver.getUpcomingPveBoard()");
-    // withBars=false: drawUnit(..., false, false) — no bars, mobTint ring auto-fires.
+    // withBars=false: drawUnit(..., false, false, true) — no bars, mobTint ring
+    // auto-fires; trailing `true` gives the mob its "checkers piece" volume.
     // Position/radius are now projected (forward + depth scale), so match the
     // trailing withBars/withItems falses tolerantly rather than the flat args.
-    expect(body).toMatch(/drawUnit\(uc,\s*unit,[\s\S]*?,\s*false,\s*false\)/);
+    expect(body).toMatch(/drawUnit\(uc,\s*unit,[\s\S]*?,\s*false,\s*false,\s*true\)/);
   });
 
   it("makes mob tokens READ-ONLY: long-press inspect only, never draggable", () => {

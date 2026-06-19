@@ -110,6 +110,13 @@ export interface BoardProjection {
   /** Screen → board-space, or null if the screen point is off the board. */
   inverse(p: Pt): Pt | null;
   /**
+   * Screen → board-space WITHOUT the off-board bounds check (always returns a
+   * point). For surfaces that extend the same ground plane beyond `rect` — e.g.
+   * a front bench platform butted against the board's near edge — so they share
+   * the board's exact forward/inverse mapping.
+   */
+  inverseRaw(p: Pt): Pt;
+  /**
    * Depth scale multiplier at a board-space point: ≈1 at the near (bottom) edge,
    * shrinking toward the far (top) edge. Equals the projection's local
    * horizontal magnification, so entities scale exactly with the ground.
@@ -173,6 +180,7 @@ export function makeBoardProjection(
       }
       return bp;
     },
+    inverseRaw: (p) => apply(invM, p),
     scaleAt: (p) => {
       const a = apply(fwdM, p);
       const b = apply(fwdM, { x: p.x + eps, y: p.y });

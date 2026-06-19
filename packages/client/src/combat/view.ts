@@ -184,6 +184,7 @@ export class CombatView {
     drawUnitToken(uc, u.defId, tier, u.star, 0, 0, {
       radius: r,
       bars: { hpFrac: st.hp, manaFrac: st.mana, hpChipFrac: st.hpChip },
+      piece: {}, // battlefield token: short "checkers piece" volume
     });
     this.unitLayer.addChild(uc);
     this.lastUnit.set(u.uid, { x, y, defId: u.defId, tier, star: u.star, r });
@@ -342,7 +343,7 @@ export class CombatView {
       uc.position.set(d.x, d.y + 8 * k);
       uc.scale.set(1 - 0.25 * k);
       uc.alpha = 1 - k;
-      drawUnitToken(uc, d.defId, d.tier, d.star, 0, 0, { radius: d.r });
+      drawUnitToken(uc, d.defId, d.tier, d.star, 0, 0, { radius: d.r, piece: {} });
       this.unitLayer.addChild(uc);
     }
   }
