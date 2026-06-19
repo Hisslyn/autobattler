@@ -599,13 +599,13 @@ describe("planningRegionAt", () => {
     expect(planningRegionAt(px, py, layout, -1, null)).toEqual({ zone: "sell" });
   });
 
-  it("center of the shop returns a shop card index 0–4", () => {
+  it("center of the shop returns a shop card index 0–5", () => {
     const [px, py] = center(r.shop);
     const got = planningRegionAt(px, py, layout, -1, null);
     expect(got?.zone).toBe("shop");
     if (got?.zone === "shop") {
       expect(got.cardIdx).toBeGreaterThanOrEqual(0);
-      expect(got.cardIdx).toBeLessThanOrEqual(4);
+      expect(got.cardIdx).toBeLessThanOrEqual(5);
     }
   });
 
@@ -875,14 +875,14 @@ describe("shopPanelSlotRect", () => {
     }
   });
 
-  it("slot 0 (refresh) sits leftmost; slots 1-5 (cards) follow it", () => {
+  it("slot 0 (refresh) sits leftmost; slots 1-6 (cards) follow it", () => {
     const s0 = shopPanelSlotRect(area, 0, 4);
     const s1 = shopPanelSlotRect(area, 1, 4);
-    const s5 = shopPanelSlotRect(area, 5, 4);
+    const s6 = shopPanelSlotRect(area, 6, 4);
     expect(s0.x).toBeLessThan(s1.x);
-    expect(s1.x).toBeLessThan(s5.x);
-    // 5 cards (slots 1-5) + refresh (slot 0) = 6 of the 7 slots occupied.
-    expect(s5.x + s5.w).toBeLessThanOrEqual(area.x + area.w + 0.001);
+    expect(s1.x).toBeLessThan(s6.x);
+    // 6 cards (slots 1-6) + refresh (slot 0) = all 7 slots occupied.
+    expect(s6.x + s6.w).toBeLessThanOrEqual(area.x + area.w + 0.001);
   });
 });
 

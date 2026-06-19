@@ -72,7 +72,7 @@ export interface MatchRegions {
    * (portrait has no tab switcher — both tabs sit in the same rail).
    */
   traitTabBar:  Rect;
-  /** Shop 5-card strip. */
+  /** Shop 6-card strip. */
   shop:         Rect;
   /** 9-slot bench. */
   bench:        Rect;
@@ -780,8 +780,8 @@ export function planningRegionAt(
   if (inRect(px, py, r.sellControl, 6)) return { zone: "sell" };
   if (inRect(px, py, r.readyButton)) return { zone: "readyButton" };
   if (inRect(px, py, r.shop)) {
-    const cardW = r.shop.w / 5;
-    const cardIdx = Math.max(0, Math.min(4, Math.floor((px - r.shop.x) / cardW)));
+    const cardW = r.shop.w / 6;
+    const cardIdx = Math.max(0, Math.min(5, Math.floor((px - r.shop.x) / cardW)));
     return { zone: "shop", cardIdx };
   }
   if (inRect(px, py, r.hud)) return { zone: "hud" };
@@ -823,8 +823,8 @@ export function opponentRailTile(
 /**
  * Drop-down shop panel slot grid (pure). The panel's inner content area is
  * divided into 7 equal-width slots laid out left-to-right: slot 0 is the refresh
- * button and slots 1–5 are the 5 unit shop cards (slot 6 is left empty — the
- * grid stays 7-wide so every element is exactly 1/7 of the panel width). Returns
+ * button and slots 1–6 are the 6 unit shop cards (every element is exactly 1/7 of
+ * the panel width). Returns
  * the rect of slot `slot` (0–6) within `area`, with an optional inter-slot `gap`
  * subtracted symmetrically so the slots read as separated cards.
  */

@@ -29,6 +29,7 @@ ${themeCssVars()}
 #ui-root.hidden { display: none; }
 #match-overlay { z-index: 20; pointer-events: none; }
 #match-overlay.hidden { display: none; }
+.match-pause-btn.hidden { display: none; }
 
 .ui-screen {
   min-height: 100%;

@@ -124,7 +124,10 @@ async function main(): Promise<void> {
     driver = mode === "online"
       ? new NetDriver(SERVER_URL, ui.auth?.token)
       : new LocalDriver(undefined, ui.auth?.profile.name);
-    scene = new MatchScene(app, driver, { settings, audio, onLeave: leaveMatch, layout: activeLayout });
+    scene = new MatchScene(app, driver, {
+      settings, audio, onLeave: leaveMatch, layout: activeLayout,
+      onShopPanelToggle: (open) => ui.setMenuButtonHidden(open),
+    });
     app.stage.addChild(scene.container);
     ui.enterMatch(leaveMatch);
     if (mode === "local") {

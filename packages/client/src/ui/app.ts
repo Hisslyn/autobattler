@@ -32,6 +32,8 @@ export class UiApp {
   private menuRoot: HTMLElement;
   private content: HTMLElement;
   private matchOverlay: HTMLElement;
+  /** The in-match ☰ pause button (kept so it can be hidden while the shop is open). */
+  private pauseBtn: HTMLElement | null = null;
   private stack: ScreenId[] = ["main"];
   private leaveHandler: (() => void) | null = null;
 
@@ -368,8 +370,19 @@ export class UiApp {
     this.menuRoot.classList.add("hidden");
     this.matchOverlay.classList.remove("hidden");
     clear(this.matchOverlay);
-    this.matchOverlay.appendChild(button("☰", () => this.openPausePanel(), "match-pause-btn"));
+    this.pauseBtn = button("☰", () => this.openPausePanel(), "match-pause-btn");
+    this.matchOverlay.appendChild(this.pauseBtn);
     void this.opts.audio.setMusicState("planning");
+  }
+
+  /**
+   * Hide / restore the DOM ☰ pause button. The drop-down shop panel renders on the
+   * Pixi canvas (a layer below the DOM `#match-overlay`), so z-index alone can't put
+   * the shop over this button — instead the shop tells us to hide it while open and
+   * restore it on close, so the shop fully overlays the menu button.
+   */
+  setMenuButtonHidden(hidden: boolean): void {
+    if (this.pauseBtn) this.pauseBtn.classList.toggle("hidden", hidden);
   }
 
   /** Return from a match to the main menu. */
@@ -377,6 +390,7 @@ export class UiApp {
     this.leaveHandler = null;
     this.matchOverlay.classList.add("hidden");
     clear(this.matchOverlay);
+    this.pauseBtn = null;
     this.menuRoot.classList.remove("hidden");
     this.stack = ["main"];
     this.render();

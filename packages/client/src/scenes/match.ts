@@ -45,6 +45,13 @@ export interface MatchSceneOptions {
   audio: AudioManager;
   /** Called to leave the match and return to the menu (pause panel or match-over). */
   onLeave: () => void;
+  /**
+   * Notified when the drop-down shop panel opens/closes. The DOM ☰ pause button
+   * lives in a higher overlay layer than the Pixi canvas, so the shell hides it
+   * while the shop is open (true) and restores it on close (false) — letting the
+   * shop fully overlay the menu button.
+   */
+  onShopPanelToggle?: (open: boolean) => void;
   /** Active orientation-aware layout (design dims + named region rects). */
   layout: MatchLayout;
 }
@@ -1922,9 +1929,9 @@ export class MatchScene {
   }
 
   /**
-   * Draw the 5 shop cards into `layer`, one per rect in `cardRects` (rects[i] is
+   * Draw the 6 shop cards into `layer`, one per rect in `cardRects` (rects[i] is
    * the slot for shop card i). The drop-down shop panel computes these from its
-   * 7-equal-slot grid (slot 0 = refresh, slots 1–5 = cards) and passes them here,
+   * 7-equal-slot grid (slot 0 = refresh, slots 1–6 = cards) and passes them here,
    * so this stays pure geometry-consumption: it renders the SAME live shop
    * (me.shop) and routes taps through `onShopBuy`.
    */
@@ -1933,7 +1940,7 @@ export class MatchScene {
     cardRects: { x: number; y: number; w: number; h: number }[],
     me: PlayerState
   ): void {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < cardRects.length; i++) {
       const rect = cardRects[i];
       if (!rect) continue;
       const x = rect.x;
@@ -2042,7 +2049,7 @@ export class MatchScene {
 
   /**
    * Drop-down shop panel rect — anchored to the top edge, spanning (near) the
-   * full design width so its inner 7-equal-slot grid (refresh + 5 cards) gets
+   * full design width so its inner 7-equal-slot grid (refresh + 6 cards) gets
    * comfortable per-slot width. One row of shop cards, no title strip (refresh
    * now lives in slot 0 of the grid).
    */
@@ -2164,11 +2171,20 @@ export class MatchScene {
     this.renderShopBackdrop(me);
 
     // ── Panel surface ─────────────────────────────────────────────────────────
-    this.chip(this.shopPanelLayer, pr.x, pr.y, pr.w, pr.h, {
+    // The surface is an interactive click-absorbing backdrop: a tap on any empty
+    // area WITHIN the panel (corners, gaps, padding) must do NOTHING, never
+    // dismiss. Only a tap strictly OUTSIDE the panel (on the scrim) closes the
+    // shop. Making the whole panel rect a `static` hit target stops the event
+    // from reaching the dismiss scrim below it.
+    const surface = this.chip(this.shopPanelLayer, pr.x, pr.y, pr.w, pr.h, {
       fill: C.bgInspect, border: C.accentGold, borderW: 2, radius: 8,
     });
+    surface.eventMode = "static";
+    surface.hitArea = new PIXI.Rectangle(pr.x, pr.y, pr.w, pr.h);
+    // Swallow taps on the surface so they don't fall through to the scrim.
+    surface.on("pointertap", (e: PIXI.FederatedPointerEvent) => e.stopPropagation());
 
-    // ── 7-equal-slot grid: slot 0 = refresh, slots 1–5 = the 5 shop cards ──────
+    // ── 7-equal-slot grid: slot 0 = refresh, slots 1–6 = the 6 shop cards ──────
     const innerArea = { x: pr.x + pad, y: pr.y + pad, w: pr.w - 2 * pad, h: pr.h - 2 * pad };
 
     // Slot 0 — refresh (reroll) button. Same shared shop state; cost unchanged.
@@ -2183,8 +2199,8 @@ export class MatchScene {
     this.glyph(this.shopPanelLayer, "coin", rrCx - 8, rrCy + 12, 9, C.accentGold);
     this.text(this.shopPanelLayer, `${gameData.economy.rerollCost}`, rrCx, rrCy + 12, 11, C.textGold, [0, 0.5]);
 
-    // Slots 1–5 — the 5 shop cards, one per slot (each exactly 1/7 of the panel).
-    const cardRects = [0, 1, 2, 3, 4].map((i) => shopPanelSlotRect(innerArea, i + 1));
+    // Slots 1–6 — the 6 shop cards, one per slot (each exactly 1/7 of the panel).
+    const cardRects = [0, 1, 2, 3, 4, 5].map((i) => shopPanelSlotRect(innerArea, i + 1));
     this.drawShopCards(this.shopPanelLayer, cardRects, me);
 
     // Resting position when no slide is animating (keeps the panel in place across
@@ -2204,6 +2220,8 @@ export class MatchScene {
     this.opts.audio.play("tap");
     this.renderShopToggle(me);   // repaint the button's open/closed fill
     this.renderShopBackdrop(me); // create (open) / tear down (closed) the scrim
+    // Hide the DOM ☰ pause button while the shop overlays it; restore on close.
+    this.opts.onShopPanelToggle?.(this.shopPanelOpen);
     this.animateShopPanel();
   }
 
@@ -2264,6 +2282,8 @@ export class MatchScene {
       this.app.ticker.remove(this.shopPanelAnimFn);
       this.shopPanelAnimFn = null;
     }
+    // Restore the DOM ☰ pause button if the panel was open when we tore down.
+    if (this.shopPanelOpen) this.opts.onShopPanelToggle?.(false);
     this.shopPanelOpen = false;
     this.shopPanelOffsetY = -9999;
     this.shopPanelLayer.removeChildren();
