@@ -78,8 +78,8 @@ const BOARD_PAD = 12;
 // (back half, front-most at the midline); the rest interpolate evenly so the
 // squat tealights spread along the half rather than clustering.
 // Tealight proportions: WIDE and SHORT (a squat wax disc with a small flame).
-const TORCH_W = 16;
-const TORCH_H = 7;
+const TORCH_W = 32;
+const TORCH_H = 9.1;
 const TORCH_FRONT = 0.9;
 const TORCH_BACK = 0.1;
 const TORCH_MID = 0.5;
@@ -1089,10 +1089,12 @@ export class MatchScene {
     g.ellipse(cx, topY, half * 0.92, half * 0.26).fill({ color: C.torchStoneDark });
 
     if (lit) {
-      // Small flame on top — sized to the candle WIDTH (not the squat height) so
-      // it stays a readable little teardrop above the wax.
+      // Small flame on top — width tracks the candle WIDTH (now a thicker
+      // teardrop with the doubled base), but its HEIGHT is held at the original
+      // absolute value (decoupled from the wider half) so the flame got wider,
+      // not taller.
       const fw = half * 0.42;
-      const fh = fw * 2.6;
+      const fh = half * 0.21 * 2.6;
       const flameBase = topY - half * 0.06;
       // Soft warm glow behind the flame.
       g.circle(cx, flameBase - fh * 0.4, fw * 1.9).fill({ color: C.torchGlow, alpha: 0.16 });
