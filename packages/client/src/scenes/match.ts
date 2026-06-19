@@ -62,13 +62,17 @@ const BOARD_PAD = 12;
 // ─── Arena torch pillars (gold meter, renderer-only) ─────────────────────────
 // Cylinder width/height in SCREEN px at depth-scale 1 (the near/front pillar);
 // each pillar is depth-scaled by the board projection so front pillars read
-// larger than the receding back ones. TORCH_FRONT/TORCH_BACK are board-space y
-// fractions of the grid frame (0 = far/enemy edge, 1 = near/player edge) for the
-// back-most and front-most pillar; the rest interpolate evenly between them.
-const TORCH_W = 12;
-const TORCH_H = 46;
+// larger than the receding back ones. TORCH_FRONT/TORCH_BACK/TORCH_MID are
+// board-space y fractions of the grid frame (0 = far/enemy edge, 1 = near/player
+// edge). Each side's 5 pillars flank only that side's half of the board: the
+// player (left) column spans [TORCH_MID, TORCH_FRONT] (front half, back-most at
+// the midline) and the opponent (right) column spans [TORCH_BACK, TORCH_MID]
+// (back half, front-most at the midline); the rest interpolate evenly.
+const TORCH_W = 8;
+const TORCH_H = 28;
 const TORCH_FRONT = 0.9;
 const TORCH_BACK = 0.1;
+const TORCH_MID = 0.5;
 
 // Extra travel past the panel height when sliding the drop-down shop CLOSED, so
 // its bottom border clears the screen top (the panel's top sits at y=0) instead
@@ -894,33 +898,39 @@ export class MatchScene {
    * draw over farther ones. The gold→torch mapping is pure presentation
    * (`torchMeter`): lit = floor(gold/10) capped at 5.
    *
-   * LEFT column = MY gold, always (planning + combat), lit front→back. RIGHT
-   * column = the OPPONENT's gold, shown only during combat (0 for PvE mobs / bye),
-   * lit back→front; hidden entirely during planning.
+   * LEFT column = MY gold, always (planning + combat), lit front→back, flanking
+   * the front half. RIGHT column = the OPPONENT's, always visible (mirroring the
+   * player so the arena reads symmetric) flanking the back half — but its flames
+   * only LIGHT during combat (per the opponent's gold; 0 for PvE mobs / bye),
+   * lit back→front; the pillars stay unlit during planning.
    */
   private drawArenaTorches(layer: PIXI.Container, me: PlayerState, combat: boolean): void {
     const f = this.gridFrame;
     const leftX = f.x;            // board-space left frame edge
     const rightX = f.x + f.w;     // board-space right frame edge
-    // board-space y for pillar index i (0 = back/far, last = front/near).
-    const yAt = (i: number): number => {
-      const t = TORCH_BACK + (TORCH_FRONT - TORCH_BACK) * (i / (TORCHES_PER_SIDE - 1));
+    // board-space y for pillar index i (0 = back/far, last = front/near) within
+    // a side's [back, front] half-board fraction span.
+    const yAt = (i: number, back: number, front: number): number => {
+      const t = back + (front - back) * (i / (TORCHES_PER_SIDE - 1));
       return f.y + t * f.h;
     };
 
     type Pillar = { sx: number; sy: number; scale: number; lit: boolean; y: number };
     const pillars: Pillar[] = [];
 
-    const pushColumn = (boardX: number, flags: boolean[]): void => {
+    const pushColumn = (boardX: number, flags: boolean[], back: number, front: number): void => {
       for (let i = 0; i < TORCHES_PER_SIDE; i++) {
-        const by = yAt(i);
+        const by = yAt(i, back, front);
         const base = this.fwd({ x: boardX, y: by });
         pillars.push({ sx: base.x, sy: base.y, scale: this.depthScaleAt({ x: boardX, y: by }), lit: flags[i]!, y: by });
       }
     };
 
-    pushColumn(leftX, torchLit(me.gold, "left"));
-    if (combat) pushColumn(rightX, torchLit(this.opponentGold(), "right"));
+    // Player flanks the FRONT half (back-most pillar at the midline).
+    pushColumn(leftX, torchLit(me.gold, "left"), TORCH_MID, TORCH_FRONT);
+    // Opponent flanks the BACK half, always drawn; lit only during combat.
+    const oppFlags = combat ? torchLit(this.opponentGold(), "right") : new Array<boolean>(TORCHES_PER_SIDE).fill(false);
+    pushColumn(rightX, oppFlags, TORCH_BACK, TORCH_MID);
 
     // Depth-sort: far (smaller board y) first so nearer pillars overlap them.
     pillars.sort((a, b) => a.y - b.y);
