@@ -9,6 +9,7 @@ import {
   portraitRegions,
   shopCardContentLayout,
   landscapeClusterThickness,
+  bottomCornerButtonTop,
   LANDSCAPE_THRESHOLD,
   LS_BASE_MARGIN,
   PORTRAIT_W, PORTRAIT_H,
@@ -339,6 +340,25 @@ describe("landscapeClusterThickness clamp behavior", () => {
   });
 });
 
+describe("bottomCornerButtonTop", () => {
+  it("returns the circular footprint's top (center − (radius + rim))", () => {
+    // h=110 → r capped at h/2-1=54; rim=54*0.16=8.64; cy=200+55=255; top=255-62.64.
+    const top = bottomCornerButtonTop(200, 310, 1280);
+    expect(top).toBeCloseTo(255 - (54 + 54 * 0.16), 5);
+  });
+
+  it("the radius is capped at 56 on a tall region (matching buyXpGeom)", () => {
+    // h=300 → r would be 149, capped to 56; rim=8.96; cy=150; top=150-(56+8.96).
+    const top = bottomCornerButtonTop(0, 300, 1280);
+    expect(top).toBeCloseTo(150 - (56 + 56 * 0.16), 5);
+  });
+
+  it("overhangs ABOVE the region top (a circle taller than the bench row)", () => {
+    // The whole point: the footprint top sits above the region's top edge.
+    expect(bottomCornerButtonTop(471, 580, 1280)).toBeLessThan(471);
+  });
+});
+
 // ── Landscape region geometry (existing widget names, slotted into clusters) ──
 
 describe("landscape regions", () => {
@@ -505,6 +525,53 @@ describe("landscape regions", () => {
 
   it("opponentRail has enough height for a 1×8 vertical column (≥ 24px rows)", () => {
     expect(regions.opponentRail.h / 8).toBeGreaterThanOrEqual(24);
+  });
+
+  // ── Bottom-corner button clearance (shop button / Player-8 fix) ────────────
+  // The bottom-corner medallion buttons (Buy XP left, shop-toggle right) are
+  // mirrored circular buttons whose footprint spans the bench + bottom-controls
+  // rows. The opponent rail shares the right screen edge with the shop button, so
+  // Player 8 (its bottom tile) must sit ABOVE the shop button's top.
+
+  /** Reproduce match.ts buyXpFootprint() for the landscape Buy XP button. */
+  function buyXpFootprintLs(): Rect {
+    const bench = regions.bench;
+    const hud = regions.hud;
+    const reg = {
+      x: hud.x,
+      y: bench.y,
+      w: Math.max(1, bench.x - hud.x - 8),
+      h: hud.y + hud.h - bench.y,
+    };
+    // Mirror hudModel.buyXpGeom.
+    const r = Math.max(16, Math.min(reg.h / 2 - 1, reg.w * 0.34, 56));
+    const rimW = Math.max(2.5, r * 0.16);
+    const cx = reg.x + r + rimW;
+    const cy = reg.y + reg.h / 2;
+    const half = r + rimW;
+    return { x: cx - half, y: cy - half, w: 2 * half, h: 2 * half };
+  }
+
+  it("opponent rail bottom (Player 8) clears the bottom-right shop button's top", () => {
+    const fp = buyXpFootprintLs();
+    // Shop button mirrors the Buy XP footprint into the right corner (same top).
+    const shopTop = fp.y;
+    const railBottom = regions.opponentRail.y + regions.opponentRail.h;
+    expect(railBottom).toBeLessThanOrEqual(shopTop);
+  });
+
+  it("the mirrored bottom-corner buttons stay fully inside the design bounds", () => {
+    const fp = buyXpFootprintLs();
+    const leftMargin = fp.x;
+    const shop = { x: designW - leftMargin - fp.w, y: fp.y, w: fp.w, h: fp.h };
+    // Both fully inside the design canvas (no clipping off the bottom/right edge).
+    expect(withinBounds(fp, designW, designH)).toBe(true);
+    expect(withinBounds(shop, designW, designH)).toBe(true);
+    // Symmetric pair: equal size, equal y, mirrored margins.
+    expect(shop.w).toBe(fp.w);
+    expect(shop.h).toBe(fp.h);
+    expect(shop.y).toBe(fp.y);
+    expect(designW - (shop.x + shop.w)).toBeCloseTo(fp.x, 5);
   });
 
   it("bench is NOT in the leftRail cluster (it lives in bottomBar)", () => {

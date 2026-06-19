@@ -378,6 +378,16 @@ const LS_BOARD_RAIL_MARGIN = 8;
 // Tiny gap below the status bar before the board begins.
 const LS_BOARD_TOP_GAP = 4;
 
+// The two bottom-corner medallion buttons (Buy XP left / shop-toggle right) are
+// circular and span the bench + bottom-controls rows, so their TOP edge overhangs
+// ABOVE the bench. The opponent rail (right column) shares the right edge with the
+// shop button, so its bottom must clear that overhang. This is the footprint half
+// (radius + rim) at the button's max radius cap; the rail bottom is capped above
+// (corner-button top − LS_CORNER_GAP) so Player 8 never sits under the shop button.
+const LS_CORNER_BTN_MAX_R = 56;        // buyXpGeom radius cap (mirror of hudModel)
+const LS_CORNER_BTN_RIM_FRAC = 0.16;   // rimW = r * 0.16 (mirror of hudModel)
+const LS_CORNER_GAP = 6;               // visible gap between rail bottom and button top
+
 /**
  * Pure cluster-dimension solve, exposed for tests: given the usable design
  * width/height, returns each fixed-edge cluster's clamped thickness.
@@ -438,6 +448,25 @@ export function landscapeClusterThickness(
  * @param safeDesign safe-area insets ALREADY CONVERTED to design units
  *   (CSS-px inset ÷ the design↔CSS scale factor) by the caller.
  */
+/**
+ * Pure: the TOP y of a bottom-corner medallion button whose circular footprint
+ * spans the region [regionTop, regionBottom]. Mirrors match.ts's buyXpFootprint
+ * (buyXpGeom radius cap + rim fraction) so the rail-clearance math here stays in
+ * lockstep with the rendered button diameter. `regionW` is the button region's
+ * width (only narrows the radius on very tight viewports — usually not binding).
+ */
+export function bottomCornerButtonTop(
+  regionTop: number,
+  regionBottom: number,
+  regionW: number
+): number {
+  const regionH = Math.max(1, regionBottom - regionTop);
+  const r = Math.max(16, Math.min(regionH / 2 - 1, regionW * 0.34, LS_CORNER_BTN_MAX_R));
+  const rimW = Math.max(2.5, r * LS_CORNER_BTN_RIM_FRAC);
+  const cy = regionTop + regionH / 2;
+  return cy - (r + rimW);
+}
+
 function landscapeRegionsFor(
   designW: number,
   designH: number,
@@ -478,9 +507,25 @@ function landscapeRegionsFor(
   const benchTop = controlsY - LS_BOARD_TOP_GAP - benchH;
   const boardH = Math.max(LS_BOARD_MIN_H, benchTop - boardTop);
 
-  // The rails flank the board+bench band, full height.
+  // The rails flank the board+bench band. Their bottoms are capped to clear the
+  // bottom-corner medallion buttons (Buy XP left / shop-toggle right), whose
+  // circular footprints overhang ABOVE the bench (see LS_CORNER_* constants). The
+  // right rail shares the right screen edge with the shop button, so Player 8 must
+  // sit above the shop button's top; the left rail (trait rail) gets the same cap
+  // for symmetry (it shares the left edge with the Buy XP button).
   const railTop = boardTop;
-  const railH = Math.max(1, benchTop + benchH - railTop);
+  // Full board+bench band height — what the board scales into (boardArea below).
+  const bandH = Math.max(1, benchTop + benchH - railTop);
+  // The button region spans from the bench top down to the bottom of the controls
+  // row (match.ts buyXpRegionLandscape); its width is the wide left gutter, so it
+  // never narrows the radius — pass designW so the helper uses the true height cap.
+  const cornerBtnTop = bottomCornerButtonTop(benchTop, controlsY + controlsH, designW);
+  const railBottomCap = cornerBtnTop - LS_CORNER_GAP;
+  // The rendered rails stop above the corner buttons so the opponent column's
+  // bottom tile (Player 8) clears the shop button's footprint. The board's
+  // residual area (boardArea) keeps the FULL band height — only the rail rects
+  // shorten.
+  const railH = Math.max(1, Math.min(railTop + bandH, railBottomCap) - railTop);
   const leftRail: Rect  = { x: leftX, y: railTop, w: leftRailW, h: railH };
   const rightRail: Rect = { x: contentRight - rightRailW, y: railTop, w: rightRailW, h: railH };
 
@@ -506,7 +551,7 @@ function landscapeRegionsFor(
     x: leftRail.x + leftRail.w + LS_GAP,
     y: railTop,
     w: Math.max(1, rightRail.x - LS_GAP - (leftRail.x + leftRail.w + LS_GAP)),
-    h: railH,
+    h: bandH,
   };
 
   const clusters: LandscapeClusters = { topBar, leftRail, rightRail, bottomBar, boardArea };

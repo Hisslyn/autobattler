@@ -1252,12 +1252,23 @@ export class MatchScene {
     return null;
   }
 
-  /** LEFT sell button footprint — the Buy XP cluster's spot (bottom-left). */
-  private leftSellRect(): { x: number; y: number; w: number; h: number } {
-    if (this.isLandscape) return this.buyXpRegionLandscape();
-    const g = buyXpGeom(this.layout.regions.hud);
+  /**
+   * The Buy XP button's circular footprint (its medallion bounding box). This is
+   * the canonical bottom-LEFT corner button rect — the LEFT sell button covers it
+   * exactly, and the shop toggle mirrors it into the bottom-RIGHT corner. Computed
+   * from buyXpGeom so it tracks the button's real rendered diameter (no bench
+   * overlap: the box is the circle, not the wide econ region).
+   */
+  private buyXpFootprint(): { x: number; y: number; w: number; h: number } {
+    const reg = this.isLandscape ? this.buyXpRegionLandscape() : this.layout.regions.hud;
+    const g = buyXpGeom(reg);
     const half = g.r + g.rimW;
     return { x: g.cx - half, y: g.cy - half, w: 2 * half, h: 2 * half };
+  }
+
+  /** LEFT sell button footprint — the Buy XP button's circular spot (bottom-left). */
+  private leftSellRect(): { x: number; y: number; w: number; h: number } {
+    return this.buyXpFootprint();
   }
 
   /** RIGHT sell button footprint — the money-sack shop toggle's spot (bottom-right). */
@@ -1785,13 +1796,20 @@ export class MatchScene {
    */
   private shopToggleRect(): { x: number; y: number; w: number; h: number } {
     if (this.isLandscape) {
-      const s = this.layout.regions.shop;
-      return { x: s.x, y: s.y, w: s.w, h: s.h };
+      // Mirror the Buy XP button's circular footprint into the OPPOSITE bottom
+      // corner so the two read as a symmetric pair: identical size, identical
+      // distance from the bottom edge, and the right-edge margin equals the Buy XP
+      // button's left-edge margin. The footprint is the button's own bounding box
+      // (not the oversized econ region), so the circle stays fully inside the safe
+      // area instead of clipping off the bottom-right edge.
+      const fp = this.buyXpFootprint();
+      const leftMargin = fp.x;
+      return { x: this.designW - leftMargin - fp.w, y: fp.y, w: fp.w, h: fp.h };
     }
     const sr = this.layout.regions.sellControl;
-    // Match the Buy XP button's EXACT diameter (shared medallion base): the slot
-    // is its full circle (2·(r + rimW)), centered over the sell control, so the
-    // toggle never renders smaller than Buy XP (no corner-fit clamp shrinks it).
+    // Portrait (unchanged): match the Buy XP button's EXACT diameter (shared
+    // medallion base): the slot is its full circle (2·(r + rimW)), centered over
+    // the sell control, so the toggle never renders smaller than Buy XP.
     const bx = buyXpGeom(this.layout.regions.hud);
     const size = 2 * (bx.r + bx.rimW);
     return { x: sr.x + (sr.w - size) / 2, y: sr.y - size - 6, w: size, h: size };
@@ -2479,8 +2497,22 @@ export class MatchScene {
         toIndex: boardSlot,
       });
       if (!result.ok) this.showToast(result.error);
+    } else if (this.inSellZone(px, py)) {
+      // Sell zone takes priority over the bench: the whole visible sell-button
+      // area is a valid drop-to-sell target, and in any residual overlap with the
+      // bench's forgiving band the sell action wins (drop-to-sell never loses to a
+      // bench MOVE).
+      const dragged = me.bench.concat(me.board.filter((u): u is UnitInstance => u != null))
+        .find((u) => u.uid === this.dragUnit!.uid) ?? null;
+      const refund = dragged ? sellValue(dragged, gameData) : 0;
+      const result = this.driver.playerCommand({ type: "SELL", unitUid: this.dragUnit.uid });
+      const sc = this.sellZoneCenterAt(px, py);
+      if (result.ok) { this.opts.audio.play("sell"); this.spawnSellPop(sc.x, sc.y, refund); }
+      else this.showToast(result.error);
     } else {
-      // Check if dropped on bench / sell area (orientation-aware hit testing)
+      // Otherwise check the bench (orientation-aware hit testing). Sell was already
+      // ruled out above, so the bench can keep its forgiving band without ever
+      // swallowing a drop meant for the (corner) sell button.
       const benchIdx = this.benchSlotAt(px, py);
       if (benchIdx !== null) {
         const result = this.driver.playerCommand({
@@ -2490,15 +2522,6 @@ export class MatchScene {
           toIndex: benchIdx,
         });
         if (!result.ok) this.showToast(result.error);
-      } else if (this.inSellZone(px, py)) {
-        // Dropped on sell zone — spawn the refund pop at the zone
-        const dragged = me.bench.concat(me.board.filter((u): u is UnitInstance => u != null))
-          .find((u) => u.uid === this.dragUnit!.uid) ?? null;
-        const refund = dragged ? sellValue(dragged, gameData) : 0;
-        const result = this.driver.playerCommand({ type: "SELL", unitUid: this.dragUnit.uid });
-        const sc = this.sellZoneCenterAt(px, py);
-        if (result.ok) { this.opts.audio.play("sell"); this.spawnSellPop(sc.x, sc.y, refund); }
-        else this.showToast(result.error);
       }
       // else: dropped nowhere valid — unit stays put (no-op)
     }
