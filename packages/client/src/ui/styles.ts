@@ -240,11 +240,12 @@ ${themeCssVars()}
   .ui-card { max-height: calc(100vh - 32px); overflow-y: auto; }
   .match-modal .ui-card { max-width: 420px; }
   /* Trait rail sits at the left edge in landscape; the opponent rail (with the
-     "Player N" labels) hugs the right edge, so park the pause button to the LEFT
-     of that rail — reading [menu] [player rail] — and below the Pixi status band
-     so its tap can't slip onto the canvas. The offset clears the ~120 design-px
-     opponent rail plus margin across the supported landscape scale range. */
-  .match-pause-btn { left: auto; right: 140px; top: 28px; }
+     "Player N" labels) hugs the right edge and now starts at the top corner
+     (Player 1 aligned to this button's row), so park the pause button just to the
+     LEFT of Player 1 — reading [menu] [Player 1] across the top — with a small gap,
+     not overlapping. The smaller offset hugs the rail across the supported scale
+     range instead of sitting far to its left. */
+  .match-pause-btn { left: auto; right: 96px; top: 12px; }
 }
 
 /* Extra compression for very short landscape viewports. */

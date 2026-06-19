@@ -527,7 +527,14 @@ function landscapeRegionsFor(
   // shorten.
   const railH = Math.max(1, Math.min(railTop + bandH, railBottomCap) - railTop);
   const leftRail: Rect  = { x: leftX, y: railTop, w: leftRailW, h: railH };
-  const rightRail: Rect = { x: contentRight - rightRailW, y: railTop, w: rightRailW, h: railH };
+  // The opponent (right) rail starts at the TOP corner — Player 1's top rises to
+  // the top bar's bottom edge (vTop), directly beside the menu button row, instead
+  // of below the board's top gap. This reclaims the LS_BOARD_TOP_GAP headroom while
+  // staying partitioned from the top bar (no overlap) and keeping the same bottom
+  // cap, so Player 1 reads at the top corner.
+  const oppRailTop = vTop;
+  const oppRailH = Math.max(1, railTop + railH - oppRailTop);
+  const rightRail: Rect = { x: contentRight - rightRailW, y: oppRailTop, w: rightRailW, h: oppRailH };
 
   // ── Board width: target the near edge at LS_BOARD_NEAR_FRAC of the design
   // width, capped so it clears the WIDER rail symmetrically (smaller clearance

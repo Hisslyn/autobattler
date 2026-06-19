@@ -670,10 +670,10 @@ export class MatchScene {
     const h = 20;
     const cx = board.x + board.w / 2; // board center, beneath the stage/timer cluster
     const x = cx - w / 2;
-    // The stage/timer cluster now starts at status.y + CLUSTER_DY (5) and is 20px
-    // tall (bottom = status.y + 25), with the round-dots row above it; keep Skip
-    // clear below the cluster so they never overlap.
-    const y = status.y + 30; // directly below the stage chip / timer cluster
+    // Top-to-bottom stack: stage/timer cluster (status.y, 20px tall, bottom
+    // status.y + 20) → round-dots row (status.y + 23) → Skip. Pin Skip below the
+    // dots so the three never overlap.
+    const y = status.y + 32; // directly below the stage cluster + round-dots row
     const g = this.chip(this.skipLayer, x, y, w, h, {
       fill: C.panelBg,
       fillAlpha: 0.95,
@@ -738,7 +738,8 @@ export class MatchScene {
 
     // ── A. Status row ──────────────────────────────────────────────────────
     // One centered cluster over the BOARD center X: [Stage X-Y chip] [timer],
-    // with a round-progress dots row centered ABOVE it.
+    // with a round-progress dots row centered BELOW it (the cluster sits at the
+    // very top of the screen, so dots above would clip off-screen).
     // The DOM ☰ pause / exit "X" stays a standalone top-LEFT control (untouched).
     // Stage / round-within-stage derive from the pure rules helper (stageForRound)
     // — the real structural source (stage 1 = 3 rounds, stages 2+ = 7), not a
@@ -747,12 +748,9 @@ export class MatchScene {
     const roundsInStage = stage === 1 ? 3 : 7; // structural stage length (mirror rounds.ts)
     const sub = roundInStage;
     const stageW = 96;
-    // Shift the whole cluster DOWN a few design px to make room for the dots row
-    // rendered just above it (tweak: dots above, cluster below). Kept modest so
-    // the 20px chip's bottom (status.y + CLUSTER_DY + 20) still clears the portrait
-    // opponent rail directly beneath the top band; landscape has ample headroom.
-    const CLUSTER_DY = 5;
-    const sy = status.y + CLUSTER_DY;
+    // The cluster sits flush at the top of the status row; the dots row + Skip pill
+    // stack BELOW it (top-to-bottom: cluster → dots → Skip), all fully on-screen.
+    const sy = status.y;
     const clusterGap = 8;
     const timerW = 34; // reserved width for the m:ss timer to the chip's right
     // Center the whole [chip][gap][timer] cluster over the board's center X.
@@ -762,11 +760,11 @@ export class MatchScene {
     const stageX = Math.round(boardCenterX - clusterW / 2);
     const timerCx = stageX + stageW + clusterGap + timerW / 2;
 
-    // Round-progress dots: one per round in the CURRENT stage, centered above the
-    // cluster. Filled = a completed round, ringed = the current round, hollow =
-    // upcoming. Static (no animation) — reduced-motion-agnostic. Pinned just above
-    // the cluster's new top (sy), clearing the chip.
-    this.renderRoundDots(boardCenterX, sy - 6, roundsInStage, roundInStage);
+    // Round-progress dots: one per round in the CURRENT stage, centered BELOW the
+    // cluster (the 20px chip's bottom is sy + 20). Filled = a completed round,
+    // ringed = the current round, hollow = upcoming. Static (no animation) —
+    // reduced-motion-agnostic.
+    this.renderRoundDots(boardCenterX, sy + 23, roundsInStage, roundInStage);
 
     this.chip(this.hudLayer, stageX, sy, stageW, 20, { fillAlpha: 0.9 });
     this.glyph(this.hudLayer, "swords", stageX + 11, sy + 10, 13, C.starGold);
