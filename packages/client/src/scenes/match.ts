@@ -1072,7 +1072,6 @@ export class MatchScene {
     // Landscape: the bench is a tilted front platform on the board's plane.
     if (this.isLandscape) {
       this.renderTiltedBench(me);
-      this.renderSellControl(me);
       return;
     }
 
@@ -1133,8 +1132,6 @@ export class MatchScene {
         this.benchLayer.addChild(uc);
       }
     }
-
-    this.renderSellControl(me);
   }
 
   /**
@@ -1221,53 +1218,89 @@ export class MatchScene {
   }
 
   /**
-   * Sell affordance beside the bench (its own layout region). When a unit is
-   * selected (tap) or being dragged, it lights up and shows the exact gold refund
-   * (reusing the rules sell formula); tapping it sells the selected unit. Always
-   * shows "Sell" as a discoverable drop-target hint otherwise.
+   * Armed = a unit is selected (tap) or being unit-dragged (item drags excluded).
+   * Only then do the two contextual sell buttons replace the Buy XP cluster
+   * (LEFT) and the money-sack shop toggle (RIGHT).
    */
-  private renderSellControl(me: PlayerState): void {
-    const r = this.layout.regions.sellControl;
-    const x = r.x, top = r.y, w = r.w, h = r.h;
-    const cx = x + w / 2;
-    const midY = top + h / 2;
-    const selected = this.selectedUnit(me);
-    const armed = selected != null || this.isDragging;
-    const refund = selected ? sellValue(selected, gameData) : null;
+  private sellArmed(me: PlayerState): boolean {
+    if (this.dragItem) return false;
+    return this.selectedUnit(me) != null || this.isDragging;
+  }
 
-    const g = new PIXI.Graphics();
-    // Armed (a unit selected/dragged) lights up at full alpha for clarity; the
-    // resting state stays dim so the control reads as quiet, not an instruction.
-    g.roundRect(x, top, w, h, 4).fill({ color: armed ? C.bgSellArmed : C.bgSellChip, alpha: armed ? 1.0 : 0.7 });
-    g.roundRect(x, top, w, h, 4).stroke({ width: 1, color: C.textSell, alpha: armed ? 1.0 : 0.5 });
+  /** The unit a sell action would target: the selected one, else the dragged one. */
+  private sellTargetUnit(me: PlayerState): UnitInstance | null {
+    const sel = this.selectedUnit(me);
+    if (sel) return sel;
+    if (this.dragUnit) {
+      return me.bench
+        .concat(me.board.filter((u): u is UnitInstance => u != null))
+        .find((u) => u.uid === this.dragUnit!.uid) ?? null;
+    }
+    return null;
+  }
+
+  /** LEFT sell button footprint — the Buy XP cluster's spot (bottom-left). */
+  private leftSellRect(): { x: number; y: number; w: number; h: number } {
+    if (this.isLandscape) return this.buyXpRegionLandscape();
+    const g = buyXpGeom(this.layout.regions.hud);
+    const half = g.r + g.rimW;
+    return { x: g.cx - half, y: g.cy - half, w: 2 * half, h: 2 * half };
+  }
+
+  /** RIGHT sell button footprint — the money-sack shop toggle's spot (bottom-right). */
+  private rightSellRect(): { x: number; y: number; w: number; h: number } {
+    return this.shopToggleRect();
+  }
+
+  /**
+   * Contextual sell button (LEFT/RIGHT). Rendered ONLY while a unit is selected
+   * or being dragged, in place of the Buy XP cluster / money-sack shop toggle;
+   * shows the held/selected unit's gold refund (the rules SELL formula). Tapping
+   * it (when a unit is selected) or dropping a dragged unit on it sells the unit.
+   */
+  private renderSellButton(
+    layer: PIXI.Container,
+    rect: { x: number; y: number; w: number; h: number },
+    me: PlayerState
+  ): void {
+    const { x, y, w, h } = rect;
+    const cx = x + w / 2, cy = y + h / 2;
+    const target = this.sellTargetUnit(me);
+    const refund = target ? sellValue(target, gameData) : null;
+
+    const g = this.chip(layer, x, y, w, h, {
+      fill: C.bgSellArmed, border: C.textSell, borderW: 2, radius: 8,
+    });
     g.eventMode = "static";
     g.cursor = "pointer";
-    g.hitArea = new PIXI.Rectangle(x, top, w, h);
-    g.on("pointerdown", () => this.onSellZoneClick(me));
-    this.benchLayer.addChild(g);
+    g.hitArea = new PIXI.Rectangle(x, y, w, h);
+    g.on("pointerdown", () => this.onSellZoneClick(me, { x: cx, y: cy }));
 
+    const labelSize = Math.max(9, Math.min(15, Math.round(h * 0.22)));
     if (refund != null) {
-      // Refund amount front-and-center with the gold coin glyph.
-      this.glyph(this.benchLayer, "coin", cx - 8, midY - 5, 9, C.accentGold);
-      this.text(this.benchLayer, `${refund}`, cx + 3, midY - 5, 11, C.textGold, [0.5, 0.5]);
-      this.text(this.benchLayer, "Sell", cx, midY + 7, 7, C.textSell, [0.5, 0.5]);
-    } else if (armed) {
-      // Dragging but no selection yet: show the "Sell" drop-target label.
-      this.text(this.benchLayer, "Sell", cx, midY, 9, C.textSell, [0.5, 0.5]);
+      const numSize = labelSize + 1;
+      this.text(layer, "SELL", cx, cy - labelSize * 0.8, labelSize, C.textSell, [0.5, 0.5]);
+      const coinSize = Math.max(7, numSize - 2);
+      const numStr = `${refund}`;
+      const numW = numStr.length * numSize * 0.6;
+      const gx = cx - numW / 2 - coinSize * 0.5;
+      this.glyph(layer, "coin", gx, cy + numSize * 0.5, coinSize, C.accentGold);
+      this.text(layer, numStr, gx + coinSize * 0.7, cy + numSize * 0.5, numSize, C.textGold, [0, 0.5]);
     } else {
-      // Resting: only the dagger glyph at low alpha (no permanent label noise).
-      const ig = new PIXI.Graphics();
-      drawGlyph(ig, "dagger", cx, midY, 11, C.textSell);
-      ig.alpha = 0.35;
-      ig.eventMode = "none";
-      this.benchLayer.addChild(ig);
+      this.text(layer, "SELL", cx, cy, labelSize, C.textSell, [0.5, 0.5]);
     }
   }
 
-  /** Pixel center of the sell control (for sell pops). */
-  private sellCenter(): { x: number; y: number } {
-    const r = this.layout.regions.sellControl;
-    return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+  /** Center of whichever sell button a drop at (px,py) landed on (for the pop). */
+  private sellZoneCenterAt(px: number, py: number): { x: number; y: number } {
+    const center = (r: { x: number; y: number; w: number; h: number }) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+    const right = this.rightSellRect();
+    if (this.inRect(px, py, right)) return center(right);
+    return center(this.leftSellRect());
+  }
+
+  private inRect(px: number, py: number, r: { x: number; y: number; w: number; h: number }, pad = 8): boolean {
+    return px >= r.x - pad && px <= r.x + r.w + pad && py >= r.y - pad && py <= r.y + r.h + pad;
   }
 
   /** Currently selected bench/board unit, if any. */
@@ -1763,6 +1796,11 @@ export class MatchScene {
   /** Money-sack button that toggles the drop-down shop panel. */
   private renderShopToggle(me: PlayerState): void {
     this.shopToggleLayer.removeChildren();
+    // While a unit is selected/dragged the RIGHT sell button takes over this spot.
+    if (this.sellArmed(me)) {
+      this.renderSellButton(this.shopToggleLayer, this.rightSellRect(), me);
+      return;
+    }
     const r = this.shopToggleRect();
     const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
     const g = this.chip(this.shopToggleLayer, r.x, r.y, r.w, r.h, {
@@ -1985,6 +2023,11 @@ export class MatchScene {
    * Reroll moved to the drop-down shop panel's title strip. Grouped as one block.
    */
   private renderControlsLandscape(me: PlayerState): void {
+    // While a unit is selected/dragged the LEFT sell button takes over this spot.
+    if (this.sellArmed(me)) {
+      this.renderSellButton(this.shopLayer, this.leftSellRect(), me);
+      return;
+    }
     // The buy-XP widget is now the sole occupant of the bottom-left corner
     // (gold + streak moved into the money-sack shop button), scaled ~2× by
     // giving it a full-bottom-bar-height square anchored at the left, clear of
@@ -2017,7 +2060,9 @@ export class MatchScene {
 
     // Circular Buy XP button (absorbs the level badge + xp progress), anchored
     // bottom-left of the hud band (the strip between the trait rail and bench).
-    void this.renderBuyXpButton(me);
+    // While a unit is selected/dragged the LEFT sell button takes over its spot.
+    if (this.sellArmed(me)) this.renderSellButton(this.shopLayer, this.leftSellRect(), me);
+    else void this.renderBuyXpButton(me);
 
     // Gold (large, gold + coin glyph)
     this.glyph(this.shopLayer, "coin", x0 + off.goldG, y + h / 2, 13, C.accentGold);
@@ -2226,8 +2271,11 @@ export class MatchScene {
     this.dragUnit = { uid: unit.uid, fromBench: false, fromIdx: idx };
     this.armInspect(unit.defId, unit, e); // long-press still opens inspect
     this.createDragSprite(unit, e.globalX, e.globalY);
-    this.renderBoard(this.driver.getState().players[this.driver.seatIndex]!);
-    this.renderBench(this.driver.getState().players[this.driver.seatIndex]!);
+    const me = this.driver.getState().players[this.driver.seatIndex]!;
+    this.renderBoard(me);
+    this.renderBench(me);
+    this.renderShop(me);       // LEFT sell button replaces the Buy XP cluster
+    this.renderShopToggle(me); // RIGHT sell button replaces the money-sack toggle
   }
 
   private startDragBench(idx: number, unit: UnitInstance, e: PIXI.FederatedPointerEvent): void {
@@ -2239,8 +2287,11 @@ export class MatchScene {
     this.dragUnit = { uid: unit.uid, fromBench: true, fromIdx: idx };
     this.armInspect(unit.defId, unit, e); // long-press still opens inspect
     this.createDragSprite(unit, e.globalX, e.globalY);
-    this.renderBoard(this.driver.getState().players[this.driver.seatIndex]!);
-    this.renderBench(this.driver.getState().players[this.driver.seatIndex]!);
+    const me = this.driver.getState().players[this.driver.seatIndex]!;
+    this.renderBoard(me);
+    this.renderBench(me);
+    this.renderShop(me);       // LEFT sell button replaces the Buy XP cluster
+    this.renderShopToggle(me); // RIGHT sell button replaces the money-sack toggle
   }
 
   private createDragSprite(unit: UnitInstance, gx: number, gy: number): void {
@@ -2348,7 +2399,7 @@ export class MatchScene {
           .find((u) => u.uid === this.dragUnit!.uid) ?? null;
         const refund = dragged ? sellValue(dragged, gameData) : 0;
         const result = this.driver.playerCommand({ type: "SELL", unitUid: this.dragUnit.uid });
-        const sc = this.sellCenter();
+        const sc = this.sellZoneCenterAt(px, py);
         if (result.ok) { this.opts.audio.play("sell"); this.spawnSellPop(sc.x, sc.y, refund); }
         else this.showToast(result.error);
       }
@@ -2359,10 +2410,9 @@ export class MatchScene {
     this.render(this.driver.getState());
   }
 
-  /** True if (px, py) falls within the sell control's (forgiving) bounds. */
+  /** True if (px, py) falls within either contextual sell button (forgiving). */
   private inSellZone(px: number, py: number): boolean {
-    const r = this.layout.regions.sellControl;
-    return px >= r.x - 6 && px <= r.x + r.w + 6 && py >= r.y - 8 && py <= r.y + r.h + 8;
+    return this.inRect(px, py, this.leftSellRect()) || this.inRect(px, py, this.rightSellRect());
   }
 
   // ─── CLICK-TO-SELECT fallback (tap-tap placement) ────────────────────────
@@ -2423,7 +2473,7 @@ export class MatchScene {
     this.render(this.driver.getState());
   }
 
-  private onSellZoneClick(me: PlayerState): void {
+  private onSellZoneClick(me: PlayerState, popAt?: { x: number; y: number }): void {
     if (this.isDragging) return;
     const sel = this.selectedUnit(me);
     this.selectedBenchIdx = null;
@@ -2433,7 +2483,8 @@ export class MatchScene {
       const result = this.driver.playerCommand({ type: "SELL", unitUid: sel.uid });
       if (result.ok) {
         this.opts.audio.play("sell");
-        const sc = this.sellCenter();
+        const r = this.leftSellRect();
+        const sc = popAt ?? { x: r.x + r.w / 2, y: r.y + r.h / 2 };
         this.spawnSellPop(sc.x, sc.y, refund);
       } else {
         this.showToast(result.error);
