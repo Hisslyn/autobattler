@@ -8,6 +8,7 @@ import {
   opponentRailTile,
   portraitRegions,
   shopCardContentLayout,
+  shopPanelSlotRect,
   landscapeClusterThickness,
   bottomCornerButtonTop,
   LANDSCAPE_THRESHOLD,
@@ -845,6 +846,44 @@ describe("shopCardContentLayout", () => {
       expect(c.discY - c.discR).toBeGreaterThanOrEqual(0);
     });
   }
+});
+
+// ── shopPanelSlotRect ─────────────────────────────────────────────────────────
+
+describe("shopPanelSlotRect", () => {
+  const area: Rect = { x: 10, y: 5, w: 700, h: 90 };
+
+  it("divides the panel into 7 equal-width slots (each 1/7 of the panel width)", () => {
+    const slotW = area.w / 7;
+    for (let slot = 0; slot < 7; slot++) {
+      const r = shopPanelSlotRect(area, slot, 0);
+      expect(r.w).toBeCloseTo(slotW, 5);
+      expect(r.x).toBeCloseTo(area.x + slot * slotW, 5);
+      expect(r.y).toBe(area.y);
+      expect(r.h).toBe(area.h);
+    }
+  });
+
+  it("slots are laid out left-to-right and non-overlapping (with a gap)", () => {
+    const gap = 4;
+    let prevRight = -Infinity;
+    for (let slot = 0; slot < 7; slot++) {
+      const r = shopPanelSlotRect(area, slot, gap);
+      expect(r.x).toBeGreaterThanOrEqual(prevRight);
+      expect(r.w).toBeCloseTo(area.w / 7 - gap, 5);
+      prevRight = r.x + r.w;
+    }
+  });
+
+  it("slot 0 (refresh) sits leftmost; slots 1-5 (cards) follow it", () => {
+    const s0 = shopPanelSlotRect(area, 0, 4);
+    const s1 = shopPanelSlotRect(area, 1, 4);
+    const s5 = shopPanelSlotRect(area, 5, 4);
+    expect(s0.x).toBeLessThan(s1.x);
+    expect(s1.x).toBeLessThan(s5.x);
+    // 5 cards (slots 1-5) + refresh (slot 0) = 6 of the 7 slots occupied.
+    expect(s5.x + s5.w).toBeLessThanOrEqual(area.x + area.w + 0.001);
+  });
 });
 
 // ── centeredModal ─────────────────────────────────────────────────────────────

@@ -38,7 +38,7 @@ import type { AudioManager } from "../audio/manager.js";
 import { phaseToMusicState } from "../audio/director.js";
 
 import type { MatchLayout } from "../layout.js";
-import { centeredModal, opponentRailTile, shopCardContentLayout } from "../layout.js";
+import { centeredModal, opponentRailTile, shopCardContentLayout, shopPanelSlotRect } from "../layout.js";
 
 export interface MatchSceneOptions {
   settings: SettingsStore;
@@ -229,6 +229,13 @@ export class MatchScene {
   /** Drop-down shop panel (toggled by the money-sack button) + its toggle button. */
   private shopPanelLayer!: PIXI.Container;
   private shopToggleLayer!: PIXI.Container;
+  /**
+   * Full-screen interactive scrim behind the open shop panel: captures every
+   * pointer event so nothing in the HUD/board behind the open panel is clickable
+   * through it, and a tap on it (= a click OUTSIDE the panel) dismisses the shop.
+   * Sits above the Skip pill + all HUD so the open panel reads as the top surface.
+   */
+  private shopBackdropLayer!: PIXI.Container;
   /** Drop-down shop UI state (view-only; never persisted). */
   private shopPanelOpen = false;
   /** Current vertical slide offset of the panel (0 = open, -panelH = hidden up). */
@@ -363,6 +370,7 @@ export class MatchScene {
     this.traitLayer = new PIXI.Container();
     this.shopPanelLayer = new PIXI.Container();
     this.shopToggleLayer = new PIXI.Container();
+    this.shopBackdropLayer = new PIXI.Container();
     this.combatLayer = new PIXI.Container();
     this.combatLayer.sortableChildren = true; // keeps its own internal z-stack
     this.lootLayer = new PIXI.Container();
@@ -380,8 +388,13 @@ export class MatchScene {
     this.hudLayer.zIndex = L5_HUD;
     this.shopLayer.zIndex = L5_HUD;
     this.traitLayer.zIndex = L5_HUD;
-    this.shopPanelLayer.zIndex = L5_HUD;
     this.shopToggleLayer.zIndex = L5_HUD;
+    // The open shop panel + its backdrop scrim must overlay EVERYTHING in the
+    // canvas — including the Skip pill (850) and all HUD — and take click
+    // priority. Pin both above the Skip pill but below the active drag sprite
+    // (999) / drag catcher (900) so an in-progress drag still wins.
+    this.shopBackdropLayer.zIndex = 870; // magic-ok: above Skip (850), below drag (900)
+    this.shopPanelLayer.zIndex = 871;    // magic-ok: directly above its own backdrop
     this.combatLayer.zIndex = L5_HUD;
     this.lootLayer.zIndex = L5_HUD;
     this.toastLayer.zIndex = L8_TOAST;
@@ -402,8 +415,7 @@ export class MatchScene {
     this.container.addChild(this.hudLayer);
     this.container.addChild(this.shopLayer);
     this.container.addChild(this.traitLayer);
-    // Panel + toggle sit above the docked shop/board, below combat overlay + modals.
-    this.container.addChild(this.shopPanelLayer);
+    // The toggle button sits in the HUD band (L5).
     this.container.addChild(this.shopToggleLayer);
     this.container.addChild(this.combatLayer);
     this.container.addChild(this.lootLayer);
@@ -411,6 +423,11 @@ export class MatchScene {
     this.container.addChild(this.scoutLayer);
     this.container.addChild(this.inspectLayer);
     this.container.addChild(this.skipLayer);
+    // The open shop panel + its backdrop scrim are the top-most canvas overlays
+    // (zIndex 870/871, above the Skip pill) — added last so insertion order stays
+    // ascending by zIndex (back-to-front).
+    this.container.addChild(this.shopBackdropLayer);
+    this.container.addChild(this.shopPanelLayer);
   }
 
   // ─── LAYOUT GEOMETRY (derived from this.layout) ──────────────────────────────
@@ -1899,40 +1916,30 @@ export class MatchScene {
   private renderShop(me: PlayerState): void {
     this.shopLayer.removeChildren();
     this.renderControls(me);
-    // Landscape has no docked shop row — the shop lives only in the drop-down
-    // panel (money-sack toggle). Portrait keeps its docked shop strip.
-    if (!this.isLandscape) {
-      this.drawShopCards(this.shopLayer, this.layout.regions.shop, me, this.isLandscape);
-    }
+    // The shop is drop-down-only in BOTH orientations now — it opens solely via
+    // the shop button (renderShopToggle) and lives in renderShopPanel. No always-
+    // visible docked strip; nothing to draw into shopLayer here beyond controls.
   }
 
   /**
-   * Draw the 5 shop cards into `layer` within `area`. Shared by the docked
-   * bottom shop and the drop-down shop panel so both render the SAME live shop
-   * (me.shop) and route taps through `onShopBuy` — one shop, two surfaces.
-   * `centered` caps the card width and centers the 5-card strip (landscape +
-   * panel); otherwise the original portrait fixed 71px, left-aligned.
+   * Draw the 5 shop cards into `layer`, one per rect in `cardRects` (rects[i] is
+   * the slot for shop card i). The drop-down shop panel computes these from its
+   * 7-equal-slot grid (slot 0 = refresh, slots 1–5 = cards) and passes them here,
+   * so this stays pure geometry-consumption: it renders the SAME live shop
+   * (me.shop) and routes taps through `onShopBuy`.
    */
   private drawShopCards(
     layer: PIXI.Container,
-    area: { x: number; y: number; w: number; h: number },
-    me: PlayerState,
-    centered: boolean
+    cardRects: { x: number; y: number; w: number; h: number }[],
+    me: PlayerState
   ): void {
-    const shopY = area.y;
-    const cardH = area.h;
-    const gap = 4;
-    let cardW: number, startX: number;
-    if (centered) {
-      cardW = Math.min(110, Math.floor((area.w - 4 * gap) / 5));
-      const totalW = 5 * cardW + 4 * gap;
-      startX = area.x + Math.max(0, (area.w - totalW) / 2);
-    } else {
-      cardW = 71;
-      startX = area.x;
-    }
     for (let i = 0; i < 5; i++) {
-      const x = startX + i * (cardW + gap);
+      const rect = cardRects[i];
+      if (!rect) continue;
+      const x = rect.x;
+      const shopY = rect.y;
+      const cardW = rect.w;
+      const cardH = rect.h;
       const slot = me.shop[i];
 
       if (!slot) {
@@ -2034,16 +2041,17 @@ export class MatchScene {
   }
 
   /**
-   * Drop-down shop panel rect — anchored to the top + right edge, width 80% of
-   * the design width, spanning leftward from the right edge. Tall enough for one
-   * row of shop cards under a slim title strip.
+   * Drop-down shop panel rect — anchored to the top edge, spanning (near) the
+   * full design width so its inner 7-equal-slot grid (refresh + 5 cards) gets
+   * comfortable per-slot width. One row of shop cards, no title strip (refresh
+   * now lives in slot 0 of the grid).
    */
   private shopPanelRect(): { x: number; y: number; w: number; h: number } {
-    const w = Math.round(this.designW * 0.8);
-    const cardH = Math.max(72, Math.min(this.layout.regions.shop.h, Math.round(this.designH * 0.22)));
-    const titleH = 22;
+    const margin = this.isLandscape ? Math.round(this.designW * 0.06) : 6;
+    const w = this.designW - 2 * margin;
+    const cardH = Math.max(72, Math.min(96, Math.round(this.designH * 0.22)));
     const pad = 10;
-    return { x: this.designW - w, y: 0, w, h: titleH + cardH + 2 * pad };
+    return { x: margin, y: 0, w, h: cardH + 2 * pad };
   }
 
   /** Money-sack button that toggles the drop-down shop panel. */
@@ -2150,25 +2158,34 @@ export class MatchScene {
     this.shopPanelLayer.removeChildren();
     const pr = this.shopPanelRect();
     const pad = 10;
-    const titleH = 22;
+
+    // Keep the click-outside backdrop scrim in sync with the open state (it lives
+    // on its own non-sliding layer, drawn by renderShopBackdrop).
+    this.renderShopBackdrop(me);
+
+    // ── Panel surface ─────────────────────────────────────────────────────────
     this.chip(this.shopPanelLayer, pr.x, pr.y, pr.w, pr.h, {
       fill: C.bgInspect, border: C.accentGold, borderW: 2, radius: 8,
     });
-    // Reroll button — top-left of the title strip (replaces the former "Shop"
-    // label). Rerolls the same shared shop state; cost unchanged.
-    const rrW = 70, rrH = titleH - 4;
-    const rrX = pr.x + pad, rrY = pr.y + 2;
-    const rrCy = rrY + rrH / 2;
-    const rr = this.chip(this.shopPanelLayer, rrX, rrY, rrW, rrH, { fill: C.bgReroll, radius: 6 });
+
+    // ── 7-equal-slot grid: slot 0 = refresh, slots 1–5 = the 5 shop cards ──────
+    const innerArea = { x: pr.x + pad, y: pr.y + pad, w: pr.w - 2 * pad, h: pr.h - 2 * pad };
+
+    // Slot 0 — refresh (reroll) button. Same shared shop state; cost unchanged.
+    const s0 = shopPanelSlotRect(innerArea, 0);
+    const rr = this.chip(this.shopPanelLayer, s0.x, s0.y, s0.w, s0.h, { fill: C.bgReroll, radius: 6 });
     rr.eventMode = "static";
-    rr.hitArea = new PIXI.Rectangle(rrX, rrY, rrW, rrH);
+    rr.hitArea = new PIXI.Rectangle(s0.x, s0.y, s0.w, s0.h);
     rr.cursor = "pointer";
-    this.pressFeedback(rr, () => this.onReroll(), { cx: rrX + rrW / 2, cy: rrCy });
-    this.glyph(this.shopPanelLayer, "refresh", rrX + 13, rrCy, 12, C.textPrimary);
-    this.glyph(this.shopPanelLayer, "coin", rrX + 32, rrCy, 8, C.accentGold);
-    this.text(this.shopPanelLayer, `${gameData.economy.rerollCost}`, rrX + 40, rrCy, 11, C.textGold, [0, 0.5]);
-    const cardsArea = { x: pr.x + pad, y: pr.y + titleH, w: pr.w - 2 * pad, h: pr.h - titleH - pad };
-    this.drawShopCards(this.shopPanelLayer, cardsArea, me, true);
+    const rrCx = s0.x + s0.w / 2, rrCy = s0.y + s0.h / 2;
+    this.pressFeedback(rr, () => this.onReroll(), { cx: rrCx, cy: rrCy });
+    this.glyph(this.shopPanelLayer, "refresh", rrCx, rrCy - 8, 16, C.textPrimary);
+    this.glyph(this.shopPanelLayer, "coin", rrCx - 8, rrCy + 12, 9, C.accentGold);
+    this.text(this.shopPanelLayer, `${gameData.economy.rerollCost}`, rrCx, rrCy + 12, 11, C.textGold, [0, 0.5]);
+
+    // Slots 1–5 — the 5 shop cards, one per slot (each exactly 1/7 of the panel).
+    const cardRects = [0, 1, 2, 3, 4].map((i) => shopPanelSlotRect(innerArea, i + 1));
+    this.drawShopCards(this.shopPanelLayer, cardRects, me);
 
     // Resting position when no slide is animating (keeps the panel in place across
     // re-renders, e.g. after a buy): open → flush with the top, closed → hidden up.
@@ -2185,8 +2202,29 @@ export class MatchScene {
   private toggleShopPanel(me: PlayerState): void {
     this.shopPanelOpen = !this.shopPanelOpen;
     this.opts.audio.play("tap");
-    this.renderShopToggle(me); // repaint the button's open/closed fill
+    this.renderShopToggle(me);   // repaint the button's open/closed fill
+    this.renderShopBackdrop(me); // create (open) / tear down (closed) the scrim
     this.animateShopPanel();
+  }
+
+  /**
+   * Draw / tear down the click-outside backdrop scrim to match `shopPanelOpen`.
+   * Lives on its own non-sliding layer (zIndex 870) so it captures every pointer
+   * event behind the open panel (nothing in the HUD/board is clickable through
+   * it) and a tap anywhere on it (= a click OUTSIDE the panel) dismisses the shop.
+   */
+  private renderShopBackdrop(me: PlayerState): void {
+    this.shopBackdropLayer.removeChildren();
+    if (this.shopPanelOpen) {
+      const scrim = new PIXI.Graphics();
+      scrim.rect(0, 0, this.designW, this.designH).fill({ color: C.bgScrim, alpha: 0.45 });
+      scrim.eventMode = "static";
+      scrim.cursor = "pointer";
+      scrim.hitArea = new PIXI.Rectangle(0, 0, this.designW, this.designH);
+      scrim.on("pointertap", () => { if (this.shopPanelOpen) this.toggleShopPanel(me); });
+      this.shopBackdropLayer.addChild(scrim);
+    }
+    this.shopBackdropLayer.eventMode = this.shopPanelOpen ? "auto" : "none";
   }
 
   /** Slide the panel down (open) / up (closed); reduced-motion snaps. */
@@ -2230,6 +2268,8 @@ export class MatchScene {
     this.shopPanelOffsetY = -9999;
     this.shopPanelLayer.removeChildren();
     this.shopToggleLayer.removeChildren();
+    this.shopBackdropLayer.removeChildren();
+    this.shopBackdropLayer.eventMode = "none";
   }
 
   // ─── D. HUD row: level / gold / streak / reroll / buy-xp ──────────────────────
@@ -2871,22 +2911,18 @@ export class MatchScene {
     }
   }
 
-  /** Pixel center of shop card `idx` (mirrors renderShop's card layout). */
+  /**
+   * Pixel center of shop card `idx` (mirrors renderShopPanel's 7-slot grid).
+   * Cards live in the drop-down panel in both orientations now; it's only open
+   * when a buy fires, so the panel's slide offset is 0 and these design coords
+   * match the rendered card positions.
+   */
   private shopCardCenter(idx: number): { x: number; y: number } {
-    const gap = 4;
-    if (this.isLandscape) {
-      // Cards live in the drop-down panel (mirrors renderShopPanel's cardsArea).
-      const pr = this.shopPanelRect();
-      const pad = 10, titleH = 22;
-      const area = { x: pr.x + pad, y: pr.y + titleH, w: pr.w - 2 * pad, h: pr.h - titleH - pad };
-      const cardW = Math.min(110, Math.floor((area.w - 4 * gap) / 5));
-      const startX = area.x + Math.max(0, (area.w - (5 * cardW + 4 * gap)) / 2);
-      return { x: startX + idx * (cardW + gap) + cardW / 2, y: area.y + area.h / 2 };
-    }
-    const shop = this.layout.regions.shop;
-    const cardW = 71;
-    const startX = shop.x;
-    return { x: startX + idx * (cardW + gap) + cardW / 2, y: shop.y + shop.h / 2 };
+    const pr = this.shopPanelRect();
+    const pad = 10;
+    const innerArea = { x: pr.x + pad, y: pr.y + pad, w: pr.w - 2 * pad, h: pr.h - 2 * pad };
+    const rect = shopPanelSlotRect(innerArea, idx + 1); // slot 0 = refresh
+    return { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 + this.shopPanelOffsetY };
   }
 
   /** uid → star across board + bench, for detecting a merge after a command. */

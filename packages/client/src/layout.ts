@@ -820,6 +820,29 @@ export function opponentRailTile(
   };
 }
 
+/**
+ * Drop-down shop panel slot grid (pure). The panel's inner content area is
+ * divided into 7 equal-width slots laid out left-to-right: slot 0 is the refresh
+ * button and slots 1–5 are the 5 unit shop cards (slot 6 is left empty — the
+ * grid stays 7-wide so every element is exactly 1/7 of the panel width). Returns
+ * the rect of slot `slot` (0–6) within `area`, with an optional inter-slot `gap`
+ * subtracted symmetrically so the slots read as separated cards.
+ */
+export function shopPanelSlotRect(
+  area: Rect,
+  slot: number,
+  gap = 4
+): Rect {
+  const slotW = area.w / 7;
+  const x = area.x + slot * slotW + gap / 2;
+  return {
+    x,
+    y: area.y,
+    w: Math.max(1, slotW - gap),
+    h: area.h,
+  };
+}
+
 /** Vertical content offsets for a shop card of height `cardH` (pure). */
 export interface ShopCardContentLayout {
   /** Disc (token) center y, relative to the card top. */
