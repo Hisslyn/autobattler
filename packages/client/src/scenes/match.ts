@@ -60,17 +60,19 @@ const ITEM_SLOT = 30;          // item chip size
 // Consistent inset between the hex grid's bounding box and the board frame.
 const BOARD_PAD = 12;
 
-// ─── Arena torch pillars (gold meter, renderer-only) ─────────────────────────
-// Cylinder width/height in SCREEN px at depth-scale 1 (the near/front pillar);
-// each pillar is depth-scaled by the board projection so front pillars read
-// larger than the receding back ones. TORCH_FRONT/TORCH_BACK/TORCH_MID are
+// ─── Arena tealight candles (gold meter, renderer-only) ──────────────────────
+// Candle body width/height in SCREEN px at depth-scale 1 (the near/front
+// candle); each candle is depth-scaled by the board projection so front candles
+// read larger than the receding back ones. TORCH_FRONT/TORCH_BACK/TORCH_MID are
 // board-space y fractions of the grid frame (0 = far/enemy edge, 1 = near/player
-// edge). Each side's 5 pillars flank only that side's half of the board: the
+// edge). Each side's 5 candles flank only that side's half of the board: the
 // player (left) column spans [TORCH_MID, TORCH_FRONT] (front half, back-most at
 // the midline) and the opponent (right) column spans [TORCH_BACK, TORCH_MID]
-// (back half, front-most at the midline); the rest interpolate evenly.
-const TORCH_W = 8;
-const TORCH_H = 28;
+// (back half, front-most at the midline); the rest interpolate evenly so the
+// squat tealights spread along the half rather than clustering.
+// Tealight proportions: WIDE and SHORT (a squat wax disc with a small flame).
+const TORCH_W = 16;
+const TORCH_H = 7;
 const TORCH_FRONT = 0.9;
 const TORCH_BACK = 0.1;
 const TORCH_MID = 0.5;
@@ -1010,43 +1012,46 @@ export class MatchScene {
     return this.driver.getState().players[pairing.opponentId]?.gold ?? 0;
   }
 
-  /** One torch pillar: a depth-scaled cylinder with a flame (lit) / cold bowl (unlit). */
+  /** One tealight candle: a squat, wide wax disc with a small flame (lit) / cold wick (unlit). */
   private drawTorchPillar(g: PIXI.Graphics, cx: number, baseY: number, scale: number, lit: boolean): void {
     const w = TORCH_W * scale;
     const h = TORCH_H * scale;
     const half = w / 2;
-    const topY = baseY - h;            // bowl sits at the column top
+    const topY = baseY - h;            // wax rim sits at the candle top
     const sw = Math.max(1, scale);     // depth-scaled outline weight
 
     // Contact shadow on the ground plane.
-    g.ellipse(cx, baseY, half * 1.2, half * 0.42).fill({ color: C.torchStoneDark, alpha: 0.45 });
-    // Cylinder body + shaded outline.
-    g.roundRect(cx - half, topY, w, h, half * 0.5).fill({ color: C.torchStone });
-    g.roundRect(cx - half, topY, w, h, half * 0.5).stroke({ width: sw, color: C.torchStoneDark, alpha: 0.85 });
-    // Bowl (top ellipse).
-    g.ellipse(cx, topY, half * 1.15, half * 0.5).fill({ color: C.torchStoneDark });
+    g.ellipse(cx, baseY, half * 1.05, half * 0.34).fill({ color: C.torchStoneDark, alpha: 0.45 });
+    // Squat wax body (short, wide) + shaded outline.
+    g.roundRect(cx - half, topY, w, h, half * 0.32).fill({ color: C.torchStone });
+    g.roundRect(cx - half, topY, w, h, half * 0.32).stroke({ width: sw, color: C.torchStoneDark, alpha: 0.85 });
+    // Wax rim (top ellipse) — the recessed pool the flame sits in.
+    g.ellipse(cx, topY, half * 0.92, half * 0.26).fill({ color: C.torchStoneDark });
 
     if (lit) {
-      const fh = h * 0.62;
-      const fw = w * 0.62;
+      // Small flame on top — sized to the candle WIDTH (not the squat height) so
+      // it stays a readable little teardrop above the wax.
+      const fw = half * 0.42;
+      const fh = fw * 2.6;
+      const flameBase = topY - half * 0.06;
       // Soft warm glow behind the flame.
-      g.circle(cx, topY - fh * 0.4, fw * 1.7).fill({ color: C.torchGlow, alpha: 0.16 });
+      g.circle(cx, flameBase - fh * 0.4, fw * 1.9).fill({ color: C.torchGlow, alpha: 0.16 });
       // Outer flame teardrop.
-      g.moveTo(cx, topY);
-      g.quadraticCurveTo(cx - fw, topY - fh * 0.45, cx, topY - fh);
-      g.quadraticCurveTo(cx + fw, topY - fh * 0.45, cx, topY);
+      g.moveTo(cx, flameBase);
+      g.quadraticCurveTo(cx - fw, flameBase - fh * 0.45, cx, flameBase - fh);
+      g.quadraticCurveTo(cx + fw, flameBase - fh * 0.45, cx, flameBase);
       g.fill({ color: C.torchFlame });
       // Inner bright core.
       const ih = fh * 0.58;
       const iw = fw * 0.5;
-      const iy = topY - fh * 0.1;
+      const iy = flameBase - fh * 0.1;
       g.moveTo(cx, iy);
       g.quadraticCurveTo(cx - iw, iy - ih * 0.45, cx, iy - ih);
       g.quadraticCurveTo(cx + iw, iy - ih * 0.45, cx, iy);
       g.fill({ color: C.torchFlameCore });
     } else {
-      // Extinguished: a cold dim ember pooled in the bowl.
-      g.ellipse(cx, topY, half * 0.62, half * 0.3).fill({ color: C.torchUnlit, alpha: 0.7 });
+      // Extinguished: a cold dim ember pooled in the wax.
+      g.ellipse(cx, topY, half * 0.5, half * 0.18).fill({ color: C.torchUnlit, alpha: 0.7 });
     }
   }
 
