@@ -1035,19 +1035,25 @@ export class MatchScene {
     type Pillar = { sx: number; sy: number; scale: number; lit: boolean; y: number };
     const pillars: Pillar[] = [];
 
-    const pushColumn = (boardX: number, flags: boolean[], back: number, front: number): void => {
+    // Board-space front-back nudge: each candle shifts 0.6 hex-heights along the
+    // board's y axis BEFORE projection, so the offset foreshortens with the
+    // perspective. Player (left) candles slide toward the FRONT/bottom border
+    // (+y); opponent (right) candles slide toward the BACK/top border (−y).
+    const candleDy = 0.6 * HEX_H;
+
+    const pushColumn = (boardX: number, flags: boolean[], back: number, front: number, dy: number): void => {
       for (let i = 0; i < TORCHES_PER_SIDE; i++) {
-        const by = yAt(i, back, front);
+        const by = yAt(i, back, front) + dy;
         const base = this.fwd({ x: boardX, y: by });
         pillars.push({ sx: base.x, sy: base.y, scale: this.depthScaleAt({ x: boardX, y: by }), lit: flags[i]!, y: by });
       }
     };
 
     // Player flanks the FRONT half (back-most pillar at the midline).
-    pushColumn(leftX, torchLit(me.gold, "left"), TORCH_MID, TORCH_FRONT);
+    pushColumn(leftX, torchLit(me.gold, "left"), TORCH_MID, TORCH_FRONT, candleDy);
     // Opponent flanks the BACK half, always drawn; lit only during combat.
     const oppFlags = combat ? torchLit(this.opponentGold(), "right") : new Array<boolean>(TORCHES_PER_SIDE).fill(false);
-    pushColumn(rightX, oppFlags, TORCH_BACK, TORCH_MID);
+    pushColumn(rightX, oppFlags, TORCH_BACK, TORCH_MID, -candleDy);
 
     // Depth-sort: far (smaller board y) first so nearer pillars overlap them.
     pillars.sort((a, b) => a.y - b.y);
@@ -1385,7 +1391,11 @@ export class MatchScene {
         uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBench(i, unit, e));
         uc.on("pointerup", () => this.clearPress());
         uc.on("pointerupoutside", () => this.clearPress());
-        drawUnit(uc, unit, cx, cy, 13, false, false, true);
+        // Size the checkers piece to fill the slot — matches the board token look
+        // (extruded volume) rather than a small flat disc. The piece's thickness
+        // and star pips sit above/below the disc, so fit to the slot's short side.
+        const r = Math.max(12, Math.min(18, Math.round(0.42 * Math.min(cellW, cellH))));
+        drawUnit(uc, unit, cx, cy, r, false, false, true);
         this.benchLayer.addChild(uc);
       }
     }
