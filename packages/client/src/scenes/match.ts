@@ -1940,8 +1940,10 @@ export class MatchScene {
     arc.arc(g.cx, g.cy, g.arcR, g.arcStart, g.arcEnd)
       .stroke({ width: g.arcW, color: C.xpArcTrack, cap: "round" });
     if (xp.frac > 0) {
-      const fillEnd = g.arcStart + (g.arcEnd - g.arcStart) * xp.frac;
-      arc.arc(g.cx, g.cy, g.arcR, g.arcStart, fillEnd)
+      // Fill rises from the BOTTOM of the arc upward as xp grows: anchor the
+      // filled segment at arcEnd (bottom) and extend its start toward arcStart.
+      const fillStart = g.arcEnd - (g.arcEnd - g.arcStart) * xp.frac;
+      arc.arc(g.cx, g.cy, g.arcR, fillStart, g.arcEnd)
         .stroke({ width: g.arcW, color: disabled ? C.xpBtnRimDeep : C.xpArcFill, cap: "round" });
     }
     arc.eventMode = "none";

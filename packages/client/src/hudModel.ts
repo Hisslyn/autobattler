@@ -105,7 +105,7 @@ export interface BuyXpGeom {
   r: number;
   /** Ornate outer-rim stroke width. */
   rimW: number;
-  /** XP progress arc hugging the outer-right edge (90°, clockwise fill). */
+  /** XP progress arc hugging the outer-right edge (90°, fills bottom → top). */
   arcR: number;
   arcW: number;
   arcStart: number;
@@ -140,8 +140,9 @@ export function buyXpGeom(region: { x: number; y: number; w: number; h: number }
   const cx = region.x + r + rimW;
   const cy = region.y + region.h / 2;
 
-  // Progress arc: a 90° sweep centered on 3 o'clock (the outer-right edge),
-  // filling clockwise (start → end, screen y-down) proportional to xp fraction.
+  // Progress arc: a 90° sweep centered on 3 o'clock (the outer-right edge).
+  // The track runs arcStart (top) → arcEnd (bottom); the fill is anchored at
+  // arcEnd and rises toward arcStart, so it fills from the bottom up.
   const arcR = r + rimW * 0.5 + 3;
   const arcW = Math.max(3, r * 0.14);
   const arcStart = -Math.PI / 4;
