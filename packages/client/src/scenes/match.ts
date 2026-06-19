@@ -1803,23 +1803,46 @@ export class MatchScene {
     }
     const r = this.shopToggleRect();
     const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
-    const g = this.chip(this.shopToggleLayer, r.x, r.y, r.w, r.h, {
-      fill: this.shopPanelOpen ? C.bgSellArmed : C.panelBg,
-      border: C.accentGold, borderW: 2, radius: 8,
-    });
+    const R = Math.min(r.w, r.h) / 2 - 2; // circular medallion inscribed in the slot
+
+    // Ornate gold medallion: warm radial-gradient face + a beveled bronze/gold
+    // double ring. The disc is the one interactive node (hit area stays the full
+    // slot rect so the toggle target keeps its size); content sits static on top,
+    // mirroring the prior chip-pops-behind-glyph press feel.
+    const g = this.drawShopMedallion(cx, cy, R, this.shopPanelOpen);
     g.eventMode = "static";
     g.cursor = "pointer";
     g.hitArea = new PIXI.Rectangle(r.x, r.y, r.w, r.h);
     this.pressFeedback(g, () => this.toggleShopPanel(me), { cx, cy });
-    if (this.isLandscape) {
-      // Money sack + the live gold amount INSIDE the button (gold no longer has
-      // a standalone display); a win/loss streak badge clings to the top-left.
-      this.glyph(this.shopToggleLayer, "bag", r.x + 26, cy + 1, 28, C.accentGold);
-      this.text(this.shopToggleLayer, `${me.gold}`, r.x + 46, cy, 18, C.textGold, [0, 0.5]);
 
+    // Cream coin-pouch in the upper-center of the medallion (both orientations).
+    this.drawMoneySack(this.shopToggleLayer, cx, cy - R * 0.12, R * 0.92, R * 0.8);
+
+    if (this.isLandscape) {
+      // The live gold amount (bound to me.gold) — bold numeral stamped below /
+      // overlapping the sack; gold has no other standalone display in landscape.
+      const t = new PIXI.Text({
+        text: `${me.gold}`,
+        style: {
+          fontFamily: "monospace", fontWeight: "bold",
+          fontSize: Math.max(14, Math.round(R * 0.62)),
+          fill: C.xpBtnRimDeep,
+          stroke: { color: C.lootOrbCore, width: Math.max(2, R * 0.08) },
+          align: "center",
+        },
+      });
+      t.anchor.set(0.5, 0.5);
+      t.x = cx; t.y = cy + R * 0.42;
+      t.eventMode = "none";
+      this.shopToggleLayer.addChild(t);
+
+      // Existing win/loss streak badge — repositioned to cling to the medallion's
+      // upper-left rim (unchanged content/bindings, just clipped to the circle).
       const streak = me.winStreak > 0 ? me.winStreak : me.loseStreak > 0 ? -me.loseStreak : 0;
       if (streak !== 0) {
-        const bw = 32, bh = 16, bx = r.x - 5, by = r.y - 6;
+        const bw = 32, bh = 16;
+        const rim = R * 0.707; // 45° up-left point on the rim
+        const bx = cx - rim - bw * 0.55, by = cy - rim - bh * 0.5;
         this.chip(this.shopToggleLayer, bx, by, bw, bh, {
           fill: C.panelBg, border: C.streakOrange, borderW: 1.5, radius: 7,
         });
@@ -1829,11 +1852,72 @@ export class MatchScene {
           C.streakOrange, [0, 0.5]
         );
       }
-      return;
     }
-    // Portrait: money sack + a coin marking its face.
-    this.glyph(this.shopToggleLayer, "bag", cx, cy + 1, r.w * 0.42, C.accentGold);
-    this.glyph(this.shopToggleLayer, "coin", cx, cy + 3, r.w * 0.15, C.textGold);
+  }
+
+  /**
+   * Circular shop-button medallion, drawn into one Graphics so the press-pop
+   * scales the whole disc: a warm gold radial gradient face (bright center →
+   * darker amber rim), a dark-bronze outer ring + bright-gold inner ring
+   * (beveled), and a brighter inner highlight ring while the panel is open.
+   */
+  private drawShopMedallion(cx: number, cy: number, R: number, open: boolean): PIXI.Graphics {
+    const g = new PIXI.Graphics();
+    const grad = new PIXI.FillGradient({
+      type: "radial",
+      center: { x: cx, y: cy }, innerRadius: 0,
+      outerCenter: { x: cx, y: cy }, outerRadius: R,
+      colorStops: [
+        { offset: 0, color: C.accentGold },
+        { offset: 0.6, color: C.starGold },
+        { offset: 1, color: C.textGold },
+      ],
+      textureSpace: "global",
+    });
+    g.circle(cx, cy, R).fill(grad);
+
+    const bronzeW = Math.max(2.5, R * 0.16);
+    const goldW = Math.max(1.5, R * 0.1);
+    g.circle(cx, cy, R - bronzeW / 2).stroke({ width: bronzeW, color: C.xpBtnRimDeep });
+    g.circle(cx, cy, R - bronzeW - goldW / 2 + 0.5).stroke({ width: goldW, color: C.accentGold });
+    // Bevel: a soft cream highlight on the top rim, a bronze shadow on the bottom.
+    const bevelR = R - bronzeW - goldW - 1;
+    const bevelW = Math.max(1, R * 0.06);
+    g.arc(cx, cy, bevelR, Math.PI * 1.15, Math.PI * 1.85)
+      .stroke({ width: bevelW, color: C.lootOrbCore, alpha: 0.45, cap: "round" });
+    g.arc(cx, cy, bevelR, Math.PI * 0.15, Math.PI * 0.85)
+      .stroke({ width: bevelW, color: C.xpBtnRimDeep, alpha: 0.35, cap: "round" });
+    if (open) {
+      g.circle(cx, cy, bevelR).stroke({ width: goldW * 0.8, color: C.lootOrbCore, alpha: 0.9 });
+    }
+    this.shopToggleLayer.addChild(g);
+    return g;
+  }
+
+  /** Stylized cream coin-pouch with a cinched, tied top — drawn into `layer`. */
+  private drawMoneySack(layer: PIXI.Container, cx: number, cy: number, w: number, h: number): void {
+    const cream = C.lootOrbCore;
+    const edgeW = Math.max(1, w * 0.05);
+    const s = new PIXI.Graphics();
+    // Round belly.
+    s.roundRect(cx - w * 0.5, cy - h * 0.02, w, h * 0.72, w * 0.42)
+      .fill({ color: cream })
+      .stroke({ width: edgeW, color: C.xpBtnRimDeep, alpha: 0.85, join: "round" });
+    // Cinched neck flaring up from the tie into two fabric ruffles.
+    s.moveTo(cx - w * 0.3, cy)
+      .lineTo(cx - w * 0.42, cy - h * 0.4)
+      .lineTo(cx - w * 0.12, cy - h * 0.22)
+      .lineTo(cx + w * 0.12, cy - h * 0.22)
+      .lineTo(cx + w * 0.42, cy - h * 0.4)
+      .lineTo(cx + w * 0.3, cy)
+      .closePath()
+      .fill({ color: cream })
+      .stroke({ width: edgeW, color: C.xpBtnRimDeep, alpha: 0.85, join: "round" });
+    // Tie band cinching the neck (drawn last → hides the belly/neck seam).
+    s.roundRect(cx - w * 0.28, cy - h * 0.12, w * 0.56, h * 0.18, h * 0.07)
+      .fill({ color: C.xpBtnRimDeep });
+    s.eventMode = "none";
+    layer.addChild(s);
   }
 
   /** Render the drop-down panel's bg + the shared shop cards, then position it. */
