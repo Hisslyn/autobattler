@@ -1,6 +1,7 @@
 import * as PIXI from "pixi.js";
 import { gameData } from "@autobattler/data";
 import type { MatchState, PlayerState } from "@autobattler/rules/src/state.js";
+import { stageForRound } from "@autobattler/rules/src/rounds.js";
 import type { MatchStats } from "@autobattler/protocol";
 import type { UnitInstance, CombatEvent } from "@autobattler/sim/src/types.js";
 import type { HexCoord } from "@autobattler/sim/src/hex.js";
@@ -667,7 +668,10 @@ export class MatchScene {
     const h = 20;
     const cx = board.x + board.w / 2; // board center, beneath the stage/timer cluster
     const x = cx - w / 2;
-    const y = status.y + 24; // directly below the stage chip / timer cluster
+    // The stage/timer cluster now starts at status.y + CLUSTER_DY (5) and is 20px
+    // tall (bottom = status.y + 25), with the round-dots row above it; keep Skip
+    // clear below the cluster so they never overlap.
+    const y = status.y + 30; // directly below the stage chip / timer cluster
     const g = this.chip(this.skipLayer, x, y, w, h, {
       fill: C.panelBg,
       fillAlpha: 0.95,
@@ -683,6 +687,40 @@ export class MatchScene {
 
   // ─── HUD: status row + opponent rail ─────────────────────────────────────────
 
+  /**
+   * Round-progress dots: a centered horizontal row of `total` dots above the
+   * stage/timer cluster, one per round in the current stage. `current` (1-based)
+   * is the round in progress. Filled disc = completed round (current > i+1),
+   * bold outlined RING = current round, hollow disc = upcoming. Static — no
+   * animation, so it's reduced-motion-agnostic. Drawn into hudLayer (cleared and
+   * re-rendered each render() pass like the rest of the status row).
+   */
+  private renderRoundDots(centerX: number, topY: number, total: number, current: number): void {
+    if (total <= 0) return;
+    const r = 2;            // dot radius
+    const gap = 7;          // center-to-center spacing
+    const cy = topY + r;
+    const rowW = (total - 1) * gap;
+    const startX = centerX - rowW / 2;
+    const g = new PIXI.Graphics();
+    g.eventMode = "none";
+    for (let i = 0; i < total; i++) {
+      const cx = startX + i * gap;
+      const roundNo = i + 1;
+      if (roundNo < current) {
+        // Completed round → solid filled dot.
+        g.circle(cx, cy, r).fill({ color: C.textGold });
+      } else if (roundNo === current) {
+        // Current round → bold outlined ring (hollow center, gold rim).
+        g.circle(cx, cy, r + 0.5).stroke({ width: 1.5, color: C.accentGold });
+      } else {
+        // Upcoming round → hollow dim dot (thin muted outline).
+        g.circle(cx, cy, r).stroke({ width: 1, color: C.textMuted, alpha: 0.7 });
+      }
+    }
+    this.hudLayer.addChild(g);
+  }
+
   private renderHud(state: MatchState, me: PlayerState): void {
     this.hudLayer.removeChildren();
     const { designW, regions } = this.layout;
@@ -697,12 +735,22 @@ export class MatchScene {
     this.hudLayer.addChild(bg);
 
     // ── A. Status row ──────────────────────────────────────────────────────
-    // One centered cluster over the BOARD center X: [Stage X-Y chip] [timer].
+    // One centered cluster over the BOARD center X: [Stage X-Y chip] [timer],
+    // with a round-progress dots row centered ABOVE it.
     // The DOM ☰ pause / exit "X" stays a standalone top-LEFT control (untouched).
-    const stage = Math.floor((state.round - 1) / 5) + 1;
-    const sub = ((state.round - 1) % 5) + 1;
+    // Stage / round-within-stage derive from the pure rules helper (stageForRound)
+    // — the real structural source (stage 1 = 3 rounds, stages 2+ = 7), not a
+    // renderer-side formula. No game logic added: a pure read of state.round.
+    const { stage, roundInStage } = stageForRound(state.round);
+    const roundsInStage = stage === 1 ? 3 : 7; // structural stage length (mirror rounds.ts)
+    const sub = roundInStage;
     const stageW = 96;
-    const sy = status.y;
+    // Shift the whole cluster DOWN a few design px to make room for the dots row
+    // rendered just above it (tweak: dots above, cluster below). Kept modest so
+    // the 20px chip's bottom (status.y + CLUSTER_DY + 20) still clears the portrait
+    // opponent rail directly beneath the top band; landscape has ample headroom.
+    const CLUSTER_DY = 5;
+    const sy = status.y + CLUSTER_DY;
     const clusterGap = 8;
     const timerW = 34; // reserved width for the m:ss timer to the chip's right
     // Center the whole [chip][gap][timer] cluster over the board's center X.
@@ -711,6 +759,13 @@ export class MatchScene {
     const clusterW = stageW + clusterGap + timerW;
     const stageX = Math.round(boardCenterX - clusterW / 2);
     const timerCx = stageX + stageW + clusterGap + timerW / 2;
+
+    // Round-progress dots: one per round in the CURRENT stage, centered above the
+    // cluster. Filled = a completed round, ringed = the current round, hollow =
+    // upcoming. Static (no animation) — reduced-motion-agnostic. Pinned just above
+    // the cluster's new top (sy), clearing the chip.
+    this.renderRoundDots(boardCenterX, sy - 6, roundsInStage, roundInStage);
+
     this.chip(this.hudLayer, stageX, sy, stageW, 20, { fillAlpha: 0.9 });
     this.glyph(this.hudLayer, "swords", stageX + 11, sy + 10, 13, C.starGold);
     this.text(this.hudLayer, `Stage ${stage}-${sub}`, stageX + 22, sy + 10, 10, C.textPrimary, [0, 0.5]);
