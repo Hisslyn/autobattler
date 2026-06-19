@@ -182,6 +182,20 @@ function drawUnit(
 }
 
 export class MatchScene {
+  // ── Top-center status-row vertical stack (dots banner → cluster → Skip) ──────
+  // Shared by renderHud (dots + cluster) and renderSkipButton (Skip) so the three
+  // never drift apart. The dots banner is pinned ~2px above the status-row top
+  // (clamped on-screen); the cluster + Skip pill are pushed down beneath it.
+  private static readonly ROUND_DOTS_H = 12; // dots-banner height
+  /** Top of the round-dots banner (kept fully on-screen). */
+  private static roundDotsTopY(statusY: number): number {
+    return Math.max(1, statusY - 2);
+  }
+  /** Top of the stage/timer cluster — directly below the dots banner. */
+  private static roundDotsClusterY(statusY: number): number {
+    return MatchScene.roundDotsTopY(statusY) + MatchScene.ROUND_DOTS_H + 2;
+  }
+
   readonly container: PIXI.Container;
   private app: PIXI.Application;
   private driver: IDriver;
@@ -670,10 +684,9 @@ export class MatchScene {
     const h = 20;
     const cx = board.x + board.w / 2; // board center, beneath the stage/timer cluster
     const x = cx - w / 2;
-    // Top-to-bottom stack: stage/timer cluster (status.y, 20px tall, bottom
-    // status.y + 20) → round-dots row (status.y + 23) → Skip. Pin Skip below the
-    // dots so the three never overlap.
-    const y = status.y + 32; // directly below the stage cluster + round-dots row
+    // Top-to-bottom stack: round-dots banner → stage/timer cluster (20px tall) →
+    // Skip. Pin Skip directly below the cluster so the three never overlap.
+    const y = MatchScene.roundDotsClusterY(status.y) + 20 + 2; // below the cluster (20px) + gap
     const g = this.chip(this.skipLayer, x, y, w, h, {
       fill: C.panelBg,
       fillAlpha: 0.95,
@@ -690,20 +703,45 @@ export class MatchScene {
   // ─── HUD: status row + opponent rail ─────────────────────────────────────────
 
   /**
-   * Round-progress dots: a centered horizontal row of `total` dots above the
-   * stage/timer cluster, one per round in the current stage. `current` (1-based)
-   * is the round in progress. Filled disc = completed round (current > i+1),
-   * bold outlined RING = current round, hollow disc = upcoming. Static — no
-   * animation, so it's reduced-motion-agnostic. Drawn into hudLayer (cleared and
-   * re-rendered each render() pass like the rest of the status row).
+   * Round-progress dots: a centered horizontal row of `total` dots sitting at the
+   * very top of the status row, ABOVE the stage/timer cluster, one per round in
+   * the current stage. `current` (1-based) is the round in progress. Filled disc =
+   * completed round (current > i+1), bold outlined RING = current round, hollow
+   * disc = upcoming. The row is centered (both axes) inside a shallow decorative
+   * banner spanning [topY, topY+bandH] — a `\___/` profile (flat bottom edge, the
+   * sides angling outward as they rise so the top is wider than the bottom). Static
+   * — no animation, so it's reduced-motion-agnostic. Drawn into hudLayer (cleared
+   * and re-rendered each render() pass like the rest of the status row).
    */
-  private renderRoundDots(centerX: number, topY: number, total: number, current: number): void {
+  private renderRoundDots(centerX: number, topY: number, bandH: number, total: number, current: number): void {
     if (total <= 0) return;
     const r = 2;            // dot radius
     const gap = 7;          // center-to-center spacing
-    const cy = topY + r;
+    const cy = topY + bandH / 2; // vertically centered inside the banner
     const rowW = (total - 1) * gap;
     const startX = centerX - rowW / 2;
+
+    // Decorative banner behind the dots: flat bottom edge, sides slanting outward
+    // toward the top (top wider than the bottom → `\___/`). Dots sit centered in it.
+    const halfBottom = rowW / 2 + 8;    // bottom half-width: dots row + padding
+    const slant = 6;                    // each side angles out this much going up
+    const bottomY = topY + bandH;
+    const banner = new PIXI.Graphics();
+    banner.eventMode = "none";
+    banner.poly([
+      centerX - halfBottom,         bottomY,  // bottom-left
+      centerX + halfBottom,         bottomY,  // bottom-right
+      centerX + halfBottom + slant, topY,     // top-right (wider)
+      centerX - halfBottom - slant, topY,     // top-left  (wider)
+    ]).fill({ color: C.bgPanelRaise, alpha: 0.95 });
+    banner.poly([
+      centerX - halfBottom,         bottomY,
+      centerX + halfBottom,         bottomY,
+      centerX + halfBottom + slant, topY,
+      centerX - halfBottom - slant, topY,
+    ]).stroke({ width: 1, color: C.chipBorder, alpha: 1 });
+    this.hudLayer.addChild(banner);
+
     const g = new PIXI.Graphics();
     g.eventMode = "none";
     for (let i = 0; i < total; i++) {
@@ -738,8 +776,10 @@ export class MatchScene {
 
     // ── A. Status row ──────────────────────────────────────────────────────
     // One centered cluster over the BOARD center X: [Stage X-Y chip] [timer],
-    // with a round-progress dots row centered BELOW it (the cluster sits at the
-    // very top of the screen, so dots above would clip off-screen).
+    // with the round-progress dots row centered ABOVE it. Top-to-bottom the band
+    // stacks: dots banner → stage/timer cluster → Skip pill. The cluster (and the
+    // Skip pill below it) are pushed down to make vertical room for the dots row,
+    // which is pinned to the very top so it stays fully on-screen (not clipped).
     // The DOM ☰ pause / exit "X" stays a standalone top-LEFT control (untouched).
     // Stage / round-within-stage derive from the pure rules helper (stageForRound)
     // — the real structural source (stage 1 = 3 rounds, stages 2+ = 7), not a
@@ -748,9 +788,6 @@ export class MatchScene {
     const roundsInStage = stage === 1 ? 3 : 7; // structural stage length (mirror rounds.ts)
     const sub = roundInStage;
     const stageW = 96;
-    // The cluster sits flush at the top of the status row; the dots row + Skip pill
-    // stack BELOW it (top-to-bottom: cluster → dots → Skip), all fully on-screen.
-    const sy = status.y;
     const clusterGap = 8;
     const timerW = 34; // reserved width for the m:ss timer to the chip's right
     // Center the whole [chip][gap][timer] cluster over the board's center X.
@@ -760,11 +797,12 @@ export class MatchScene {
     const stageX = Math.round(boardCenterX - clusterW / 2);
     const timerCx = stageX + stageW + clusterGap + timerW / 2;
 
-    // Round-progress dots: one per round in the CURRENT stage, centered BELOW the
-    // cluster (the 20px chip's bottom is sy + 20). Filled = a completed round,
-    // ringed = the current round, hollow = upcoming. Static (no animation) —
-    // reduced-motion-agnostic.
-    this.renderRoundDots(boardCenterX, sy + 23, roundsInStage, roundInStage);
+    // Round-progress dots banner pinned at the very top of the status row; the
+    // cluster is pushed down to sit beneath it (see roundDotsClusterY). Filled = a
+    // completed round, ringed = the current round, hollow = upcoming. Static (no
+    // animation) — reduced-motion-agnostic.
+    this.renderRoundDots(boardCenterX, MatchScene.roundDotsTopY(status.y), MatchScene.ROUND_DOTS_H, roundsInStage, roundInStage);
+    const sy = MatchScene.roundDotsClusterY(status.y); // cluster top, below the dots banner
 
     this.chip(this.hudLayer, stageX, sy, stageW, 20, { fillAlpha: 0.9 });
     this.glyph(this.hudLayer, "swords", stageX + 11, sy + 10, 13, C.starGold);
