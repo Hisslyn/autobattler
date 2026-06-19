@@ -1803,13 +1803,23 @@ export class MatchScene {
     }
     const r = this.shopToggleRect();
     const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
-    const R = Math.min(r.w, r.h) / 2 - 2; // circular medallion inscribed in the slot
+    // Same diameter as the Buy XP button (shared medallion base): take its
+    // geometry's radius, capped so it still fits inside this slot.
+    const bx = buyXpGeom(this.isLandscape ? this.buyXpRegionLandscape() : this.layout.regions.hud);
+    const R = Math.min(bx.r, Math.min(r.w, r.h) / 2 - 2); // shared diameter, inscribed in the slot
+    const rimW = bx.rimW;
 
-    // Ornate gold medallion: warm radial-gradient face + a beveled bronze/gold
-    // double ring. The disc is the one interactive node (hit area stays the full
-    // slot rect so the toggle target keeps its size); content sits static on top,
-    // mirroring the prior chip-pops-behind-glyph press feel.
-    const g = this.drawShopMedallion(cx, cy, R, this.shopPanelOpen);
+    // Shared medallion base: blue disc + ornate gold/bronze rim (same scheme as
+    // Buy XP), then the open-state highlight ring on top. The body is the one
+    // interactive node (hit area stays the full slot rect so the toggle target
+    // keeps its size); content sits static on top, mirroring the prior
+    // chip-pops-behind-glyph press feel.
+    const g = this.drawMedallionBase(cx, cy, R, rimW, { fill: C.xpBtnDisc });
+    if (this.shopPanelOpen) {
+      // Brighter inner ring while the panel is open (open-state read).
+      g.circle(cx, cy, R - rimW).stroke({ width: Math.max(1.2, rimW * 0.6), color: C.lootOrbCore, alpha: 0.9 });
+    }
+    this.shopToggleLayer.addChild(g);
     g.eventMode = "static";
     g.cursor = "pointer";
     g.hitArea = new PIXI.Rectangle(r.x, r.y, r.w, r.h);
@@ -1853,45 +1863,6 @@ export class MatchScene {
         );
       }
     }
-  }
-
-  /**
-   * Circular shop-button medallion, drawn into one Graphics so the press-pop
-   * scales the whole disc: a warm gold radial gradient face (bright center →
-   * darker amber rim), a dark-bronze outer ring + bright-gold inner ring
-   * (beveled), and a brighter inner highlight ring while the panel is open.
-   */
-  private drawShopMedallion(cx: number, cy: number, R: number, open: boolean): PIXI.Graphics {
-    const g = new PIXI.Graphics();
-    const grad = new PIXI.FillGradient({
-      type: "radial",
-      center: { x: cx, y: cy }, innerRadius: 0,
-      outerCenter: { x: cx, y: cy }, outerRadius: R,
-      colorStops: [
-        { offset: 0, color: C.accentGold },
-        { offset: 0.6, color: C.starGold },
-        { offset: 1, color: C.textGold },
-      ],
-      textureSpace: "global",
-    });
-    g.circle(cx, cy, R).fill(grad);
-
-    const bronzeW = Math.max(2.5, R * 0.16);
-    const goldW = Math.max(1.5, R * 0.1);
-    g.circle(cx, cy, R - bronzeW / 2).stroke({ width: bronzeW, color: C.xpBtnRimDeep });
-    g.circle(cx, cy, R - bronzeW - goldW / 2 + 0.5).stroke({ width: goldW, color: C.accentGold });
-    // Bevel: a soft cream highlight on the top rim, a bronze shadow on the bottom.
-    const bevelR = R - bronzeW - goldW - 1;
-    const bevelW = Math.max(1, R * 0.06);
-    g.arc(cx, cy, bevelR, Math.PI * 1.15, Math.PI * 1.85)
-      .stroke({ width: bevelW, color: C.lootOrbCore, alpha: 0.45, cap: "round" });
-    g.arc(cx, cy, bevelR, Math.PI * 0.15, Math.PI * 0.85)
-      .stroke({ width: bevelW, color: C.xpBtnRimDeep, alpha: 0.35, cap: "round" });
-    if (open) {
-      g.circle(cx, cy, bevelR).stroke({ width: goldW * 0.8, color: C.lootOrbCore, alpha: 0.9 });
-    }
-    this.shopToggleLayer.addChild(g);
-    return g;
   }
 
   /** Stylized cream coin-pouch with a cinched, tied top — drawn into `layer`. */
@@ -2008,14 +1979,54 @@ export class MatchScene {
   // ─── D. HUD row: level / gold / streak / reroll / buy-xp ──────────────────────
 
   /**
+   * Shared circular medallion-button base. Both the Buy XP button and the
+   * money-sack shop toggle layer their own center content / badges / arcs on top
+   * of this one body: a configurable inner fill disc (both use the Buy XP blue),
+   * an ornate gilded outer rim + bronze inner-shadow ring, a soft domed top
+   * highlight, and 8 bronze filigree notches. Future circular buttons reuse it.
+   *
+   * Returns the body Graphics (one node so press feedback scales the whole disc);
+   * the caller adds it to its own layer and wires interaction (so disabled / hit
+   * area / tap binding stay per-button). Drawn with the Pixi v8 path API.
+   */
+  private drawMedallionBase(
+    cx: number, cy: number, r: number, rimW: number,
+    opts: { fill?: number; disabled?: boolean } = {}
+  ): PIXI.Graphics {
+    const disabled = opts.disabled ?? false;
+    const rimCol = disabled ? C.xpBtnRimDeep : C.xpBtnRim;
+    const discCol = disabled ? C.xpBtnDisabled : (opts.fill ?? C.xpBtnDisc);
+    const body = new PIXI.Graphics();
+    // Outer gilded rim.
+    body.circle(cx, cy, r).stroke({ width: rimW, color: rimCol });
+    // Bronze inner shadow line inside the rim.
+    body.circle(cx, cy, r - rimW * 0.55).stroke({ width: Math.max(1, rimW * 0.4), color: C.xpBtnRimDeep, alpha: disabled ? 0.5 : 0.9 });
+    // Inner disc + a soft top highlight for a domed read.
+    const discR = r - rimW * 0.5;
+    body.circle(cx, cy, discR).fill({ color: discCol });
+    if (!disabled) {
+      body.circle(cx, cy - discR * 0.32, discR * 0.7).fill({ color: C.xpBtnDiscHi, alpha: 0.22 });
+    }
+    // Ornate rim notches (8 small ticks) for the bronze filigree read.
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const nx = cx + Math.cos(a) * r;
+      const ny = cy + Math.sin(a) * r;
+      body.circle(nx, ny, Math.max(0.8, rimW * 0.22)).fill({ color: C.xpBtnRimDeep, alpha: disabled ? 0.4 : 0.85 });
+    }
+    return body;
+  }
+
+  /**
    * Circular "Buy XP" button (econ cluster), replacing the former rounded-rect
    * Buy XP button + separate linear XP bar + standalone "L#" text. Anatomy:
-   * ornate gold/bronze rim around a blue disc; stacked level-up glyph + "Buy XP"
-   * + coin·cost in the center; the current/needed xp text floats just above; a
-   * 90° teal progress arc hugs the outer-right edge (the xp bar, clockwise); a
-   * small dark badge overlaps the bottom-right showing the level. Pure geometry
-   * comes from `buyXpGeom`; this only paints + wires the BUY_XP command (greyed
-   * + inert when gold < cost or at max level). Returns the control's right edge.
+   * shared medallion base (ornate gold/bronze rim around a blue disc) + stacked
+   * level-up glyph + "Buy XP" + coin·cost in the center; the current/needed xp
+   * text floats just above; a 90° teal progress arc hugs the outer-right edge
+   * (the xp bar, clockwise); a small dark badge overlaps the bottom-right showing
+   * the level. Pure geometry comes from `buyXpGeom`; this only paints + wires the
+   * BUY_XP command (greyed + inert when gold < cost or at max level). Returns the
+   * control's right edge.
    */
   private renderBuyXpButton(me: PlayerState, region?: { x: number; y: number; w: number; h: number }): number {
     const reg = region ?? this.layout.regions.hud;
@@ -2025,28 +2036,10 @@ export class MatchScene {
     const disabled = me.gold < cost || xp.maxed;
 
     const rimCol = disabled ? C.xpBtnRimDeep : C.xpBtnRim;
-    const discCol = disabled ? C.xpBtnDisabled : C.xpBtnDisc;
     const inkCol = disabled ? C.textMuted : C.textPrimary;
 
-    // ── Button body: ornate rim + blue inner disc ──────────────────────────
-    const body = new PIXI.Graphics();
-    // Outer gilded rim.
-    body.circle(g.cx, g.cy, g.r).stroke({ width: g.rimW, color: rimCol });
-    // Bronze inner shadow line inside the rim.
-    body.circle(g.cx, g.cy, g.r - g.rimW * 0.55).stroke({ width: Math.max(1, g.rimW * 0.4), color: C.xpBtnRimDeep, alpha: disabled ? 0.5 : 0.9 });
-    // Blue inner disc + a soft top highlight for a domed read.
-    const discR = g.r - g.rimW * 0.5;
-    body.circle(g.cx, g.cy, discR).fill({ color: discCol });
-    if (!disabled) {
-      body.circle(g.cx, g.cy - discR * 0.32, discR * 0.7).fill({ color: C.xpBtnDiscHi, alpha: 0.22 });
-    }
-    // Ornate rim notches (8 small ticks) for the bronze filigree read.
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      const nx = g.cx + Math.cos(a) * g.r;
-      const ny = g.cy + Math.sin(a) * g.r;
-      body.circle(nx, ny, Math.max(0.8, g.rimW * 0.22)).fill({ color: C.xpBtnRimDeep, alpha: disabled ? 0.4 : 0.85 });
-    }
+    // ── Button body: shared medallion base (blue disc + ornate gold rim) ────
+    const body = this.drawMedallionBase(g.cx, g.cy, g.r, g.rimW, { disabled });
     body.eventMode = disabled ? "none" : "static";
     if (!disabled) {
       const hit = new PIXI.Circle(g.cx, g.cy, g.r + g.rimW);
