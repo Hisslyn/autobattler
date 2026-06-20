@@ -1,0 +1,1198 @@
+{
+  "files": [
+    {
+      "path": "AUDIT.md",
+      "status": "done",
+      "doc": "docs/AUDIT.md.md",
+      "hash": "52453494c7383753537e057a564ac719655ab3fcf1baf4aa2288c1e7099e8350",
+      "updated": "2026-06-20T01:14:14.038597Z"
+    },
+    {
+      "path": "CLAUDE.md",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "autobattler.md",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "docker-compose.yml",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "package.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/balance/package.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/balance/src/cli.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/balance/src/compositions.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/balance/src/index.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/balance/src/report.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/balance/src/runner.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/balance/src/sweep.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/balance/tests/balance.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/PORTRAIT_LAYOUT_SPEC.md",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/index.html",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/package.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/public/audio/README.md",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/public/items/README.md",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/public/units/README.md",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/audio/director.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/audio/manager.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/audio/music.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/audio/sfx.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/auth.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/benchLayout.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/boardProjection.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/combat/player.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/combat/reducer.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/combat/view.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/combatLayout.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/combinePreview.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/consumablePicker.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/driver.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/glyphs.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/hexUtils.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/hudControlsLayout.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/hudModel.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/inspectModel.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/inspectPanel.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/itemIcon.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/itemIconDraw.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/itemModel.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/layout.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/lootReveal.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/main.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/net.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/netDriver.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/onboarding.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/scenes/match.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/sellValue.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/settings.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/sprites.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/statFormat.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/theme.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/torchMeter.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/traitDetailModel.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/ui/app.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/ui/coachmarks.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/ui/content.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/ui/dom.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/ui/styles.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/src/unitToken.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/_pve_render.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/audio.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/benchLayout.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/boardProjection.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/coachmarks.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/combat.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/combatFx.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/combatLayout.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/combinePreview.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/driver.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/glyphStrokeWeight.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/glyphs.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/hexUtils.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/hudModel.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/inspectModel.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/itemIcon.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/itemModel.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/layout.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/levelBadgeRender.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/lootReveal.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/metaTheme.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/onboarding.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/sceneLayerStack.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/sellValue.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/settings.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/sprites.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/statFormat.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/theme.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/tierColor.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/torchMeter.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tests/traitDetailModel.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/tsconfig.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/client/vite.config.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/data/design-notes.md",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/data/package.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/data/src/economy.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/data/src/gameplay.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/data/src/items.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/data/src/loader.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/data/src/loot.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/data/src/mobs.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/data/src/ranks.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/data/src/traits.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/data/src/units.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/data/tests/integrity.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/data/tests/rank.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/protocol/package.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/protocol/src/envelope.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/protocol/src/index.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/protocol/src/messages.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/protocol/tests/protocol.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/package.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/src/ai.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/src/commands.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/src/economy.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/src/loot.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/src/match.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/src/pool.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/src/rounds.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/src/shop.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/src/state.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/tests/combine.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/tests/commands.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/tests/consumables.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/tests/economy.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/tests/items.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/tests/magicNumbers.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/tests/match.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/tests/pairing.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/tests/pool.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/tests/pve.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/tests/roundStats.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/tests/serializeMatchState.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/rules/tests/shop.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/package.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/src/auth.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/src/db/index.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/src/db/memory.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/src/db/postgres.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/src/db/repo.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/src/db/schema.sql",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/src/http.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/src/index.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/src/matchmaker.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/src/mmr.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/src/recorder.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/src/room.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/src/session.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/tests/integration.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/tests/mmr.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/tests/persistence.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/tests/profile.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/tests/repo.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/server/tests/room.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/sim/package.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/sim/src/engine.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/sim/src/fixed.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/sim/src/hex.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/sim/src/prng.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/sim/src/types.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/sim/tests/abilities.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/sim/tests/determinism.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/sim/tests/hex.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/sim/tests/pairPassive.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/sim/tests/prng.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "packages/sim/tests/purity.test.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "tsconfig.json",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    },
+    {
+      "path": "vitest.config.ts",
+      "status": "pending",
+      "doc": "",
+      "hash": "",
+      "updated": ""
+    }
+  ],
+  "totals": {
+    "done": 1,
+    "total": 170
+  }
+}
