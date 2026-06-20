@@ -1038,10 +1038,10 @@
     },
     {
       "path": "packages/server/src/room.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/src/room.ts.md",
+      "hash": "21788bdb1c80084159d44ceb4b17bb7eb55aff00ceb59727332e842c9c5c8873",
+      "updated": "2026-06-20T09:05:00+00:00"
     },
     {
       "path": "packages/server/src/session.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 148,
+    "done": 149,
     "total": 170
   }
 }
