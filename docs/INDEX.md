@@ -33,3 +33,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/combat/view.ts -> docs/packages/client/src/combat/view.ts.md — Pixi combat rendering: tokens, bars, projectiles/particles/auras/dissolves/shake, all driven by the fx stream
 - packages/client/src/combatLayout.ts -> docs/packages/client/src/combatLayout.ts.md — pure zIndex constants for the combat overlay + the match scene's 9-layer stack, with regression-guard ordering
 - packages/client/src/combinePreview.ts -> docs/packages/client/src/combinePreview.ts.md — pure combine/equip preview wrapping data's recipeResult, mirrors rules' auto-combine without mutating
+- packages/client/src/consumablePicker.ts -> docs/packages/client/src/consumablePicker.ts.md — pure routing decision for the radiant_enhancer drop flow: picker overlay vs send-and-let-server-reject

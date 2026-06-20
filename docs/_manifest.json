@@ -219,10 +219,10 @@
     },
     {
       "path": "packages/client/src/consumablePicker.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/consumablePicker.ts.md",
+      "hash": "37db9b4cc7e9e02ef948f2e7b0a8743a0c67be8fc545adfeac52ebae5a857490",
+      "updated": "2026-06-20T01:40:53.677966+00:00"
     },
     {
       "path": "packages/client/src/driver.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 31,
+    "done": 32,
     "total": 170
   }
 }
