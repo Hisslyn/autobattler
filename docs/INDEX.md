@@ -124,3 +124,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/rules/src/pool.ts -> docs/packages/rules/src/pool.ts.md — buildInitialPool/drawFromPool/returnToPool/returnUnitsToPool: the pool-conservation primitives
 - packages/rules/src/rounds.ts -> docs/packages/rules/src/rounds.ts.md — stage/PvE schedule, mob board construction, pairing (anti-repeat + ghosts), runPveRound/runCombatPhase/distributeIncome
 - packages/rules/src/shop.ts -> docs/packages/rules/src/shop.ts.md — rollShop: level-gated tier odds + pool-availability-filtered unit pick, draws from pool at roll time
+- packages/rules/src/state.ts -> docs/packages/rules/src/state.ts.md — MatchState/PlayerState/ShopSlot/RoundResult/Phase: the canonical match-state type schema
