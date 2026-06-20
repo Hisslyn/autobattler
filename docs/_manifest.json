@@ -114,10 +114,10 @@
     },
     {
       "path": "packages/client/public/audio/README.md",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/public/audio/README.md.md",
+      "hash": "6da769c2a9166e49e1d4eb7cae221e91292a315f43387a5ae64b938d30cb2389",
+      "updated": "2026-06-20T01:26:06.465839+00:00"
     },
     {
       "path": "packages/client/public/items/README.md",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 16,
+    "done": 17,
     "total": 170
   }
 }
