@@ -52,3 +52,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/onboarding.ts -> docs/packages/client/src/onboarding.ts.md — first-match coachmark localStorage gate (shouldShowCoachmarks/markCoachmarksSeen) + the static 5-step tour data (COACHMARK_STEPS)
 - packages/client/src/scenes/match.ts -> docs/packages/client/src/scenes/match.ts.md — MatchScene: the entire in-match Pixi UI (board/bench/shop/HUD/combat playback/resolution/match-over), rendered strictly from MatchState + CombatEvent logs
 - packages/client/src/sellValue.ts -> docs/packages/client/src/sellValue.ts.md — pure display-only mirror of the rules SELL refund formula (tier × copiesPerStar × sellValueMultiplier)
+- packages/client/src/settings.ts -> docs/packages/client/src/settings.ts.md — Settings shape + localStorage load/save (defensive parsing) + SettingsStore pub/sub holder for volumes/speed/reduced-motion prefs
