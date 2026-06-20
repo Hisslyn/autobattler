@@ -17,3 +17,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/balance/tests/balance.test.ts -> docs/packages/balance/tests/balance.test.ts.md — end-to-end balance package tests: determinism, budget/coverage invariants, smoke report round-trip
 - packages/client/PORTRAIT_LAYOUT_SPEC.md -> docs/packages/client/PORTRAIT_LAYOUT_SPEC.md.md — implemented spec for the height-driven portrait layout budget algorithm in layout.ts
 - packages/client/index.html -> docs/packages/client/index.html.md — Vite entry HTML: viewport lock, #app canvas mount, #safe-probe safe-area reader, main.ts script tag
+- packages/client/package.json -> docs/packages/client/package.json.md — @autobattler/client manifest: depends on data/protocol/rules/sim + pixi.js v8, dev/build/typecheck scripts
