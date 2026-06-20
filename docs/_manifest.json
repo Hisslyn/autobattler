@@ -156,10 +156,10 @@
     },
     {
       "path": "packages/client/src/audio/sfx.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/audio/sfx.ts.md",
+      "hash": "d0221838061dcce986ae785479ba6c86610eb4685d0e09691e20a61fa494a2ab",
+      "updated": "2026-06-20T01:30:38.664782+00:00"
     },
     {
       "path": "packages/client/src/auth.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 22,
+    "done": 23,
     "total": 170
   }
 }
