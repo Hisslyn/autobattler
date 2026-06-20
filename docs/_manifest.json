@@ -583,10 +583,10 @@
     },
     {
       "path": "packages/client/tests/onboarding.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/onboarding.test.ts.md",
+      "hash": "4771f2a36263ffca345b147dbe3286798b86f28235eee9f2c4a58d7ba6275f5c",
+      "updated": "2026-06-20T04:22:00+00:00"
     },
     {
       "path": "packages/client/tests/sceneLayerStack.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 83,
+    "done": 84,
     "total": 170
   }
 }
