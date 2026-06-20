@@ -296,10 +296,10 @@
     },
     {
       "path": "packages/client/src/layout.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/layout.ts.md",
+      "hash": "a2ed62384d0fe68f87c9306ba67c76e59ca376329e28cfc21f7064c60d7a0e43",
+      "updated": "2026-06-20T02:00:00+00:00"
     },
     {
       "path": "packages/client/src/lootReveal.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 42,
+    "done": 43,
     "total": 170
   }
 }
