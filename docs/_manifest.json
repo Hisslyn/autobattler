@@ -632,10 +632,10 @@
     },
     {
       "path": "packages/client/tests/tierColor.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/tierColor.test.ts.md",
+      "hash": "d8cc96a1db7fe1c79e79d2dec20e744bc08cb8b88aeadef6525f4d24e76a2eab",
+      "updated": "2026-06-20T04:45:00+00:00"
     },
     {
       "path": "packages/client/tests/torchMeter.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 90,
+    "done": 91,
     "total": 170
   }
 }
