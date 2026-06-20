@@ -36,3 +36,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/consumablePicker.ts -> docs/packages/client/src/consumablePicker.ts.md — pure routing decision for the radiant_enhancer drop flow: picker overlay vs send-and-let-server-reject
 - packages/client/src/driver.ts -> docs/packages/client/src/driver.ts.md — IDriver interface + LocalDriver: in-browser Practice-mode match runner with planning/resolution/playback-cap timers
 - packages/client/src/glyphs.ts -> docs/packages/client/src/glyphs.ts.md — procedural vector glyph library (TRAIT_GLYPH map + drawGlyph) for canvas-rendered trait/HUD/item icons
+- packages/client/src/hexUtils.ts -> docs/packages/client/src/hexUtils.ts.md — flat hex board geometry: slot<->pixel mapping (hexToPixel), pointer hit test (hexFromPointer), zero-gap tile sizing math
