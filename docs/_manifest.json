@@ -807,10 +807,10 @@
     },
     {
       "path": "packages/rules/src/commands.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/src/commands.ts.md",
+      "hash": "6e0a0884e2e4d426f77ab80c893ccf88873ad71d743954d2c239adb29a9ac566",
+      "updated": "2026-06-20T06:42:00+00:00"
     },
     {
       "path": "packages/rules/src/economy.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 115,
+    "done": 116,
     "total": 170
   }
 }
