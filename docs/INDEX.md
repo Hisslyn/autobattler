@@ -56,3 +56,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/sprites.ts -> docs/packages/client/src/sprites.ts.md — unit-art drop-in slot: pure path resolver + async runtime texture cache, glyph fallback when PNG absent
 - packages/client/src/statFormat.ts -> docs/packages/client/src/statFormat.ts.md — single-source stat display formatter (formatStat/formatStatDelta); handles the as fixed-point/1000 conversion, everything else raw
 - packages/client/src/theme.ts -> docs/packages/client/src/theme.ts.md — single color-palette source (C) for Pixi + DOM via CSS vars, plus trait/rank/rarity color maps, board tilt, glyph stroke weight, chip typography
+- packages/client/src/torchMeter.ts -> docs/packages/client/src/torchMeter.ts.md — pure gold->lit-torch-count mapping for the arena tealight-candle gold meter, with asymmetric left/right fill direction

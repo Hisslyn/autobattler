@@ -380,10 +380,10 @@
     },
     {
       "path": "packages/client/src/torchMeter.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/torchMeter.ts.md",
+      "hash": "827b7ba2991cb0bc55eb66c481f250a821dabc3b56a8e27084b2425033fc8ee7",
+      "updated": "2026-06-20T02:32:00+00:00"
     },
     {
       "path": "packages/client/src/traitDetailModel.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 54,
+    "done": 55,
     "total": 170
   }
 }
