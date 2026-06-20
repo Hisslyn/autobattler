@@ -141,3 +141,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/server/package.json -> docs/packages/server/package.json.md — @autobattler/server manifest (deps: data/protocol/rules/sim + pg + ws)
 - packages/server/src/auth.ts -> docs/packages/server/src/auth.ts.md — HMAC-signed opaque guest auth tokens (signToken/verifyToken)
 - packages/server/src/db/index.ts -> docs/packages/server/src/db/index.ts.md — db barrel module; createRepository() picks Postgres (DATABASE_URL set) vs in-memory
+- packages/server/src/db/memory.ts -> docs/packages/server/src/db/memory.ts.md — MemoryRepository: in-process Repository impl for dev/tests, no persistence across restarts

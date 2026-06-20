@@ -975,10 +975,10 @@
     },
     {
       "path": "packages/server/src/db/memory.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/src/db/memory.ts.md",
+      "hash": "780c1691255a2335ce62d49691253fe7741df7f746d47808da3cecff5b6e9249",
+      "updated": "2026-06-20T08:25:00+00:00"
     },
     {
       "path": "packages/server/src/db/postgres.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 139,
+    "done": 140,
     "total": 170
   }
 }
