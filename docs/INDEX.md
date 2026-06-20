@@ -64,3 +64,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/ui/dom.ts -> docs/packages/client/src/ui/dom.ts.md — tiny DOM helpers (el/button/clear) for the framework-free meta-screen layer; no styling, no game logic
 - packages/client/src/ui/styles.ts -> docs/packages/client/src/ui/styles.ts.md — single injected stylesheet for the DOM meta layer; every color is a theme.ts CSS var, includes landscape responsive + reduced-motion passes
 - packages/client/src/unitToken.ts -> docs/packages/client/src/unitToken.ts.md — drawUnitToken: the one reusable Pixi unit-token component (disc/ring/glyph-or-art/stars/bars/item-dots), flat or checkers-piece 3D mode
+- packages/client/tests/_pve_render.test.ts -> docs/packages/client/tests/_pve_render.test.ts.md — PvE mob rendering: end-to-end mob-side-event-log check + source-text structural scans of renderBoard's read-only creep preview

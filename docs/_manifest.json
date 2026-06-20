@@ -436,10 +436,10 @@
     },
     {
       "path": "packages/client/tests/_pve_render.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/_pve_render.test.ts.md",
+      "hash": "5cd7572c441dc3a7918bc934ac74aa5357ed38f6c97f4038576d9534ba35faed",
+      "updated": "2026-06-20T02:52:00+00:00"
     },
     {
       "path": "packages/client/tests/audio.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 62,
+    "done": 63,
     "total": 170
   }
 }
