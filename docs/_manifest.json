@@ -730,10 +730,10 @@
     },
     {
       "path": "packages/data/src/traits.json",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/data/src/traits.json.md",
+      "hash": "0f57f126c226a8ae6f7feb634b2abeafee07ecb1c9b627d4e41a7e466a9504d6",
+      "updated": "2026-06-20T05:52:00+00:00"
     },
     {
       "path": "packages/data/src/units.json",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 104,
+    "done": 105,
     "total": 170
   }
 }
