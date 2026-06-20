@@ -786,10 +786,10 @@
     },
     {
       "path": "packages/protocol/tests/protocol.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/protocol/tests/protocol.test.ts.md",
+      "hash": "5970cb96fa5e354772ee7efaf516c1bb8ef8ed90c0b7eeab22941ef8067eac07",
+      "updated": "2026-06-20T06:25:00+00:00"
     },
     {
       "path": "packages/rules/package.json",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 112,
+    "done": 113,
     "total": 170
   }
 }
