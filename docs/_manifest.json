@@ -1136,10 +1136,10 @@
     },
     {
       "path": "packages/sim/tests/abilities.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/sim/tests/abilities.test.ts.md",
+      "hash": "9b1e0215081e1a7710d3a31f868ce341f5e0f2525dbb0f0af2df90e43dfbc4a6",
+      "updated": "2026-06-20T10:20:00+00:00"
     },
     {
       "path": "packages/sim/tests/determinism.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 162,
+    "done": 163,
     "total": 170
   }
 }
