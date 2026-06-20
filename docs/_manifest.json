@@ -863,10 +863,10 @@
     },
     {
       "path": "packages/rules/tests/combine.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/tests/combine.test.ts.md",
+      "hash": "c33c43bef10d49e0c269121c5e8744724cb3e14e4ec764bdb8b576ea100e0ed8",
+      "updated": "2026-06-20T07:17:00+00:00"
     },
     {
       "path": "packages/rules/tests/commands.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 123,
+    "done": 124,
     "total": 170
   }
 }
