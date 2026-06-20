@@ -25,3 +25,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/audio/manager.ts -> docs/packages/client/src/audio/manager.ts.md — Web Audio engine: node graph, SFX voice synthesis, music crossfade/file-override, combat fx -> sound bridge
 - packages/client/src/audio/music.ts -> docs/packages/client/src/audio/music.ts.md — generative loopable music: pure progression/motif/voice-leading theory + Web Audio lookahead scheduler engine
 - packages/client/src/audio/sfx.ts -> docs/packages/client/src/audio/sfx.ts.md — pure SFX palette data (layered ADSR voice specs) + total event->sound coverage map
+- packages/client/src/auth.ts -> docs/packages/client/src/auth.ts.md — guest auth bootstrap (deviceId+token persistence) + profile/leaderboard/history/rename HTTP wrappers
