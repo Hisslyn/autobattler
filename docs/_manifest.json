@@ -205,10 +205,10 @@
     },
     {
       "path": "packages/client/src/combatLayout.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/combatLayout.ts.md",
+      "hash": "26bfae995568edd75cb7a8a25024efa77054b4b99864c4fdca9fb961b97049ed",
+      "updated": "2026-06-20T01:38:12.323181+00:00"
     },
     {
       "path": "packages/client/src/combinePreview.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 29,
+    "done": 30,
     "total": 170
   }
 }
