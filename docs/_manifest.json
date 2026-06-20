@@ -625,10 +625,10 @@
     },
     {
       "path": "packages/client/tests/theme.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/theme.test.ts.md",
+      "hash": "87523c1ae7a581649f06e33d0e62e89cda1416fc80008c092efd597fd9cc7acc",
+      "updated": "2026-06-20T04:42:00+00:00"
     },
     {
       "path": "packages/client/tests/tierColor.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 89,
+    "done": 90,
     "total": 170
   }
 }

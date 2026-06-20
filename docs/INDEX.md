@@ -91,3 +91,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/tests/settings.test.ts -> docs/packages/client/tests/settings.test.ts.md — loadSettings/saveSettings defaults, speed-enum coercion, round-trip, out-of-range clamp, and corrupt-JSON resilience via mock storage
 - packages/client/tests/sprites.test.ts -> docs/packages/client/tests/sprites.test.ts.md — unitArtPath path-building + resolveUnitTexture exists/fallback/base-override tests via an injected fake lookup (no Pixi/network)
 - packages/client/tests/statFormat.test.ts -> docs/packages/client/tests/statFormat.test.ts.md — formatStat/formatStatDelta tests: as fixed-point÷1000 conversion vs raw-integer passthrough for every other StatKey, signed-delta formatting
+- packages/client/tests/theme.test.ts -> docs/packages/client/tests/theme.test.ts.md — repo-wide static scan: no 0x hex color literal allowed in client src outside theme.ts (single-source-of-color enforcement)
