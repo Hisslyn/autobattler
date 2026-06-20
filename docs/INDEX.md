@@ -99,3 +99,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/vite.config.ts -> docs/packages/client/vite.config.ts.md — workspace-resolver Vite plugin mapping @autobattler/* bare specifiers directly to sibling packages' .ts source files
 - packages/data/design-notes.md -> docs/packages/data/design-notes.md.md — content design rationale + the most complete documentation of item-system phases 2-3 (consumables/artifacts/mythicals/pair-passives) + future-deferred behavior backlog
 - packages/data/package.json -> docs/packages/data/package.json.md — @autobattler/data manifest: ESM, zero deps, main/exports point directly at loader.ts (no JSON subpath exports)
+- packages/data/src/economy.json -> docs/packages/data/src/economy.json.md — pool/shop-odds/income/streak/damage/overtime/crit/MMR/item-tier tuning constants (EconomyData); flags a shopSlots=6 vs CLAUDE.md "5 cards" discrepancy
