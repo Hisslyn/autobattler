@@ -660,10 +660,10 @@
     },
     {
       "path": "packages/client/vite.config.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/vite.config.ts.md",
+      "hash": "467c2e9d7f2fde124ddd244c8a4a012559633053a6bd5f8716cf04f313a3e044",
+      "updated": "2026-06-20T04:58:00+00:00"
     },
     {
       "path": "packages/data/design-notes.md",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 94,
+    "done": 95,
     "total": 170
   }
 }
