@@ -156,3 +156,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/server/tests/mmr.test.ts -> docs/packages/server/tests/mmr.test.ts.md — pins exact equal-MMR Elo deltas + zero-sum/symmetry proof + directional sanity checks
 - packages/server/tests/persistence.test.ts -> docs/packages/server/tests/persistence.test.ts.md — full-stack persistence proof: MATCH_END mmr payload matches profile+history via real HTTP/WS
 - packages/server/tests/profile.test.ts -> docs/packages/server/tests/profile.test.ts.md — validateName unit tests + in-process PATCH /profile HTTP integration test
+- packages/server/tests/repo.test.ts -> docs/packages/server/tests/repo.test.ts.md — shared Repository contract suite run against MemoryRepository + (conditionally) PostgresRepository
