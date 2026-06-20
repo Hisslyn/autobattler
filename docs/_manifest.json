@@ -555,10 +555,10 @@
     },
     {
       "path": "packages/client/tests/layout.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/layout.test.ts.md",
+      "hash": "1e5074a151ebcbb180a819ab91080b335f826e460f569b990ee8268e20c08763",
+      "updated": "2026-06-20T04:05:00+00:00"
     },
     {
       "path": "packages/client/tests/levelBadgeRender.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 79,
+    "done": 80,
     "total": 170
   }
 }
