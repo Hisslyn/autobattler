@@ -646,10 +646,10 @@
     },
     {
       "path": "packages/client/tests/traitDetailModel.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/traitDetailModel.test.ts.md",
+      "hash": "96608691e0139cfa8426e7c9dc0a71884a7863435af4c0dc284d30d376a86d71",
+      "updated": "2026-06-20T04:51:00+00:00"
     },
     {
       "path": "packages/client/tsconfig.json",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 92,
+    "done": 93,
     "total": 170
   }
 }

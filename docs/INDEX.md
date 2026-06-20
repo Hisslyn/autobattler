@@ -94,3 +94,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/tests/theme.test.ts -> docs/packages/client/tests/theme.test.ts.md — repo-wide static scan: no 0x hex color literal allowed in client src outside theme.ts (single-source-of-color enforcement)
 - packages/client/tests/tierColor.test.ts -> docs/packages/client/tests/tierColor.test.ts.md — tierColor mapping tests + locked tier1-5 hex value regression guard + out-of-range clamp-to-tier1
 - packages/client/tests/torchMeter.test.ts -> docs/packages/client/tests/torchMeter.test.ts.md — litCount floor/cap math + torchLit asymmetric left-front-up/right-back-down fill direction tests
+- packages/client/tests/traitDetailModel.test.ts -> docs/packages/client/tests/traitDetailModel.test.ts.md — traitDetailModel reached-vs-single-active breakpoint flag tests on real knight 2/4/6 data + breakpointEffect stat-label/fixed-point formatting
