@@ -310,10 +310,10 @@
     },
     {
       "path": "packages/client/src/main.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/main.ts.md",
+      "hash": "dd4e41d608c3c57fd4ffe2206750a2576ce9959b3f10de56a3ed5f44abb333c9",
+      "updated": "2026-06-20T02:04:00+00:00"
     },
     {
       "path": "packages/client/src/net.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 44,
+    "done": 45,
     "total": 170
   }
 }
