@@ -618,10 +618,10 @@
     },
     {
       "path": "packages/client/tests/statFormat.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/statFormat.test.ts.md",
+      "hash": "783b2614c7521bc34d4408f73fa6aa54b6081ada627599b50a0ac32eff30baaa",
+      "updated": "2026-06-20T04:39:00+00:00"
     },
     {
       "path": "packages/client/tests/theme.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 88,
+    "done": 89,
     "total": 170
   }
 }
