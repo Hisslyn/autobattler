@@ -1010,10 +1010,10 @@
     },
     {
       "path": "packages/server/src/index.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/src/index.ts.md",
+      "hash": "99bc4e314ec4fff9ed91e1f134acbc45e09bc0d4ac34dc0433c7aa690b7d6664",
+      "updated": "2026-06-20T08:45:00+00:00"
     },
     {
       "path": "packages/server/src/matchmaker.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 144,
+    "done": 145,
     "total": 170
   }
 }
