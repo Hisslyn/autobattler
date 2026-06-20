@@ -153,3 +153,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/server/src/room.ts -> docs/packages/server/src/room.ts.md — authoritative match room: phase loop, command application, AI backfill, broadcast, match-end persistence
 - packages/server/src/session.ts -> docs/packages/server/src/session.ts.md — connection registry: Session type, session/seat token maps, rate limiter, send() helper
 - packages/server/tests/integration.test.ts -> docs/packages/server/tests/integration.test.ts.md — full-stack real-process/real-socket tests: match flow, PvE loot privacy, reconnect, rate limit
+- packages/server/tests/mmr.test.ts -> docs/packages/server/tests/mmr.test.ts.md — pins exact equal-MMR Elo deltas + zero-sum/symmetry proof + directional sanity checks
