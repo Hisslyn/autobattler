@@ -43,3 +43,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/inspectPanel.ts -> docs/packages/client/src/inspectPanel.ts.md — Pixi modal renderers for unit inspect, item detail, item picker, and trait detail panels (shared scrim/panel/scale-in chrome)
 - packages/client/src/itemIcon.ts -> docs/packages/client/src/itemIcon.ts.md — pure item-icon resolution: component->emblem map, completed-item emblem composition, radiant fallback, drop-in art path resolver
 - packages/client/src/itemIconDraw.ts -> docs/packages/client/src/itemIconDraw.ts.md — Pixi item-icon drawing (emblems, gilded completed-item frame + shine, consumable glyph fallback) + the drop-in art runtime cache
+- packages/client/src/itemModel.ts -> docs/packages/client/src/itemModel.ts.md — pure item/inventory/equipped-slot display models (tier classification, stat lines, passive/consumable descriptions)
