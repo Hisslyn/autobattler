@@ -891,10 +891,10 @@
     },
     {
       "path": "packages/rules/tests/items.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/tests/items.test.ts.md",
+      "hash": "908ef4e34ddbb9c52f6b106715e400d1d76530f0c055801bafe561ca9e94e14f",
+      "updated": "2026-06-20T07:35:00+00:00"
     },
     {
       "path": "packages/rules/tests/magicNumbers.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 127,
+    "done": 128,
     "total": 170
   }
 }
