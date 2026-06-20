@@ -737,10 +737,10 @@
     },
     {
       "path": "packages/data/src/units.json",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/data/src/units.json.md",
+      "hash": "1b560f1882bb0a763bd753f26ecd4ebfa7979e348f6900ef42f0f8f978abf986",
+      "updated": "2026-06-20T05:58:00+00:00"
     },
     {
       "path": "packages/data/tests/integrity.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 105,
+    "done": 106,
     "total": 170
   }
 }

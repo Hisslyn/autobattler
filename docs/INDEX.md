@@ -107,3 +107,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/data/src/mobs.json -> docs/packages/data/src/mobs.json.md — PvE creep stat/ability defs + scripted per-round stage encounters (mob placements by slot/star)
 - packages/data/src/ranks.json -> docs/packages/data/src/ranks.json.md — ordered MMR rank-band thresholds (Bronze..Master); single source for mmrToRank
 - packages/data/src/traits.json -> docs/packages/data/src/traits.json.md — 22 trait defs (12 origins + 10 classes), breakpoint tables (count -> flat stat bonus) consumed by sim applyTraits
+- packages/data/src/units.json -> docs/packages/data/src/units.json.md — full 50-unit roster: tier/origin/classes/stats/ability per unit (13/13/12/8/4 across tiers 1-5)
