@@ -151,3 +151,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/server/src/mmr.ts -> docs/packages/server/src/mmr.ts.md — Elo-style MMR delta calc for 8-player FFA (expected vs lobby average, actual from placement)
 - packages/server/src/recorder.ts -> docs/packages/server/src/recorder.ts.md — recordMatchResult: fetches MMR, computes deltas, persists match + MMR via Repository
 - packages/server/src/room.ts -> docs/packages/server/src/room.ts.md — authoritative match room: phase loop, command application, AI backfill, broadcast, match-end persistence
+- packages/server/src/session.ts -> docs/packages/server/src/session.ts.md — connection registry: Session type, session/seat token maps, rate limiter, send() helper

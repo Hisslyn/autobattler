@@ -1045,10 +1045,10 @@
     },
     {
       "path": "packages/server/src/session.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/src/session.ts.md",
+      "hash": "af07548706070b74c64333af74fc14c617541f48b78d8ca60a11863a83c09665",
+      "updated": "2026-06-20T09:09:00+00:00"
     },
     {
       "path": "packages/server/tests/integration.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 149,
+    "done": 150,
     "total": 170
   }
 }
