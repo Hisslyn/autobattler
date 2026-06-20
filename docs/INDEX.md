@@ -7,3 +7,4 @@ Readable map from source path to its documentation file. One line per documented
 - autobattler.md -> docs/autobattler.md.md — original pre-implementation design doc (vision/rationale, now partly superseded by CLAUDE.md)
 - docker-compose.yml -> docs/docker-compose.yml.md — local Postgres 16 container for dev/test persistence
 - package.json -> docs/package.json.md — root npm workspace manifest: workspaces glob, shared dev tooling, top-level scripts
+- packages/balance/package.json -> docs/packages/balance/package.json.md — @autobattler/balance manifest: ESM, depends only on sim+data
