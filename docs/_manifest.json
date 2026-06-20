@@ -996,10 +996,10 @@
     },
     {
       "path": "packages/server/src/db/schema.sql",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/src/db/schema.sql.md",
+      "hash": "a017956bf13fafc83431ee19727b28093415de64c259a4a0cb0fda6380b5099e",
+      "updated": "2026-06-20T08:36:00+00:00"
     },
     {
       "path": "packages/server/src/http.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 142,
+    "done": 143,
     "total": 170
   }
 }
