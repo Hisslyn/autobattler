@@ -20,3 +20,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/package.json -> docs/packages/client/package.json.md — @autobattler/client manifest: depends on data/protocol/rules/sim + pixi.js v8, dev/build/typecheck scripts
 - packages/client/public/audio/README.md -> docs/packages/client/public/audio/README.md.md — audio drop-in-file convention: per-state music + per-event SFX overrides, generative/procedural fallback
 - packages/client/public/items/README.md -> docs/packages/client/public/items/README.md.md — item-art drop-in slot convention: <itemId>.png overrides procedural emblem icons
+- packages/client/public/units/README.md -> docs/packages/client/public/units/README.md.md — unit-art drop-in slot convention: <unitId>.png overrides procedural class glyph
