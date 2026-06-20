@@ -1178,10 +1178,10 @@
     },
     {
       "path": "tsconfig.json",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/tsconfig.json.md",
+      "hash": "35d52fd341f2315276880932f5fe90b850aee5172aa3d28beea0c6ed4fae56af",
+      "updated": "2026-06-20T10:50:00+00:00"
     },
     {
       "path": "vitest.config.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 168,
+    "done": 169,
     "total": 170
   }
 }

@@ -170,3 +170,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/sim/tests/pairPassive.test.ts -> docs/packages/sim/tests/pairPassive.test.ts.md — co-equip item pair-passive tests (voidstaff+voidmantle shield, warblade+warplate burn)
 - packages/sim/tests/prng.test.ts -> docs/packages/sim/tests/prng.test.ts.md — mulberry32 known-answer snapshot, same-seed/diverging-seed tests
 - packages/sim/tests/purity.test.ts -> docs/packages/sim/tests/purity.test.ts.md — static text scan of src/ forbidding Math.random/Date.now/parseFloat
+- tsconfig.json -> docs/tsconfig.json.md — single shared strict TypeScript config for the whole monorepo (no per-package overrides)
