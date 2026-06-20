@@ -247,10 +247,10 @@
     },
     {
       "path": "packages/client/src/hudControlsLayout.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/hudControlsLayout.ts.md",
+      "hash": "25f96cd91421541788c26fb5136c160d8974cda4f2b6403538b4e853b686c528",
+      "updated": "2026-06-20T01:45:00.797718+00:00"
     },
     {
       "path": "packages/client/src/hudModel.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 35,
+    "done": 36,
     "total": 170
   }
 }

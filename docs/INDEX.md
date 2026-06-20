@@ -37,3 +37,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/driver.ts -> docs/packages/client/src/driver.ts.md — IDriver interface + LocalDriver: in-browser Practice-mode match runner with planning/resolution/playback-cap timers
 - packages/client/src/glyphs.ts -> docs/packages/client/src/glyphs.ts.md — procedural vector glyph library (TRAIT_GLYPH map + drawGlyph) for canvas-rendered trait/HUD/item icons
 - packages/client/src/hexUtils.ts -> docs/packages/client/src/hexUtils.ts.md — flat hex board geometry: slot<->pixel mapping (hexToPixel), pointer hit test (hexFromPointer), zero-gap tile sizing math
+- packages/client/src/hudControlsLayout.ts -> docs/packages/client/src/hudControlsLayout.ts.md — pure landscape reroll/buy-xp button geometry, proportional to the HUD region width (fixes a historical overflow bug)
