@@ -968,10 +968,10 @@
     },
     {
       "path": "packages/server/src/db/index.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/src/db/index.ts.md",
+      "hash": "ad93b72e8c7088227475470de1f6b4dedc608599ce6d68e3a721c6590981be74",
+      "updated": "2026-06-20T08:20:00+00:00"
     },
     {
       "path": "packages/server/src/db/memory.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 138,
+    "done": 139,
     "total": 170
   }
 }
