@@ -100,10 +100,10 @@
     },
     {
       "path": "packages/client/index.html",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/index.html.md",
+      "hash": "41165b9bf0d05ca348d8f0994303e30c91f25a68f2157a22a4bbcfebe6ff6982",
+      "updated": "2026-06-20T01:24:42.996321+00:00"
     },
     {
       "path": "packages/client/package.json",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 14,
+    "done": 15,
     "total": 170
   }
 }
