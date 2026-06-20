@@ -105,3 +105,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/data/src/loader.ts -> docs/packages/data/src/loader.ts.md — typed gameData loader + pure helpers (recipeResult, mmrToRank, itemKind, itemTier, getOrCreateRadiantItem); eagerly materializes radiant items at module load
 - packages/data/src/loot.json -> docs/packages/data/src/loot.json.md — seeded PvE loot tables: weighted rarity reward pools (gold/component/item) + per-round orb-count drop schedule
 - packages/data/src/mobs.json -> docs/packages/data/src/mobs.json.md — PvE creep stat/ability defs + scripted per-round stage encounters (mob placements by slot/star)
+- packages/data/src/ranks.json -> docs/packages/data/src/ranks.json.md — ordered MMR rank-band thresholds (Bronze..Master); single source for mmrToRank
