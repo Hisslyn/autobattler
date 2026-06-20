@@ -166,3 +166,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/sim/src/types.ts -> docs/packages/sim/src/types.ts.md — sim's full type surface: UnitDef/TraitDef/ItemDef/UnitInstance/BoardState/CombatEvent/CombatResult
 - packages/sim/tests/abilities.test.ts -> docs/packages/sim/tests/abilities.test.ts.md — isolated tests of shield/burn/buff/stealth abilities + item passives
 - packages/sim/tests/determinism.test.ts -> docs/packages/sim/tests/determinism.test.ts.md — same-seed repeatability, cross-seed divergence, overtime/hard-cap resolution, unique-defId trait counting
+- packages/sim/tests/hex.test.ts -> docs/packages/sim/tests/hex.test.ts.md — hex distance/neighbors/bounds + A* pathfinder correctness incl. seeded fuzz test
