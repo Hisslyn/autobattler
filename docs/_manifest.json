@@ -16,10 +16,10 @@
     },
     {
       "path": "autobattler.md",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/autobattler.md.md",
+      "hash": "17683d15920dd829dea181e8b233258e584cb4776fc1cad251436df95bf1d7bf",
+      "updated": "2026-06-20T01:15:36.254347+00:00"
     },
     {
       "path": "docker-compose.yml",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 2,
+    "done": 3,
     "total": 170
   }
 }
