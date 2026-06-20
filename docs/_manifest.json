@@ -58,10 +58,10 @@
     },
     {
       "path": "packages/balance/src/index.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/balance/src/index.ts.md",
+      "hash": "9362a2cb88abba58d1a1f5df016a0c760f54f6c220297607b42dca4a48f2b696",
+      "updated": "2026-06-20T01:19:13.087962+00:00"
     },
     {
       "path": "packages/balance/src/report.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 8,
+    "done": 9,
     "total": 170
   }
 }

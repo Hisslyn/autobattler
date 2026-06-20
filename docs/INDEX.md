@@ -10,3 +10,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/balance/package.json -> docs/packages/balance/package.json.md — @autobattler/balance manifest: ESM, depends only on sim+data
 - packages/balance/src/cli.ts -> docs/packages/balance/src/cli.ts.md — balance CLI entry; the only I/O-permitted script outside the server; writes balance-report.md/.json
 - packages/balance/src/compositions.ts -> docs/packages/balance/src/compositions.ts.md — 24 budget-normalized archetype comps + buildBoard/activeTraits helpers for the sweep
+- packages/balance/src/index.ts -> docs/packages/balance/src/index.ts.md — public barrel re-exporting runner/sweep/report/compositions
