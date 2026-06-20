@@ -492,10 +492,10 @@
     },
     {
       "path": "packages/client/tests/combinePreview.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/combinePreview.test.ts.md",
+      "hash": "044fbe6f0891de2b5db83fdb159c0051fa600e2f91a75bc465bdc0cb1af56d5a",
+      "updated": "2026-06-20T03:17:00+00:00"
     },
     {
       "path": "packages/client/tests/driver.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 70,
+    "done": 71,
     "total": 170
   }
 }
