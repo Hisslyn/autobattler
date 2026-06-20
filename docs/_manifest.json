@@ -1073,10 +1073,10 @@
     },
     {
       "path": "packages/server/tests/profile.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/tests/profile.test.ts.md",
+      "hash": "8cbec6d33c4f5b2fdb9ea572829b93259e136328363ff58d6c2f34d4b05a4527",
+      "updated": "2026-06-20T09:35:00+00:00"
     },
     {
       "path": "packages/server/tests/repo.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 153,
+    "done": 154,
     "total": 170
   }
 }
