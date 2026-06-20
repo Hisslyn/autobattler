@@ -60,3 +60,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/traitDetailModel.ts -> docs/packages/client/src/traitDetailModel.ts.md — pure trait-detail panel model: per-breakpoint reached/active rows + formatted stat-grant lines from traits.json
 - packages/client/src/ui/app.ts -> docs/packages/client/src/ui/app.ts.md — UiApp: DOM/CSS meta-shell screen manager (menus/profile/leaderboard/howto/settings) + in-match pause modal + coachmark trigger, no game state
 - packages/client/src/ui/coachmarks.ts -> docs/packages/client/src/ui/coachmarks.ts.md — first-match coachmark overlay: height-aware design-to-screen ring placement (coachRingRect) + step sequencer (Coachmarks)
+- packages/client/src/ui/content.ts -> docs/packages/client/src/ui/content.ts.md — static How-to-Play page copy (HELP_PAGES): Economy/Combat & Traits/Items/Leveling & Shop Odds, presentation-only
