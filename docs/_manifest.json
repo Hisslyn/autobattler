@@ -849,10 +849,10 @@
     },
     {
       "path": "packages/rules/src/shop.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/src/shop.ts.md",
+      "hash": "69762446fd17516d1c85e170b21fc577ddfca1b521e9d908f97738630e92c4b2",
+      "updated": "2026-06-20T07:09:00+00:00"
     },
     {
       "path": "packages/rules/src/state.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 121,
+    "done": 122,
     "total": 170
   }
 }
