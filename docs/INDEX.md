@@ -14,3 +14,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/balance/src/report.ts -> docs/packages/balance/src/report.ts.md — pure markdown renderer for the balance sweep output
 - packages/balance/src/runner.ts -> docs/packages/balance/src/runner.ts.md — runs N seeded combats between two boards via simulateCombat, aggregates MatchupResult
 - packages/balance/src/sweep.ts -> docs/packages/balance/src/sweep.ts.md — round-robin tournament over all comps; aggregates per-comp/unit/tier/trait win rates into SweepReport
+- packages/balance/tests/balance.test.ts -> docs/packages/balance/tests/balance.test.ts.md — end-to-end balance package tests: determinism, budget/coverage invariants, smoke report round-trip

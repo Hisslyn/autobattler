@@ -86,10 +86,10 @@
     },
     {
       "path": "packages/balance/tests/balance.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/balance/tests/balance.test.ts.md",
+      "hash": "54455840b6ca7b6d2e48d7a3782e160d4d4384e2f5271b8d50c7432a2f407f68",
+      "updated": "2026-06-20T01:22:50.922951+00:00"
     },
     {
       "path": "packages/client/PORTRAIT_LAYOUT_SPEC.md",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 12,
+    "done": 13,
     "total": 170
   }
 }
