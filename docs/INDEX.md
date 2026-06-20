@@ -12,3 +12,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/balance/src/compositions.ts -> docs/packages/balance/src/compositions.ts.md — 24 budget-normalized archetype comps + buildBoard/activeTraits helpers for the sweep
 - packages/balance/src/index.ts -> docs/packages/balance/src/index.ts.md — public barrel re-exporting runner/sweep/report/compositions
 - packages/balance/src/report.ts -> docs/packages/balance/src/report.ts.md — pure markdown renderer for the balance sweep output
+- packages/balance/src/runner.ts -> docs/packages/balance/src/runner.ts.md — runs N seeded combats between two boards via simulateCombat, aggregates MatchupResult
