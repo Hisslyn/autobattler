@@ -116,3 +116,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/protocol/src/messages.ts -> docs/packages/protocol/src/messages.ts.md — C2SMessage/S2CMessage discriminated unions + loot/round-result/match-stats wire types + ErrorCode
 - packages/protocol/tests/protocol.test.ts -> docs/packages/protocol/tests/protocol.test.ts.md — encode/decode round-trips for every S2C type + malformed-payload rejection + full validateC2S/USE_CONSUMABLE coverage
 - packages/rules/package.json -> docs/packages/rules/package.json.md — @autobattler/rules manifest: ESM, depends on data+sim, per-file subpath exports (commands/state/economy/rounds/loot/pool/shop/ai)
+- packages/rules/src/ai.ts -> docs/packages/rules/src/ai.ts.md — applyAiCommands: seeded bot planning policy (XP buy threshold, trait-overlap shop scoring, board autofill)

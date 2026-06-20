@@ -800,10 +800,10 @@
     },
     {
       "path": "packages/rules/src/ai.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/src/ai.ts.md",
+      "hash": "842aa86f6bf2ea878f955d4f8b7671b66daeb000a042d36a499db1133b2b0955",
+      "updated": "2026-06-20T06:33:00+00:00"
     },
     {
       "path": "packages/rules/src/commands.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 114,
+    "done": 115,
     "total": 170
   }
 }
