@@ -2,6 +2,7 @@
 
 Readable map from source path to its documentation file. One line per documented source file.
 
+- .gitignore -> docs/.gitignore.md — shared root git ignore rules (node_modules/dist/env/cache/tsbuildinfo; balance-report.* deliberately NOT ignored)
 - AUDIT.md -> docs/AUDIT.md.md — point-in-time (2026-06-13) repo health/invariant audit report, now stale relative to current code
 - CLAUDE.md -> docs/CLAUDE.md.md — canonical, living project brief: architecture, hard invariants, workspace layout, per-package internals reference
 - autobattler.md -> docs/autobattler.md.md — original pre-implementation design doc (vision/rationale, now partly superseded by CLAUDE.md)
@@ -172,3 +173,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/sim/tests/purity.test.ts -> docs/packages/sim/tests/purity.test.ts.md — static text scan of src/ forbidding Math.random/Date.now/parseFloat
 - tsconfig.json -> docs/tsconfig.json.md — single shared strict TypeScript config for the whole monorepo (no per-package overrides)
 - vitest.config.ts -> docs/vitest.config.ts.md — single shared Vitest config: discovers packages/*/tests/**/*.test.ts only
+- references/stage bar/stage-bar-spec.md -> docs/references/stage bar/stage-bar-spec.md.md — implementation handoff spec for the stage bar HUD component (now implemented in match.ts)

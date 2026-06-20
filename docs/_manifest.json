@@ -1,6 +1,13 @@
 {
   "files": [
     {
+      "path": ".gitignore",
+      "status": "done",
+      "doc": "docs/.gitignore.md",
+      "hash": "459fb40fc70530f6f709a89f2c55f178c5fafa5ca691fc7d56b7865153d82598",
+      "updated": "2026-06-20T11:00:00+00:00"
+    },
+    {
       "path": "AUDIT.md",
       "status": "done",
       "doc": "docs/AUDIT.md.md",
@@ -1189,10 +1196,17 @@
       "doc": "docs/vitest.config.ts.md",
       "hash": "e2c8e9b96df4ef7b5a3c2f59a2c766ef1cd9721b5b00a4c88c07149272e1dbd6",
       "updated": "2026-06-20T10:55:00+00:00"
+    },
+    {
+      "path": "references/stage bar/stage-bar-spec.md",
+      "status": "done",
+      "doc": "docs/references/stage bar/stage-bar-spec.md.md",
+      "hash": "2fa3fee6668ea8492a85c77cd543911e46ad1537fe8aea9e5d520244bdb4a3ae",
+      "updated": "2026-06-20T11:05:00+00:00"
     }
   ],
   "totals": {
-    "done": 170,
-    "total": 170
+    "done": 172,
+    "total": 172
   }
 }
