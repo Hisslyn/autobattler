@@ -429,10 +429,10 @@
     },
     {
       "path": "packages/client/src/unitToken.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/unitToken.ts.md",
+      "hash": "95af6d9a54a87dc4b052cc8f580597091e6cc135058972bc749d647dde046e65",
+      "updated": "2026-06-20T02:49:00+00:00"
     },
     {
       "path": "packages/client/tests/_pve_render.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 61,
+    "done": 62,
     "total": 170
   }
 }
