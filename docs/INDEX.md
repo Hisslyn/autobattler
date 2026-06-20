@@ -22,3 +22,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/public/items/README.md -> docs/packages/client/public/items/README.md.md — item-art drop-in slot convention: <itemId>.png overrides procedural emblem icons
 - packages/client/public/units/README.md -> docs/packages/client/public/units/README.md.md — unit-art drop-in slot convention: <unitId>.png overrides procedural class glyph
 - packages/client/src/audio/director.ts -> docs/packages/client/src/audio/director.ts.md — pure phase->music-state mapping, file/generative resolution, crossfade math, autoplay-unlock state machine
+- packages/client/src/audio/manager.ts -> docs/packages/client/src/audio/manager.ts.md — Web Audio engine: node graph, SFX voice synthesis, music crossfade/file-override, combat fx -> sound bridge
