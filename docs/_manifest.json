@@ -1157,10 +1157,10 @@
     },
     {
       "path": "packages/sim/tests/pairPassive.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/sim/tests/pairPassive.test.ts.md",
+      "hash": "392e7217d7ef4308c5539d2f4f71ef119b0f1df0939e05202d0ba5c7482ffe28",
+      "updated": "2026-06-20T10:35:00+00:00"
     },
     {
       "path": "packages/sim/tests/prng.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 165,
+    "done": 166,
     "total": 170
   }
 }
