@@ -145,3 +145,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/server/src/db/postgres.ts -> docs/packages/server/src/db/postgres.ts.md — PostgresRepository: durable Repository impl, transactional createGuest/recordMatch, idempotent ensureSchema
 - packages/server/src/db/repo.ts -> docs/packages/server/src/db/repo.ts.md — Repository interface contract + Profile/MatchPlayerRecord/MatchHistoryEntry shapes
 - packages/server/src/db/schema.sql -> docs/packages/server/src/db/schema.sql.md — idempotent Postgres schema (accounts/profiles/matches/match_players + indexes)
+- packages/server/src/http.ts -> docs/packages/server/src/http.ts.md — minimal HTTP API (auth/guest, leaderboard, profile, history) sharing the WS port

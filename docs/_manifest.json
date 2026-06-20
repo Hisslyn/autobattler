@@ -1003,10 +1003,10 @@
     },
     {
       "path": "packages/server/src/http.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/src/http.ts.md",
+      "hash": "d2babf89d28b47150d4027d4c80ca6e74a0b5e02303b1ec607f633154352cd04",
+      "updated": "2026-06-20T08:40:00+00:00"
     },
     {
       "path": "packages/server/src/index.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 143,
+    "done": 144,
     "total": 170
   }
 }
