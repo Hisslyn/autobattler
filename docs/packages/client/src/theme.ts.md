@@ -1,0 +1,56 @@
+# Path & purpose
+
+`packages/client/src/theme.ts` -- the single source of every color (and a handful of layout/rendering tuning constants) used anywhere in the client, both the Pixi canvas layer and the DOM/CSS meta-screen layer. No hex color literal is permitted to exist outside this file (enforced by a theme test per CLAUDE.md).
+
+# Responsibility
+
+Owns: the entire numeric color palette (`C`), per-trait/per-rank/per-rarity stable color lookups, the board's perspective-tilt tuning constant, glyph stroke-weight formula, trait-chip text typography constants, and the CSS-variable bridge that exposes the SAME numeric colors to the DOM so canvas and HTML/CSS never visually drift apart.
+
+# Exports
+
+- `const C = {...} as const` -- the palette object, ~150 named `0xRRGGBB` numeric colors organized into commented sections: surface elevation stack (`surfaceBase/Raise/Float/Over` -- the four canonical depth steps that other `bg*` keys alias), border variants (`borderSubtle`/`borderActive`), drag-state (`bgBoardDragOver`), general backgrounds (`bgPage`/`bgHud`/`bgBoard`/etc., many explicitly commented as aliasing one of the four elevation steps), tier colors (`tier1..tier5`), star colors (`star1..star3`), HP/mana bar colors, stage-1 board/token colors (`hpGreen`/`hpLow`/`manaBlue`/`enemyHex`/`myHex`/`boardBg`/`boardBorder`/`benchPlatform`/`tokenBg`/`tokenSide`/`tokenShadow`/`starGold`), stage-2 HUD/shop chrome (`panelBg`/`chipBorder`/`xpPurple`/`streakOrange`), the circular Buy-XP button's gilded-rim palette (`xpBtnRim*`/`xpBtnDisc*`/`xpArc*`/`xpBadgeBg`/`xpBtnDisabled`), the stage bar (`stageBar*`/`stageProgress`), stage-4 DOM meta colors (`bgPanelRaise`/`accentGold`/`rankBronze..rankMaster`), a large `text*` block (primary/gold/goodHP/badHP/muted/ready/etc.), combat-fx colors (`fxAttackFlash`/`fxCastPulse`/`fxDeathFade`/`floatPhys`/`floatCrit`/`floatMagic`/`textOvertime`), stage-3 combat-VFX colors (`fxProjectile`/`fxProjTrail`/`fxImpact`/`fxDamageChip`/per-ability-kind `fxAbility*`/`fxOvertimeEdge`/`fxStarUp`), stage-5 inspect/sell/bench colors (`bgInspect*`/`bgScrim`/`bgSellChip`/`bgSellArmed`/`benchEmpty*`/`benchOccupied`), phase-10b item/loot/PvE colors (`item*`/`lootCommon..Legendary`/`lootOrbCore`/`mobTint`/`mobZone`/`pveLabel`), phase-2 consumable colors (`itemConsumable`/`itemConsumableRim`/`radiantBadge` -- explicitly `= lootLegendary`, reusing the legendary hue rather than inventing a new one), arena torch-pillar colors (`torchStone*`/`torchUnlit`/`torchFlame*`/`torchGlow`), and trait-tracker/HUD-HP-bar colors.
+- `const BOARD_TILT = 0.4` -- the single tunable for the board's full-perspective projection (consumed by `boardProjection.ts`): the rendered board's far (top/enemy) edge is `(1 - BOARD_TILT)` of the near edge's width, i.e. `0.6×` at the current value. `0` would render a flat (non-perspective) board. Explicitly a renderer-only concern -- sim/rules/protocol never see it.
+- `function tierColor(tier: number): number` -- maps tier `1..5` to `C.tier1..tier5`; unknown/out-of-range falls back to `C.tier1`.
+- `const TRAIT_COLOR: Record<string, number>` -- one stable hue per origin (`holy`/`shadow`/`arcane`/`frost`/`forest`/`beast`/`celestial`/`dragon`/`storm`/`undead`/`elemental`/`abyssal`) and per class (`knight`/`ranger`/`sorcerer`/`assassin`/`warden`/`berserker`/`mystic`/`gunner`/`duelist`/`summoner`) -- 22 entries total matching traits.json's 12 origins + 10 classes.
+- `function traitColor(traitId: string): number` -- `TRAIT_COLOR[traitId] ?? C.textMuted`.
+- `function traitColorCss(traitId: string): string` -- `hexToCss(traitColor(traitId))`, exposing the same trait hue to DOM motifs (How-to-Play legend, etc.).
+- `const RANK_COLOR: Record<string, keyof typeof C>` -- maps ranks.json band ids (`bronze`/`silver`/`gold`/`platinum`/`diamond`/`master`) to the corresponding `C` key (`rankBronze`, etc.) -- a key-NAME map, not a color value map, so it composes with both `rankColor` (numeric, for Pixi) and `rankCssVar` (CSS var reference, for DOM).
+- `function rankColor(rankId: string): number` -- `C[RANK_COLOR[rankId] ?? "textMuted"]`.
+- `function starColor(star: number): number` -- maps star `1..3` to `C.star1..star3`, fallback `C.star1`.
+- `const RARITY_COLOR: Record<string, keyof typeof C>` -- maps loot.json rarities (`common`/`uncommon`/`rare`/`legendary`) to their `C` key.
+- `function rarityColor(rarity: string): number` -- `C[RARITY_COLOR[rarity] ?? "textMuted"]`.
+- `function glyphStrokeWeight(size: number): number` -- the shared stroke-weight formula for procedural glyphs/item emblems at a given render size: `≤9→1.5`, `≤13→1.8`, `≤20→2`, else `max(2, size*0.1)`. The in-file comment documents this was INTENTIONALLY changed from an older formula (`≤9→1.2, ≤13→1.5`) to boost ink density at small chip/rail sizes for 2×-DPR legibility, while leaving the large-token band byte-identical.
+- `const CHIP_TEXT_SIZE = 9` / `const CHIP_TEXT_FONT = "system-ui, -apple-system, sans-serif"` -- the trait-chip label typography, switched from an earlier 8px monospace specifically for cleaner sub-10px letterforms (per the in-file comment and CLAUDE.md's "Legibility-pass constants").
+- `function hexToCss(n: number): string` -- `0x0d0d14` → `"#0d0d14"` (6-hex-digit CSS color string, defensively masked/padded/sliced to always produce exactly 6 digits).
+- `function cssVar(key: keyof typeof C): string` -- e.g. `cssVar("bgPage")` → `"var(--bg-page)"` (camelCase key auto-converted to kebab-case via the private `cssVarName` helper, which inserts a `-` before every uppercase letter or digit and lowercases it).
+- `function rankCssVar(rankId: string): string` -- `cssVar(RANK_COLOR[rankId] ?? "textMuted")`, the DOM-facing counterpart to `rankColor`.
+- `function themeCssVars(): string` -- generates the full `:root { --bg-page: #0d0d14; ... }` body text by iterating every key in `C`.
+- `function applyThemeVars(root: HTMLElement = document.documentElement): void` -- imperatively sets every theme color as a CSS custom property on `root` (defaults to `:root`) via `style.setProperty`.
+
+# Key behavior
+
+This file has no runtime logic beyond simple lookups/fallbacks and string formatting -- it is fundamentally a DATA file with a thin functional API around it. The notable structural pattern is the "elevation stack aliasing": four canonical depth constants (`surfaceBase/Raise/Float/Over`) are defined once, and dozens of semantically-named `bg*` keys are set to literally the SAME hex value as one of those four (with an inline comment noting which), so that call sites can keep using their existing semantic key name (`C.bgPanel`, `C.bgScout`, etc.) while the actual VALUES are guaranteed to form a real 4-step depth ladder (page < panels/cards < chips/HUD/rows < modal overlays) -- changing one of the four base constants automatically re-tunes every aliased key's literal value.
+
+# Invariants & constraints
+
+- **No `0x` hex literal may exist anywhere in the client codebase OUTSIDE this file** -- this is enforced by a dedicated theme test (per CLAUDE.md: "theme test forbids `0x` outside theme.ts"). Any new visual element MUST add its color here first, even if it's a one-off use.
+- **DOM and canvas MUST read the same numeric source** -- DOM/CSS code is required to reference colors via `cssVar(key)` (which resolves to a `var(--kebab-case-key)` CSS custom property populated by `applyThemeVars`), NEVER a raw hex literal in a `.css`/`.ts` DOM string. This is the mechanism that guarantees menus and the Pixi canvas never visually drift.
+- `BOARD_TILT` is explicitly scoped as RENDERER-ONLY -- sim/rules/protocol must never read or depend on it; it has zero gameplay effect, purely a "how the client draws + hit-tests the board" tuning knob (also consumed by `boardProjection.ts`'s hit-testing inverse, so changing it affects pointer-to-hex mapping too, not just visuals).
+- `glyphStrokeWeight` and `CHIP_TEXT_SIZE`/`CHIP_TEXT_FONT` are SHARED formulas/constants specifically so `glyphs.ts`/`itemIconDraw.ts` (stroke weight) and `match.ts`'s `chipText()` (typography) never diverge -- a reader changing visual weight/legibility tuning should change it HERE, not in each consuming file.
+- The `RANK_COLOR`/`RARITY_COLOR` maps are TYPED as `Record<string, keyof typeof C>` (mapping to a KEY NAME, not a raw number) specifically so both a numeric accessor (`rankColor`/`rarityColor`) and a CSS-var accessor (`rankCssVar`) can be derived from the same single mapping without duplicating the rank/rarity → color association twice.
+- `radiantBadge`'s value is explicitly set equal to `lootLegendary` (not just visually similar) -- a deliberate "matches the loot-rarity language already established" decision documented in-file; changing `lootLegendary` automatically re-tints the radiant badge too (no separate edit needed, but also no way to decouple them without changing this file).
+- `cssVarName`'s regex-based camelCase→kebab-case conversion is NOT exported -- only reachable via `cssVar`/`rankCssVar`/`themeCssVars`/`applyThemeVars`. Any new key added to `C` automatically gets a correctly-named CSS variable with zero additional code, since `themeCssVars`/`applyThemeVars` both iterate `Object.keys(C)` dynamically rather than listing keys explicitly.
+
+# Depends on
+
+Nothing -- zero imports. This is a foundational, dependency-free module (by necessity, since nearly everything else depends on it).
+
+# Used by
+
+Effectively every rendering-related file in `packages/client/src`: `unitToken.ts`, `glyphs.ts`, `itemIconDraw.ts`, `itemIcon.ts`, `inspectPanel.ts`, `hudModel.ts`, `combat/view.ts`, `combat/player.ts`, `scenes/match.ts`, `ui/styles.ts` (injects `themeCssVars()`'s output as the `:root` block of the meta-screen stylesheet), `ui/app.ts` (rank badges via `rankCssVar`, trait legend via `traitColorCss`), `ui/content.ts` (How-to-Play trait/tier motifs), `main.ts` (calls `applyThemeVars()` at boot, per CLAUDE.md's theme-as-CSS-vars description), and `statFormat.ts`-adjacent display code. Essentially any file that draws ANYTHING with a color.
+
+# Notes
+
+- This file's section comments (`// ─── Visual overhaul stage N ───`, `// ─── Phase 10b ───`, `// ─── Phase 2: consumables ───`) read as a changelog of the project's visual-design iteration history -- a reader trying to understand WHY a particular color exists or WHEN a particular subsystem (items, loot, PvE, consumables) was added visually can use these section headers as a rough timeline without needing git archaeology.
+- Several colors are explicitly commented as deliberate REUSES of an existing hue rather than new ones (`radiantBadge = lootLegendary`, `itemConsumableRim` "reuses the abyssal/summoner family hue") -- this is a stated design discipline (avoid inventing redundant near-duplicate hues) that a future contributor adding a new visual category should follow: check whether an existing semantic color already fits before adding a new `C` key.
+- `glyphStrokeWeight`'s docstring explicitly states the OLD formula it replaced and confirms the large-token band is byte-identical -- this is useful provenance for anyone wondering whether a regression in token/board glyph rendering is related to this change (it should NOT be, by the comment's own claim, since that band didn't change).

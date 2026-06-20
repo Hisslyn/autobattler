@@ -373,10 +373,10 @@
     },
     {
       "path": "packages/client/src/theme.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/theme.ts.md",
+      "hash": "14bcf10a936615ae53e50a2f8595e3646f1e875369ffeb8dde482da42a706392",
+      "updated": "2026-06-20T02:30:00+00:00"
     },
     {
       "path": "packages/client/src/torchMeter.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 53,
+    "done": 54,
     "total": 170
   }
 }
