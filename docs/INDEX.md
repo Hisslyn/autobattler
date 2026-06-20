@@ -115,3 +115,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/protocol/src/index.ts -> docs/packages/protocol/src/index.ts.md — public barrel re-exporting messages.ts + envelope.ts
 - packages/protocol/src/messages.ts -> docs/packages/protocol/src/messages.ts.md — C2SMessage/S2CMessage discriminated unions + loot/round-result/match-stats wire types + ErrorCode
 - packages/protocol/tests/protocol.test.ts -> docs/packages/protocol/tests/protocol.test.ts.md — encode/decode round-trips for every S2C type + malformed-payload rejection + full validateC2S/USE_CONSUMABLE coverage
+- packages/rules/package.json -> docs/packages/rules/package.json.md — @autobattler/rules manifest: ESM, depends on data+sim, per-file subpath exports (commands/state/economy/rounds/loot/pool/shop/ai)
