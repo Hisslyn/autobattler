@@ -982,10 +982,10 @@
     },
     {
       "path": "packages/server/src/db/postgres.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/src/db/postgres.ts.md",
+      "hash": "b264cfd47d9956c78f1d8a8235d60dc019a723a57e979b58d80a0445559a8737",
+      "updated": "2026-06-20T08:30:00+00:00"
     },
     {
       "path": "packages/server/src/db/repo.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 140,
+    "done": 141,
     "total": 170
   }
 }
