@@ -41,3 +41,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/hudModel.ts -> docs/packages/client/src/hudModel.ts.md — pure HUD derivations: trait-strip chip model, XP progress-bar model, circular Buy-XP button geometry
 - packages/client/src/inspectModel.ts -> docs/packages/client/src/inspectModel.ts.md — pure unit/mob inspect-panel model: identity, stats, ability description, equipped items, trait refs, with a units/mobs fallback
 - packages/client/src/inspectPanel.ts -> docs/packages/client/src/inspectPanel.ts.md — Pixi modal renderers for unit inspect, item detail, item picker, and trait detail panels (shared scrim/panel/scale-in chrome)
+- packages/client/src/itemIcon.ts -> docs/packages/client/src/itemIcon.ts.md — pure item-icon resolution: component->emblem map, completed-item emblem composition, radiant fallback, drop-in art path resolver

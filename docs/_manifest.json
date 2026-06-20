@@ -275,10 +275,10 @@
     },
     {
       "path": "packages/client/src/itemIcon.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/itemIcon.ts.md",
+      "hash": "779bf2d82eb7683e8761b5ae49a97c02dd2fdb6c6073406d526c048675dc0d2b",
+      "updated": "2026-06-20T01:49:32.988865+00:00"
     },
     {
       "path": "packages/client/src/itemIconDraw.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 39,
+    "done": 40,
     "total": 170
   }
 }
