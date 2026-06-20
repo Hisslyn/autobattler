@@ -905,10 +905,10 @@
     },
     {
       "path": "packages/rules/tests/match.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/tests/match.test.ts.md",
+      "hash": "be97522edf468cc1e5b6c500e34706f61dc6e02f13e675f9bc192689ffbfa6fa",
+      "updated": "2026-06-20T07:45:00+00:00"
     },
     {
       "path": "packages/rules/tests/pairing.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 129,
+    "done": 130,
     "total": 170
   }
 }
