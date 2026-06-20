@@ -513,10 +513,10 @@
     },
     {
       "path": "packages/client/tests/glyphs.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/glyphs.test.ts.md",
+      "hash": "5413541e94ff1416745353bcd8657faa87024c334cea93fb94c2d042f32aac0e",
+      "updated": "2026-06-20T03:31:00+00:00"
     },
     {
       "path": "packages/client/tests/hexUtils.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 73,
+    "done": 74,
     "total": 170
   }
 }
