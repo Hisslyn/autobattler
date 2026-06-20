@@ -1066,10 +1066,10 @@
     },
     {
       "path": "packages/server/tests/persistence.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/tests/persistence.test.ts.md",
+      "hash": "66f18ec43b34c4c3742605fd4288c874e5dc4b468da2981a1959334fbf7bb148",
+      "updated": "2026-06-20T09:30:00+00:00"
     },
     {
       "path": "packages/server/tests/profile.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 152,
+    "done": 153,
     "total": 170
   }
 }

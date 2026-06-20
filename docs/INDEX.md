@@ -154,3 +154,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/server/src/session.ts -> docs/packages/server/src/session.ts.md — connection registry: Session type, session/seat token maps, rate limiter, send() helper
 - packages/server/tests/integration.test.ts -> docs/packages/server/tests/integration.test.ts.md — full-stack real-process/real-socket tests: match flow, PvE loot privacy, reconnect, rate limit
 - packages/server/tests/mmr.test.ts -> docs/packages/server/tests/mmr.test.ts.md — pins exact equal-MMR Elo deltas + zero-sum/symmetry proof + directional sanity checks
+- packages/server/tests/persistence.test.ts -> docs/packages/server/tests/persistence.test.ts.md — full-stack persistence proof: MATCH_END mmr payload matches profile+history via real HTTP/WS
