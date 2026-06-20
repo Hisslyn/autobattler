@@ -30,3 +30,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/boardProjection.ts -> docs/packages/client/src/boardProjection.ts.md — exact projective homography warping the flat hex board into a tilted on-screen trapezoid (forward/inverse/scaleAt)
 - packages/client/src/combat/player.ts -> docs/packages/client/src/combat/player.ts.md — playback clock + pure fx-stream derivation from the CombatEvent log (no Pixi)
 - packages/client/src/combat/reducer.ts -> docs/packages/client/src/combat/reducer.ts.md — pure fold of CombatEvents into positions/hp/mana/alive playback state (stateAtTick, applyEvent)
+- packages/client/src/combat/view.ts -> docs/packages/client/src/combat/view.ts.md — Pixi combat rendering: tokens, bars, projectiles/particles/auras/dissolves/shake, all driven by the fx stream
