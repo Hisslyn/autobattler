@@ -120,3 +120,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/rules/src/commands.ts -> docs/packages/rules/src/commands.ts.md — applyCommand: the legality+mutation gate for BUY/SELL/REROLL/BUY_XP/MOVE/EQUIP/UNEQUIP/COMBINE_ITEMS/USE_CONSUMABLE + auto-merge cascade
 - packages/rules/src/economy.ts -> docs/packages/rules/src/economy.ts.md — calcIncome (base+interest+streak) and levelForXp pure formulas
 - packages/rules/src/loot.ts -> docs/packages/rules/src/loot.ts.md — generateLoot (seeded PvE orb generation from loot.json) + applyLootOrb (gold/inventory grant)
+- packages/rules/src/match.ts -> docs/packages/rules/src/match.ts.md — createMatch/advancePhase/isMatchOver/getWinner/runMatchToEnd: top-level match lifecycle + PRNG-checkpoint threading

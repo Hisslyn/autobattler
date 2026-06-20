@@ -828,10 +828,10 @@
     },
     {
       "path": "packages/rules/src/match.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/src/match.ts.md",
+      "hash": "c31fdb770ff12639511c4491f4ca178a012ad74e39c4f57c3b0aaba89db31ae8",
+      "updated": "2026-06-20T06:54:00+00:00"
     },
     {
       "path": "packages/rules/src/pool.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 118,
+    "done": 119,
     "total": 170
   }
 }
