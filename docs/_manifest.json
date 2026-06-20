@@ -401,10 +401,10 @@
     },
     {
       "path": "packages/client/src/ui/coachmarks.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/ui/coachmarks.ts.md",
+      "hash": "cda927771e5c802900d2f45f20ef70685d6167b47c11912963eb86e4ff18ad04",
+      "updated": "2026-06-20T02:40:00+00:00"
     },
     {
       "path": "packages/client/src/ui/content.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 57,
+    "done": 58,
     "total": 170
   }
 }

@@ -59,3 +59,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/torchMeter.ts -> docs/packages/client/src/torchMeter.ts.md — pure gold->lit-torch-count mapping for the arena tealight-candle gold meter, with asymmetric left/right fill direction
 - packages/client/src/traitDetailModel.ts -> docs/packages/client/src/traitDetailModel.ts.md — pure trait-detail panel model: per-breakpoint reached/active rows + formatted stat-grant lines from traits.json
 - packages/client/src/ui/app.ts -> docs/packages/client/src/ui/app.ts.md — UiApp: DOM/CSS meta-shell screen manager (menus/profile/leaderboard/howto/settings) + in-match pause modal + coachmark trigger, no game state
+- packages/client/src/ui/coachmarks.ts -> docs/packages/client/src/ui/coachmarks.ts.md — first-match coachmark overlay: height-aware design-to-screen ring placement (coachRingRect) + step sequencer (Coachmarks)
