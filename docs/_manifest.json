@@ -821,10 +821,10 @@
     },
     {
       "path": "packages/rules/src/loot.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/src/loot.ts.md",
+      "hash": "0bca7839eda748b3aecc757210486d79efc3d7837334a3f15114c9a65d0519e3",
+      "updated": "2026-06-20T06:50:00+00:00"
     },
     {
       "path": "packages/rules/src/match.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 117,
+    "done": 118,
     "total": 170
   }
 }
