@@ -1094,10 +1094,10 @@
     },
     {
       "path": "packages/sim/package.json",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/sim/package.json.md",
+      "hash": "d6e77220352045c5a9bbe7c2c2d7d5fd10fc7952191c53a95abe37e0581f3ac2",
+      "updated": "2026-06-20T09:50:00+00:00"
     },
     {
       "path": "packages/sim/src/engine.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 156,
+    "done": 157,
     "total": 170
   }
 }
