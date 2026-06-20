@@ -604,10 +604,10 @@
     },
     {
       "path": "packages/client/tests/settings.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/settings.test.ts.md",
+      "hash": "6a69e61b51b1c57d8b81fe63c14e88cb0a085dc196b882238365bc68f4a992de",
+      "updated": "2026-06-20T04:33:00+00:00"
     },
     {
       "path": "packages/client/tests/sprites.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 86,
+    "done": 87,
     "total": 170
   }
 }
