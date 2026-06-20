@@ -113,3 +113,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/protocol/package.json -> docs/packages/protocol/package.json.md — @autobattler/protocol manifest: ESM, zero deps, main/exports point at src/index.ts
 - packages/protocol/src/envelope.ts -> docs/packages/protocol/src/envelope.ts.md — {v,t,p} wire envelope; encode/decodeC2S/decodeS2C + field validators for loot/names/stats/round-result/USE_CONSUMABLE
 - packages/protocol/src/index.ts -> docs/packages/protocol/src/index.ts.md — public barrel re-exporting messages.ts + envelope.ts
+- packages/protocol/src/messages.ts -> docs/packages/protocol/src/messages.ts.md — C2SMessage/S2CMessage discriminated unions + loot/round-result/match-stats wire types + ErrorCode
