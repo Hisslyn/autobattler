@@ -359,10 +359,10 @@
     },
     {
       "path": "packages/client/src/sprites.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/sprites.ts.md",
+      "hash": "f8166f787ddfe6a658ce3b3df16dfe6b778629cbef9fec68bcf64eed784a0b7b",
+      "updated": "2026-06-20T02:26:00+00:00"
     },
     {
       "path": "packages/client/src/statFormat.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 51,
+    "done": 52,
     "total": 170
   }
 }
