@@ -562,10 +562,10 @@
     },
     {
       "path": "packages/client/tests/levelBadgeRender.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/levelBadgeRender.test.ts.md",
+      "hash": "080db35e6809ad44d9e5716a12aedfcb9576b9ff3ef61e0cf5cb5ce58d2442df",
+      "updated": "2026-06-20T04:10:00+00:00"
     },
     {
       "path": "packages/client/tests/lootReveal.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 80,
+    "done": 81,
     "total": 170
   }
 }
