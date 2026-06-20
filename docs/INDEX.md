@@ -34,3 +34,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/combatLayout.ts -> docs/packages/client/src/combatLayout.ts.md — pure zIndex constants for the combat overlay + the match scene's 9-layer stack, with regression-guard ordering
 - packages/client/src/combinePreview.ts -> docs/packages/client/src/combinePreview.ts.md — pure combine/equip preview wrapping data's recipeResult, mirrors rules' auto-combine without mutating
 - packages/client/src/consumablePicker.ts -> docs/packages/client/src/consumablePicker.ts.md — pure routing decision for the radiant_enhancer drop flow: picker overlay vs send-and-let-server-reject
+- packages/client/src/driver.ts -> docs/packages/client/src/driver.ts.md — IDriver interface + LocalDriver: in-browser Practice-mode match runner with planning/resolution/playback-cap timers

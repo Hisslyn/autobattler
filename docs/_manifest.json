@@ -226,10 +226,10 @@
     },
     {
       "path": "packages/client/src/driver.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/driver.ts.md",
+      "hash": "6f65f6c49bc030fb5382dbdb19f80db4ad6f2c5a03a873e18549eed3f1288c13",
+      "updated": "2026-06-20T01:42:26.352915+00:00"
     },
     {
       "path": "packages/client/src/glyphs.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 32,
+    "done": 33,
     "total": 170
   }
 }
