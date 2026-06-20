@@ -443,10 +443,10 @@
     },
     {
       "path": "packages/client/tests/audio.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/audio.test.ts.md",
+      "hash": "f94374e01ba00d2044f73e63b786f3c777ce27e1bb2de6768bbc729321bb7652",
+      "updated": "2026-06-20T02:55:00+00:00"
     },
     {
       "path": "packages/client/tests/benchLayout.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 63,
+    "done": 64,
     "total": 170
   }
 }
