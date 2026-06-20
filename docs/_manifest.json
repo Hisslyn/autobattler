@@ -1164,10 +1164,10 @@
     },
     {
       "path": "packages/sim/tests/prng.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/sim/tests/prng.test.ts.md",
+      "hash": "3e3d4153b08159cf89670d51a44f12724f5d68645e3a5c7f7dcc6a9b388dee98",
+      "updated": "2026-06-20T10:40:00+00:00"
     },
     {
       "path": "packages/sim/tests/purity.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 166,
+    "done": 167,
     "total": 170
   }
 }

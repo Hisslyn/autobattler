@@ -168,3 +168,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/sim/tests/determinism.test.ts -> docs/packages/sim/tests/determinism.test.ts.md — same-seed repeatability, cross-seed divergence, overtime/hard-cap resolution, unique-defId trait counting
 - packages/sim/tests/hex.test.ts -> docs/packages/sim/tests/hex.test.ts.md — hex distance/neighbors/bounds + A* pathfinder correctness incl. seeded fuzz test
 - packages/sim/tests/pairPassive.test.ts -> docs/packages/sim/tests/pairPassive.test.ts.md — co-equip item pair-passive tests (voidstaff+voidmantle shield, warblade+warplate burn)
+- packages/sim/tests/prng.test.ts -> docs/packages/sim/tests/prng.test.ts.md — mulberry32 known-answer snapshot, same-seed/diverging-seed tests
