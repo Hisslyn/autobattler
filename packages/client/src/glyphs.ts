@@ -11,7 +11,7 @@ export type GlyphKind =
   | "flame" | "bolt" | "droplet" | "snowflake" | "leaf" | "claw"
   | "star" | "sun" | "moon" | "spark" | "skull" | "eye" | "orb" | "heart"
   // non-trait HUD icons (stage 2): not in TRAIT_GLYPH
-  | "coin" | "refresh" | "levelUp" | "helmet"
+  | "coin" | "refresh" | "levelUp" | "helmet" | "clock" | "monster" | "banner"
   // non-trait item icons (phase 10b): not in TRAIT_GLYPH
   | "gem" | "component" | "bag";
 
@@ -303,6 +303,45 @@ export function drawGlyph(
       g.moveTo(cx - s * 0.5, cy + s * 0.12).lineTo(cx + s * 0.5, cy + s * 0.12);
       g.moveTo(cx, cy + s * 0.12).lineTo(cx, cy + s * 0.62);
       strokeIt();
+      break;
+    case "clock":
+      g.circle(cx, cy, s * 0.85);
+      strokeIt();
+      // hour hand (short, ~11 o'clock) + minute hand (long, ~2 o'clock)
+      g.moveTo(cx, cy).lineTo(cx - s * 0.05, cy - s * 0.45);
+      g.moveTo(cx, cy).lineTo(cx + s * 0.5, cy - s * 0.15);
+      strokeIt();
+      break;
+    case "monster":
+      // Bat silhouette: body + two swept wings, simple symmetric poly.
+      g.poly([
+        cx, cy - s * 0.35,                    // head top
+        cx + s * 0.25, cy - s * 0.55,         // right ear
+        cx + s * 0.15, cy - s * 0.25,
+        cx + s,        cy - s * 0.15,          // right wingtip
+        cx + s * 0.4,  cy + s * 0.1,
+        cx + s * 0.55, cy + s * 0.6,          // right wing lower tip
+        cx + s * 0.15, cy + s * 0.3,
+        cx, cy + s * 0.55,                    // body bottom
+        cx - s * 0.15, cy + s * 0.3,
+        cx - s * 0.55, cy + s * 0.6,          // left wing lower tip
+        cx - s * 0.4,  cy + s * 0.1,
+        cx - s,        cy - s * 0.15,          // left wingtip
+        cx - s * 0.15, cy - s * 0.25,
+        cx - s * 0.25, cy - s * 0.55,         // left ear
+      ]);
+      fillIt();
+      break;
+    case "banner":
+      // Standard-bearer pennant: a vertical pole + a small triangular flag.
+      g.moveTo(cx - s * 0.55, cy - s * 0.9).lineTo(cx - s * 0.55, cy + s * 0.9);
+      strokeIt();
+      g.poly([
+        cx - s * 0.55, cy - s * 0.8,
+        cx + s * 0.75, cy - s * 0.45,
+        cx - s * 0.55, cy - s * 0.1,
+      ]);
+      fillIt();
       break;
     case "orb":
     default:

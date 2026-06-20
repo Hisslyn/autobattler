@@ -89,6 +89,12 @@ export const C = {
   xpBadgeBg:     0x0e1320,  // dark level badge disc (bottom-right)
   xpBtnDisabled: 0x2a2f3c,  // greyed disc when unaffordable / at max level
 
+  // ─── Stage bar (top-center round/timer indicator) ────────────────────────
+  stageBarBg:      0x16302c,  // dark translucent teal-green glass panel
+  stageBarBorder:  0xc9a24a,  // gold/bronze rim — reuses the itemFrame hue family
+  stageBarTrack:   0x0a1210,  // near-black progress-bar track
+  stageProgress:   0x4fd6c8,  // bright teal/cyan progress fill (distinct from accentGold)
+
   // ─── Visual overhaul stage 4: DOM meta screens ───────────────────────────
   // Surface + accent tokens used by the themed menus (panel surfaces reuse
   // panelBg/chipBorder above; these add the bits the DOM needs on top).

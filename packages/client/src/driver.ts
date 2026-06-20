@@ -63,7 +63,9 @@ export interface IDriver {
 }
 
 const HUMAN_PLAYER_ID = 0;
-const PLANNING_TIMER_MS = 30_000;
+/** Authoritative planning-phase window (ms). Exported so the HUD timer dial can
+ *  derive its fill fraction from the same constant the local clock counts down. */
+export const PLANNING_TIMER_MS = 30_000;
 // Fallback cap for combat playback: slowest-speed duration plus a buffer. The
 // scene normally calls combatPlaybackDone() sooner (faster speed / skip / no
 // scene fx). Scaled by the slowest playback speed so the cap never fires before

@@ -1,11 +1,12 @@
 import * as PIXI from "pixi.js";
 import { gameData } from "@autobattler/data";
 import type { MatchState, PlayerState } from "@autobattler/rules/src/state.js";
-import { stageForRound } from "@autobattler/rules/src/rounds.js";
+import { stageForRound, isPveRound as isPveRoundAbs } from "@autobattler/rules/src/rounds.js";
 import type { MatchStats } from "@autobattler/protocol";
 import type { UnitInstance, CombatEvent } from "@autobattler/sim/src/types.js";
 import type { HexCoord } from "@autobattler/sim/src/hex.js";
 import type { IDriver } from "../driver.js";
+import { PLANNING_TIMER_MS } from "../driver.js";
 import { CombatPlayer, toDisplayHex } from "../combat/player.js";
 import type { PlaybackSpeed } from "../combat/player.js";
 import { CombatView } from "../combat/view.js";
@@ -187,18 +188,25 @@ function drawUnit(
 }
 
 export class MatchScene {
-  // ── Top-center status-row vertical stack (dots banner → cluster → Skip) ──────
-  // Shared by renderHud (dots + cluster) and renderSkipButton (Skip) so the three
-  // never drift apart. The dots banner is pinned ~2px above the status-row top
-  // (clamped on-screen); the cluster + Skip pill are pushed down beneath it.
-  private static readonly ROUND_DOTS_H = 12; // dots-banner height
-  /** Top of the round-dots banner (kept fully on-screen). */
-  private static roundDotsTopY(statusY: number): number {
-    return Math.max(1, statusY - 2);
+  // ── Top-center stage bar vertical stack (bar → progress capsule → Skip) ──────
+  // Shared by renderHud (the stage bar) and renderSkipButton (Skip) so the two
+  // never drift apart. The bar is pinned ~1px above the status-row top (clamped
+  // on-screen); the progress capsule sits beneath it and the Skip pill below that.
+  private static readonly STAGE_BAR_H = 22;   // trapezoid bar height
+  private static readonly STAGE_PROGRESS_GAP = 3; // gap between bar and progress capsule
+  private static readonly STAGE_PROGRESS_H = 4;   // progress capsule height
+  /** Top of the stage bar (kept fully on-screen). */
+  private static stageBarTopY(statusY: number): number {
+    return Math.max(1, statusY - 1);
   }
-  /** Top of the stage/timer cluster — directly below the dots banner. */
-  private static roundDotsClusterY(statusY: number): number {
-    return MatchScene.roundDotsTopY(statusY) + MatchScene.ROUND_DOTS_H + 2;
+  /** Bottom of the whole stage-bar widget (bar + gap + progress capsule). */
+  private static stageBarBottomY(statusY: number): number {
+    return (
+      MatchScene.stageBarTopY(statusY) +
+      MatchScene.STAGE_BAR_H +
+      MatchScene.STAGE_PROGRESS_GAP +
+      MatchScene.STAGE_PROGRESS_H
+    );
   }
 
   readonly container: PIXI.Container;
@@ -617,9 +625,10 @@ export class MatchScene {
 
   private text(
     layer: PIXI.Container, str: string, x: number, y: number,
-    size: number, fill: number, anchor: [number, number] = [0, 0]
+    size: number, fill: number, anchor: [number, number] = [0, 0],
+    weight: string = "400"
   ): PIXI.Text {
-    const t = new PIXI.Text(str, { fontSize: size, fill, fontFamily: "monospace" });
+    const t = new PIXI.Text(str, { fontSize: size, fill, fontFamily: "monospace", fontWeight: weight as PIXI.TextStyleFontWeight });
     t.anchor.set(anchor[0], anchor[1]);
     t.x = x; t.y = y;
     t.eventMode = "none";
@@ -704,11 +713,11 @@ export class MatchScene {
     const board = this.layout.regions.board;
     const w = 52;
     const h = 20;
-    const cx = board.x + board.w / 2; // board center, beneath the stage/timer cluster
+    const cx = board.x + board.w / 2; // board center, beneath the stage bar
     const x = cx - w / 2;
-    // Top-to-bottom stack: round-dots banner → stage/timer cluster (20px tall) →
-    // Skip. Pin Skip directly below the cluster so the three never overlap.
-    const y = MatchScene.roundDotsClusterY(status.y) + 20 + 2; // below the cluster (20px) + gap
+    // Top-to-bottom stack: stage bar → progress capsule → Skip. Pin Skip 4px
+    // below the progress capsule so the widgets never overlap.
+    const y = MatchScene.stageBarBottomY(status.y) + 4;
     const g = this.chip(this.skipLayer, x, y, w, h, {
       fill: C.panelBg,
       fillAlpha: 0.95,
@@ -725,62 +734,118 @@ export class MatchScene {
   // ─── HUD: status row + opponent rail ─────────────────────────────────────────
 
   /**
-   * Round-progress dots: a centered horizontal row of `total` dots sitting at the
-   * very top of the status row, ABOVE the stage/timer cluster, one per round in
-   * the current stage. `current` (1-based) is the round in progress. Filled disc =
-   * completed round (current > i+1), bold outlined RING = current round, hollow
-   * disc = upcoming. The row is centered (both axes) inside a shallow decorative
-   * banner spanning [topY, topY+bandH] — a `\___/` profile (flat bottom edge, the
-   * sides angling outward as they rise so the top is wider than the bottom). Static
-   * — no animation, so it's reduced-motion-agnostic. Drawn into hudLayer (cleared
-   * and re-rendered each render() pass like the rest of the status row).
+   * Top-center stage bar: ONE unified trapezoidal teal-glass plaque pinned at the
+   * very top of the status row, centered over the board's center X. Left→right:
+   *   (A) a stage-marker glyph + bold "X-Y" stage-round label,
+   *   (B) a round-schedule strip — one icon per round in the CURRENT stage
+   *       (swords=PvP, gem=PvE, monster=final/boss PvE), the current round's icon
+   *       gold + larger with an up-chevron beneath it, completed rounds dimmer,
+   *       upcoming neutral,
+   *   (C) a clock glyph + bold remaining-seconds (hpLow tint under 5s),
+   * plus a separate thin teal progress capsule beneath it that depletes
+   * left→right with the timer. Static (no animation) — reduced-motion-agnostic.
+   * Pure render-from-state: every value derives from MatchState via the rules
+   * helpers stageForRound / isPveRound + the driver's planning clock. Rebuilt each
+   * render() pass (and the seconds number live-updated by startPlanningTimerTick).
    */
-  private renderRoundDots(centerX: number, topY: number, bandH: number, total: number, current: number): void {
-    if (total <= 0) return;
-    const r = 2;            // dot radius
-    const gap = 7;          // center-to-center spacing
-    const cy = topY + bandH / 2; // vertically centered inside the banner
-    const rowW = (total - 1) * gap;
-    const startX = centerX - rowW / 2;
+  private renderStageBar(centerX: number, statusY: number, state: MatchState): void {
+    const barW = 184;
+    const barH = MatchScene.STAGE_BAR_H;
+    const slant = 7;
+    const barX = Math.round(centerX - barW / 2);
+    const topY = MatchScene.stageBarTopY(statusY);
+    const bottomY = topY + barH;
+    const cy = topY + barH / 2;
 
-    // Decorative banner behind the dots: flat bottom edge, sides slanting outward
-    // toward the top (top wider than the bottom → `\___/`). Dots sit centered in it.
-    const halfBottom = rowW / 2 + 8;    // bottom half-width: dots row + padding
-    const slant = 6;                    // each side angles out this much going up
-    const bottomY = topY + bandH;
-    const banner = new PIXI.Graphics();
-    banner.eventMode = "none";
-    banner.poly([
-      centerX - halfBottom,         bottomY,  // bottom-left
-      centerX + halfBottom,         bottomY,  // bottom-right
-      centerX + halfBottom + slant, topY,     // top-right (wider)
-      centerX - halfBottom - slant, topY,     // top-left  (wider)
-    ]).fill({ color: C.bgPanelRaise, alpha: 0.95 });
-    banner.poly([
-      centerX - halfBottom,         bottomY,
-      centerX + halfBottom,         bottomY,
-      centerX + halfBottom + slant, topY,
-      centerX - halfBottom - slant, topY,
-    ]).stroke({ width: 1, color: C.chipBorder, alpha: 1 });
-    this.hudLayer.addChild(banner);
+    // Stage / round-within-stage from the pure rules helper (the structural
+    // source: stage 1 = 3 rounds, stages 2+ = 7) — a pure read of state.round.
+    const { stage, roundInStage } = stageForRound(state.round);
+    const roundsInStage = stage === 1 ? 3 : 7; // structural stage length (mirror rounds.ts)
+    const stageStartRound = state.round - (roundInStage - 1); // first abs round of this stage
 
-    const g = new PIXI.Graphics();
-    g.eventMode = "none";
-    for (let i = 0; i < total; i++) {
-      const cx = startX + i * gap;
+    // ── Trapezoid bg + border (`\___/`: top edge wider than the bottom) ──────
+    const poly = [
+      barX,                  bottomY,  // bottom-left
+      barX + barW,           bottomY,  // bottom-right
+      barX + barW + slant,   topY,     // top-right (wider)
+      barX - slant,          topY,     // top-left  (wider)
+    ];
+    const bar = new PIXI.Graphics();
+    bar.eventMode = "none";
+    bar.poly(poly).fill({ color: C.stageBarBg, alpha: 0.93 });
+    bar.poly(poly).stroke({ width: 1, color: C.stageBarBorder, alpha: 0.6 });
+    // Emphasize the bottom edge (the reference's border reads heaviest there).
+    bar.moveTo(barX, bottomY).lineTo(barX + barW, bottomY);
+    bar.stroke({ width: 2, color: C.stageBarBorder, alpha: 1 });
+    this.hudLayer.addChild(bar);
+
+    // ── Zone A — stage marker (glyph + "X-Y") ────────────────────────────────
+    const ax = barX + 8;
+    this.glyph(this.hudLayer, "banner", ax + 6, cy, 13, C.textPrimary);
+    this.text(this.hudLayer, `${stage}-${roundInStage}`, ax + 16, cy, 12, C.textPrimary, [0, 0.5], "700");
+
+    // ── Zone B — round schedule strip ────────────────────────────────────────
+    const pitch = 13;
+    const stripW = (roundsInStage - 1) * pitch;
+    const stripStartX = barX + 56; // after Zone A (40px) + 8px pad + 6px gap ≈ 54
+    const stripBaseX = Math.round(stripStartX + (96 - stripW) / 2); // center within the ~96px Zone B
+    const iconG = new PIXI.Graphics();
+    iconG.eventMode = "none";
+    for (let i = 0; i < roundsInStage; i++) {
       const roundNo = i + 1;
-      if (roundNo < current) {
-        // Completed round → solid filled dot.
-        g.circle(cx, cy, r).fill({ color: C.textGold });
-      } else if (roundNo === current) {
-        // Current round → bold outlined ring (hollow center, gold rim).
-        g.circle(cx, cy, r + 0.5).stroke({ width: 1.5, color: C.accentGold });
+      const icx = stripBaseX + i * pitch;
+      const absRound = stageStartRound + i;
+      const pve = isPveRoundAbs(absRound);
+      const last = roundNo === roundsInStage;
+      const kind: GlyphKind = !pve ? "swords" : last ? "monster" : "gem";
+      if (roundNo === roundInStage) {
+        // Current round → gold, larger, nudged up 1px, with an up-chevron beneath.
+        this.glyph(this.hudLayer, kind, icx, cy - 1, 13, C.accentGold);
+        const chTop = cy - 1 + 13 / 2 + 2; // 2px below the (13px) icon's bottom edge
+        iconG.moveTo(icx - 2.5, chTop + 2.5).lineTo(icx, chTop).lineTo(icx + 2.5, chTop + 2.5);
+        iconG.stroke({ width: 1.2, color: C.accentGold, alpha: 1, cap: "round", join: "round" });
       } else {
-        // Upcoming round → hollow dim dot (thin muted outline).
-        g.circle(cx, cy, r).stroke({ width: 1, color: C.textMuted, alpha: 0.7 });
+        // Completed dimmer than upcoming (subtle 2-tier ramp; gold is the signal).
+        const dimmer = new PIXI.Graphics();
+        drawGlyph(dimmer, kind, icx, cy, 9, C.textMuted);
+        dimmer.alpha = roundNo < roundInStage ? 0.55 : 0.85;
+        dimmer.eventMode = "none";
+        this.hudLayer.addChild(dimmer);
       }
     }
-    this.hudLayer.addChild(g);
+    this.hudLayer.addChild(iconG);
+
+    // ── Zone C — clock glyph + remaining seconds ─────────────────────────────
+    this.planningTimerText = null;
+    const timeLeft = this.driver.getPlanningTimeLeft();
+    const planning = state.phase === "PLANNING" && timeLeft > 0;
+    const secs = Math.max(0, Math.ceil(timeLeft / 1000));
+    const urgent = secs <= 5;
+    const clockCx = barX + barW - 8 - 22; // right-aligned timer block (~22px wide)
+    this.glyph(this.hudLayer, "clock", clockCx, cy, 11, C.textPrimary);
+    if (planning) {
+      this.planningTimerText = this.text(
+        this.hudLayer, `${secs}`, clockCx + 9, cy, 12,
+        urgent ? C.hpLow : C.textPrimary, [0, 0.5], "700"
+      );
+    } else {
+      this.text(this.hudLayer, state.phase.slice(0, 4), clockCx + 9, cy, 8, C.textMuted, [0, 0.5]);
+    }
+
+    // ── Progress capsule beneath the bar (depletes left→right) ───────────────
+    const pgY = bottomY + MatchScene.STAGE_PROGRESS_GAP;
+    const pgH = MatchScene.STAGE_PROGRESS_H;
+    const pg = new PIXI.Graphics();
+    pg.eventMode = "none";
+    pg.roundRect(barX, pgY, barW, pgH, 2).fill({ color: C.stageBarTrack, alpha: planning ? 0.9 : 0.5 });
+    if (planning) {
+      const frac = Math.max(0, Math.min(1, timeLeft / PLANNING_TIMER_MS));
+      const fillW = Math.max(0, barW * frac);
+      if (fillW > 0) {
+        pg.roundRect(barX, pgY, fillW, pgH, 2).fill({ color: urgent ? C.hpLow : C.stageProgress, alpha: 1 });
+      }
+    }
+    this.hudLayer.addChild(pg);
   }
 
   /**
@@ -821,62 +886,18 @@ export class MatchScene {
     bg.rect(0, 0, designW, this.isLandscape ? status.h + 2 : 58).fill({ color: C.bgHud });
     this.hudLayer.addChild(bg);
 
-    // ── A. Status row ──────────────────────────────────────────────────────
-    // One centered cluster over the BOARD center X: [Stage X-Y chip] [timer],
-    // with the round-progress dots row centered ABOVE it. Top-to-bottom the band
-    // stacks: dots banner → stage/timer cluster → Skip pill. The cluster (and the
-    // Skip pill below it) are pushed down to make vertical room for the dots row,
-    // which is pinned to the very top so it stays fully on-screen (not clipped).
-    // The DOM ☰ pause / exit "X" stays a standalone top-LEFT control (untouched).
-    // Stage / round-within-stage derive from the pure rules helper (stageForRound)
-    // — the real structural source (stage 1 = 3 rounds, stages 2+ = 7), not a
-    // renderer-side formula. No game logic added: a pure read of state.round.
-    const { stage, roundInStage } = stageForRound(state.round);
-    const roundsInStage = stage === 1 ? 3 : 7; // structural stage length (mirror rounds.ts)
-    const sub = roundInStage;
-    const stageW = 96;
-    const clusterGap = 8;
-    const timerW = 34; // reserved width for the m:ss timer to the chip's right
-    // Center the whole [chip][gap][timer] cluster over the board's center X.
+    // ── A. Stage bar ─────────────────────────────────────────────────────────
+    // One unified trapezoidal teal-glass bar centered over the BOARD center X,
+    // pinned to the very top of the status row: stage marker + "X-Y" label on the
+    // left, the round-schedule strip (one icon per round of the current stage,
+    // current round gold + chevron) in the center, the clock + remaining seconds
+    // on the right, and a thin teal progress capsule beneath it that depletes
+    // with the timer. The DOM ☰ pause / exit "X" stays a standalone top-LEFT
+    // control (untouched). See renderStageBar.
     const board = regions.board;
     const boardCenterX = board.x + board.w / 2;
-    const clusterW = stageW + clusterGap + timerW;
-    const stageX = Math.round(boardCenterX - clusterW / 2);
-    const timerCx = stageX + stageW + clusterGap + timerW / 2;
+    this.renderStageBar(boardCenterX, status.y, state);
 
-    // Round-progress dots banner pinned at the very top of the status row; the
-    // cluster is pushed down to sit beneath it (see roundDotsClusterY). Filled = a
-    // completed round, ringed = the current round, hollow = upcoming. Static (no
-    // animation) — reduced-motion-agnostic.
-    this.renderRoundDots(boardCenterX, MatchScene.roundDotsTopY(status.y), MatchScene.ROUND_DOTS_H, roundsInStage, roundInStage);
-    const sy = MatchScene.roundDotsClusterY(status.y); // cluster top, below the dots banner
-
-    this.chip(this.hudLayer, stageX, sy, stageW, 20, { fillAlpha: 0.9 });
-    this.glyph(this.hudLayer, "swords", stageX + 11, sy + 10, 13, C.starGold);
-    this.text(this.hudLayer, `Stage ${stage}-${sub}`, stageX + 22, sy + 10, 10, C.textPrimary, [0, 0.5]);
-
-    // (PvE creeps are previewed directly on the enemy half of the main board
-    // during planning — see renderBoard — so there's no scout chip here.)
-
-    // Planning timer, attached immediately to the RIGHT of the stage label so the
-    // two read as one centered cluster. m:ss, muted; tint toward hp-low under 5s.
-    // The node is retained + driven by a per-second ticker (see
-    // startPlanningTimerTick) so the countdown visibly drains instead of
-    // freezing at the value captured on phase entry.
-    this.planningTimerText = null;
-    const timeLeft = this.driver.getPlanningTimeLeft();
-    if (state.phase === "PLANNING" && timeLeft > 0) {
-      const secs = Math.ceil(timeLeft / 1000);
-      const m = Math.floor(secs / 60);
-      const ss = (secs % 60).toString().padStart(2, "0");
-      this.planningTimerText = this.text(
-        this.hudLayer, `${m}:${ss}`, timerCx, sy + 10, 12,
-        secs <= 5 ? C.hpLow : C.textMuted, [0.5, 0.5]
-      );
-    } else {
-      // Same 12px as the timer so phase transitions don't jitter the slot.
-      this.text(this.hudLayer, state.phase, timerCx, sy + 10, 12, C.textMuted, [0.5, 0.5]);
-    }
     // Top-LEFT ☰ pause button — rendered in the HUD layer so it scales and
     // repositions with the viewport like the rest of the chrome. The shop panel
     // layer sits above the HUD, so it overlays this button via z-ordering (no
@@ -3246,10 +3267,8 @@ export class MatchScene {
       if (!node || this.driver.getState().phase !== "PLANNING") return;
       const left = this.driver.getPlanningTimeLeft();
       const secs = Math.max(0, Math.ceil(left / 1000));
-      const m = Math.floor(secs / 60);
-      const ss = (secs % 60).toString().padStart(2, "0");
-      node.text = `${m}:${ss}`;
-      node.style.fill = secs <= 5 ? C.hpLow : C.textMuted;
+      node.text = `${secs}`;
+      node.style.fill = secs <= 5 ? C.hpLow : C.textPrimary;
     };
     this.app.ticker.add(fn);
     this.planningTimerFn = fn;
