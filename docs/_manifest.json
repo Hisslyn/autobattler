@@ -1101,10 +1101,10 @@
     },
     {
       "path": "packages/sim/src/engine.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/sim/src/engine.ts.md",
+      "hash": "5910a810b154509af6285d176a934b37866940d10333a8ff12f3f952b230abc5",
+      "updated": "2026-06-20T09:55:00+00:00"
     },
     {
       "path": "packages/sim/src/fixed.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 157,
+    "done": 158,
     "total": 170
   }
 }

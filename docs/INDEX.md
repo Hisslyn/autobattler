@@ -159,3 +159,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/server/tests/repo.test.ts -> docs/packages/server/tests/repo.test.ts.md — shared Repository contract suite run against MemoryRepository + (conditionally) PostgresRepository
 - packages/server/tests/room.test.ts -> docs/packages/server/tests/room.test.ts.md — in-process fake-timer room tests: client resimulation matches COMBAT_RESULT, phase timing, STATE_DELTA privacy
 - packages/sim/package.json -> docs/packages/sim/package.json.md — @autobattler/sim package manifest (pure, depends only on @autobattler/data)
+- packages/sim/src/engine.ts -> docs/packages/sim/src/engine.ts.md — simulateCombat: the pure deterministic combat engine (stats, traits, items, per-tick loop, overtime, event log)
