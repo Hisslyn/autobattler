@@ -30,10 +30,10 @@
     },
     {
       "path": "package.json",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/package.json.md",
+      "hash": "4b23ee44fb9fcbdcdf5d3b9ef4deebdd00ee05d1694affec6a90e98fbec552e5",
+      "updated": "2026-06-20T01:16:37.815458+00:00"
     },
     {
       "path": "packages/balance/package.json",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 4,
+    "done": 5,
     "total": 170
   }
 }
