@@ -126,3 +126,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/rules/src/shop.ts -> docs/packages/rules/src/shop.ts.md — rollShop: level-gated tier odds + pool-availability-filtered unit pick, draws from pool at roll time
 - packages/rules/src/state.ts -> docs/packages/rules/src/state.ts.md — MatchState/PlayerState/ShopSlot/RoundResult/Phase: the canonical match-state type schema
 - packages/rules/tests/combine.test.ts -> docs/packages/rules/tests/combine.test.ts.md — recipeResult + COMBINE_ITEMS/EQUIP auto-combine/slot-cap/UNEQUIP coverage
+- packages/rules/tests/commands.test.ts -> docs/packages/rules/tests/commands.test.ts.md — BUY/MOVE/SELL/REROLL/BUY_XP/EQUIP legality + universal PHASE_INVALID gate coverage

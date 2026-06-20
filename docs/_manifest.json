@@ -870,10 +870,10 @@
     },
     {
       "path": "packages/rules/tests/commands.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/tests/commands.test.ts.md",
+      "hash": "55e244bf219f6b2117eefe5618fe353e7447631aa352cf461929d149646259d7",
+      "updated": "2026-06-20T07:21:00+00:00"
     },
     {
       "path": "packages/rules/tests/consumables.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 124,
+    "done": 125,
     "total": 170
   }
 }
