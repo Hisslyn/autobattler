@@ -110,3 +110,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/data/src/units.json -> docs/packages/data/src/units.json.md — full 50-unit roster: tier/origin/classes/stats/ability per unit (13/13/12/8/4 across tiers 1-5)
 - packages/data/tests/integrity.test.ts -> docs/packages/data/tests/integrity.test.ts.md — cross-validates all data JSON: referential integrity, count invariants (50 units, 36 recipes, 6 artifacts/3 mythicals, etc.)
 - packages/data/tests/rank.test.ts -> docs/packages/data/tests/rank.test.ts.md — known-answer boundary tests for mmrToRank against real ranks.json thresholds
+- packages/protocol/package.json -> docs/packages/protocol/package.json.md — @autobattler/protocol manifest: ESM, zero deps, main/exports point at src/index.ts

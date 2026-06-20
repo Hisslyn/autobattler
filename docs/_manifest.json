@@ -758,10 +758,10 @@
     },
     {
       "path": "packages/protocol/package.json",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/protocol/package.json.md",
+      "hash": "3d297b41803f3c9513d91fc0aeeb71d31f686a91ed6d1afd64786123561a5e94",
+      "updated": "2026-06-20T06:08:00+00:00"
     },
     {
       "path": "packages/protocol/src/envelope.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 108,
+    "done": 109,
     "total": 170
   }
 }
