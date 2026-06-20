@@ -527,10 +527,10 @@
     },
     {
       "path": "packages/client/tests/hudModel.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/hudModel.test.ts.md",
+      "hash": "b26dcbb52241e9459a5f5b7f10f6f1cf28f033f7ced64822bbaa2f4a1b1f5026",
+      "updated": "2026-06-20T03:39:00+00:00"
     },
     {
       "path": "packages/client/tests/inspectModel.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 75,
+    "done": 76,
     "total": 170
   }
 }
