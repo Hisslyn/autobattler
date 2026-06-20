@@ -597,10 +597,10 @@
     },
     {
       "path": "packages/client/tests/sellValue.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/sellValue.test.ts.md",
+      "hash": "0267474848116d040a5714ce0a7bf1d6c84b6519c230a48dcc3391254fae9cb2",
+      "updated": "2026-06-20T04:30:00+00:00"
     },
     {
       "path": "packages/client/tests/settings.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 85,
+    "done": 86,
     "total": 170
   }
 }
