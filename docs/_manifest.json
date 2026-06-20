@@ -177,10 +177,10 @@
     },
     {
       "path": "packages/client/src/boardProjection.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/boardProjection.ts.md",
+      "hash": "d800c2bdecad61a416e7e279ba2215b1b4bf5e4be2f201644da00a698ee580fe",
+      "updated": "2026-06-20T01:33:05.651601+00:00"
     },
     {
       "path": "packages/client/src/combat/player.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 25,
+    "done": 26,
     "total": 170
   }
 }

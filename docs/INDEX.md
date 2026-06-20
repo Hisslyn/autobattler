@@ -27,3 +27,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/audio/sfx.ts -> docs/packages/client/src/audio/sfx.ts.md — pure SFX palette data (layered ADSR voice specs) + total event->sound coverage map
 - packages/client/src/auth.ts -> docs/packages/client/src/auth.ts.md — guest auth bootstrap (deviceId+token persistence) + profile/leaderboard/history/rename HTTP wrappers
 - packages/client/src/benchLayout.ts -> docs/packages/client/src/benchLayout.ts.md — pure bench/sell-control geometry (landscape + portrait region variants) and pointer-to-slot hit test
+- packages/client/src/boardProjection.ts -> docs/packages/client/src/boardProjection.ts.md — exact projective homography warping the flat hex board into a tilted on-screen trapezoid (forward/inverse/scaleAt)
