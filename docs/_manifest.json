@@ -478,10 +478,10 @@
     },
     {
       "path": "packages/client/tests/combatFx.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/combatFx.test.ts.md",
+      "hash": "93dbe099c1a8ca212483f73cba9282005b723240d6a5ed225b50bb8edd94660f",
+      "updated": "2026-06-20T03:12:00+00:00"
     },
     {
       "path": "packages/client/tests/combatLayout.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 68,
+    "done": 69,
     "total": 170
   }
 }
