@@ -1087,10 +1087,10 @@
     },
     {
       "path": "packages/server/tests/room.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/tests/room.test.ts.md",
+      "hash": "33fedbecee7eef8312559806d512d32e3271ad5d0a70f386f9a77452f46c6bbc",
+      "updated": "2026-06-20T09:45:00+00:00"
     },
     {
       "path": "packages/sim/package.json",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 155,
+    "done": 156,
     "total": 170
   }
 }
