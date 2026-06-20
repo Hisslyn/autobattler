@@ -38,3 +38,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/glyphs.ts -> docs/packages/client/src/glyphs.ts.md — procedural vector glyph library (TRAIT_GLYPH map + drawGlyph) for canvas-rendered trait/HUD/item icons
 - packages/client/src/hexUtils.ts -> docs/packages/client/src/hexUtils.ts.md — flat hex board geometry: slot<->pixel mapping (hexToPixel), pointer hit test (hexFromPointer), zero-gap tile sizing math
 - packages/client/src/hudControlsLayout.ts -> docs/packages/client/src/hudControlsLayout.ts.md — pure landscape reroll/buy-xp button geometry, proportional to the HUD region width (fixes a historical overflow bug)
+- packages/client/src/hudModel.ts -> docs/packages/client/src/hudModel.ts.md — pure HUD derivations: trait-strip chip model, XP progress-bar model, circular Buy-XP button geometry

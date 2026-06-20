@@ -1,0 +1,46 @@
+# Path & purpose
+
+`packages/client/src/hudModel.ts` -- pure derivations for the in-match HUD chrome (stage 2 of the visual overhaul): the trait-strip chip model, the XP progress-bar model, and the circular Buy-XP button's geometry. No Pixi, no game logic -- renders strictly from a `MatchState`/board snapshot.
+
+# Responsibility
+
+Owns the presentation-logic layer between raw board/player data and the HUD's visual chips/bars/buttons: deciding which trait chips to show and in what order/state (`traitStripModel`), computing XP bar fill (`xpProgress`), and laying out the circular Buy-XP control's many sub-elements (`buyXpGeom`). All three are pure, unit-testable functions consumed directly by `scenes/match.ts`'s renderer.
+
+# Exports
+
+- `interface TraitChip { traitId, name, count, activeBreakpoint, nextBreakpoint, activeTier, tierCount, color }` -- one trait-strip chip's full display state.
+- `function traitStripModel(board: readonly (UnitInstance|null)[], units: readonly UnitDataDef[], traits: readonly TraitDataDef[]): TraitChip[]` -- builds one chip per trait represented on the board. Counts UNIQUE defIds only (a board with three copies of the same unit counts that unit's traits ONCE, not three times -- matches the engine's breakpoint-counting rule exactly, per the inline comment "counted by unique defId vs each trait's breakpoints"). For each trait found, sorts its `breakpoints` ascending and determines: `activeBreakpoint` (the highest breakpoint count <= the trait's unit count, or null if none reached), `nextBreakpoint` (the lowest breakpoint count > the unit count, or null if already at/past the top breakpoint), `activeTier` (1-based index of the highest active breakpoint among the trait's own breakpoint list; 0 if none active). Final list is sorted: active traits before inactive, then by `activeTier` descending (a maxed single-tier trait outranks an unmaxed multi-tier trait with a higher count but lower tier), then by raw `count` descending, then by `traitId` alphabetically (stability tiebreak).
+- `interface XpProgress { level, inLevel, needed, frac, maxed }` -- one player's XP-bar fill state.
+- `function xpProgress(xp: number, level: number, thresholds: readonly number[]): XpProgress` -- computes progress through the CURRENT level using a cumulative thresholds table (`thresholds[level-1]` = xp where the current level begins, `thresholds[level]` = xp where the next level begins). At/above the max level (`level >= thresholds.length`), returns a maxed full bar (`inLevel:0, needed:0, frac:1, maxed:true`) immediately. Otherwise computes `span = next - base`, `inLevel = max(0, xp - base)`, `frac = min(1, inLevel/span)` (guards `span <= 0` by returning `frac:1`).
+- `interface BuyXpGeom { cx, cy, r, rimW, arcR, arcW, arcStart, arcEnd, badgeCx, badgeCy, badgeR, glyphY, labelY, costY, fracY, fontSize }` -- the full geometry of the circular Buy-XP button: main circle, ornate rim stroke width, the XP progress arc (radius/width/start-angle/end-angle), the level badge circle (overlapping bottom-right), three stacked content baseline y-positions inside the button, a floating xp-fraction text position ABOVE the button, and a derived base font size.
+- `function buyXpGeom(region: {x,y,w,h}): BuyXpGeom` -- pure layout derivation for the whole button cluster from its containing region rect (mirrors `benchGeom`'s "render strictly off this" pattern).
+
+# Key behavior
+
+- `traitStripModel`'s unique-defId counting: iterates the board once, skipping any unit whose `defId` has already been counted (`seen` Set), then for the first occurrence of each defId looks up its full trait list (`units.find(...).traits`) and increments each trait's running count by exactly 1.
+- `traitStripModel`'s breakpoint scan: a single forward pass over the sorted breakpoints continuously updates `activeBreakpoint`/`activeTier` as long as `bp.count <= count` (so the LAST such breakpoint visited -- the highest one satisfied -- wins), and captures the FIRST breakpoint exceeding `count` as `nextBreakpoint` (captured once, via the `nextBreakpoint === null` guard, so subsequent higher breakpoints don't overwrite it).
+- `buyXpGeom`'s radius formula `r = max(16, min(region.h/2 - 1, region.w*0.34, 56))` is a three-way clamp: never smaller than 16px, never taller than the region allows (`region.h/2 - 1`), never wider than 34% of the region's width, and capped at 56px overall -- the comment explains the cap was deliberately "lifted from 30 -> 56 so the landscape econ cluster (a full-height bottom-left square) can render the button at ~2x the portrait size," while the thin portrait HUD band remains separately bounded by its own `region.h/2 - 1` term (so the SAME function serves both layouts correctly without a separate portrait/landscape branch).
+- The progress arc is a fixed 90-degree sweep (`arcStart = -PI/4`, `arcEnd = PI/4`, i.e. centered on the 3-o'clock/right edge of the circle) -- the inline comment clarifies the fill direction convention: "The track runs arcStart (top) -> arcEnd (bottom); the fill is anchored at arcEnd and rises toward arcStart, so it fills from the bottom up" (the renderer consuming this geometry is responsible for actually drawing a partial arc from `arcEnd` toward `arcStart` proportional to `xpProgress.frac`, this function only supplies the angle bounds).
+- The level badge is positioned at exactly 45 degrees (`Math.PI/4`) from the main circle's center, offset by `bd = r + rimW*0.3`, placing it "overlapping bottom-right" of the main button.
+- All sub-element sizes/offsets (rim width, arc radius/width, badge radius, font size, the three stacked text y-positions, the floating frac-text y-position) are computed as FRACTIONS of `r` (e.g. `rimW = max(2.5, r*0.16)`, `fontSize = max(6, round(r*0.32))`) -- the whole button scales proportionally as one unit when `r` changes, with floor clamps preventing any sub-element from disappearing at very small radii.
+
+# Invariants & constraints
+
+- **`traitStripModel`'s counting rule MUST match the sim engine's own trait-breakpoint counting exactly** -- per the inline comment and `CLAUDE.md`'s engine description ("Applies trait breakpoint bonuses per team at combat start... unique defId count"), the engine's actual gameplay-affecting trait activation is ALSO unique-defId-based; if this model's counting logic ever diverges from the engine's, the trait strip would visually lie about which breakpoints are actually active in combat.
+- `xpProgress`'s `thresholds` array is assumed to be the SAME `levelXpThresholds` table from `economy.json` that `packages/rules/src/economy.ts`'s `levelForXp` uses -- this file does not import or validate against that table directly, it's purely a consumer; a mismatch in table semantics (e.g. off-by-one indexing) between this function and the rules' actual leveling logic would show an incorrect bar without affecting real gameplay (since this is presentation-only).
+- `buyXpGeom`'s output is PURE geometry with no Pixi calls -- the actual button drawing (circle fill/stroke, arc stroke, badge, text) lives entirely in the renderer (`scenes/match.ts`'s `renderControls` or similar); this file must never be extended to call into Pixi.
+- Both `traitStripModel` and `xpProgress` are deterministic, side-effect-free pure functions -- safe to call every render frame without memoization concerns (cheap array/map operations over small inputs: board size <=8, trait count <=22, breakpoints per trait <=3).
+
+# Depends on
+
+`@autobattler/sim/src/types.js` (type-only: `UnitInstance`). `@autobattler/data` (type-only: `UnitDataDef`, `TraitDataDef`). `./theme.js` (`traitColor` -- the stable family-based trait color lookup, single source for chip hues).
+
+# Used by
+
+`packages/client/src/scenes/match.ts` (`renderTraitStrip` consumes `traitStripModel`'s chip list to draw the trait strip; the HUD's XP bar rendering consumes `xpProgress`; the circular Buy-XP button rendering consumes `buyXpGeom`). `packages/client/src/inspectPanel.ts`'s trait-detail panel likely reuses the SAME chip-drawing helper (`drawTraitChip`, per `CLAUDE.md`: "chips drawn by the shared `drawTraitChip`, reused by the scout overlay") fed by this same `traitStripModel` output. The scout overlay (viewing an opponent's board) also calls `traitStripModel` against the scouted board.
+
+# Notes
+
+- Both exported model functions are explicitly called out in `CLAUDE.md` as "Both unit-tested" -- a dedicated test file exercises `traitStripModel`'s sort/count/breakpoint logic and `xpProgress`'s boundary cases (exactly at a threshold, at max level, zero span) directly, independent of any Pixi rendering.
+- `buyXpGeom` is NOT mentioned as unit-tested in `CLAUDE.md`'s HUD-model summary (only `traitStripModel`/`xpProgress` are called out there) -- though being pure geometry, it would be straightforward to test if not already covered; worth checking the actual test file for explicit `buyXpGeom` coverage.
+- The trait sort's "active-first -> activeTier desc -> count desc -> id" ordering is a deliberate UX choice ensuring the most-relevant (currently-buffing) traits always appear leftmost/first in the strip, with maxed single-breakpoint traits (e.g. a trait with only one breakpoint, fully active) ranked above a multi-breakpoint trait that has a higher raw unit count but hasn't yet reached its OWN higher breakpoints.
