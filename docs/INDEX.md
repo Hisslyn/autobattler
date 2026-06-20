@@ -95,3 +95,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/tests/tierColor.test.ts -> docs/packages/client/tests/tierColor.test.ts.md — tierColor mapping tests + locked tier1-5 hex value regression guard + out-of-range clamp-to-tier1
 - packages/client/tests/torchMeter.test.ts -> docs/packages/client/tests/torchMeter.test.ts.md — litCount floor/cap math + torchLit asymmetric left-front-up/right-back-down fill direction tests
 - packages/client/tests/traitDetailModel.test.ts -> docs/packages/client/tests/traitDetailModel.test.ts.md — traitDetailModel reached-vs-single-active breakpoint flag tests on real knight 2/4/6 data + breakpointEffect stat-label/fixed-point formatting
+- packages/client/tsconfig.json -> docs/packages/client/tsconfig.json.md — client-scoped TS compiler config for Vite (only per-package tsconfig in the repo); not used by the root tsc --build typecheck gate

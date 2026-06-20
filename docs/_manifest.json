@@ -653,10 +653,10 @@
     },
     {
       "path": "packages/client/tsconfig.json",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tsconfig.json.md",
+      "hash": "5f02b087e204951a4263b47e31d5c918102b6ca49afc9e4a395e22db839f165f",
+      "updated": "2026-06-20T04:55:00+00:00"
     },
     {
       "path": "packages/client/vite.config.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 93,
+    "done": 94,
     "total": 170
   }
 }
