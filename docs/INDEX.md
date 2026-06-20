@@ -54,3 +54,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/sellValue.ts -> docs/packages/client/src/sellValue.ts.md — pure display-only mirror of the rules SELL refund formula (tier × copiesPerStar × sellValueMultiplier)
 - packages/client/src/settings.ts -> docs/packages/client/src/settings.ts.md — Settings shape + localStorage load/save (defensive parsing) + SettingsStore pub/sub holder for volumes/speed/reduced-motion prefs
 - packages/client/src/sprites.ts -> docs/packages/client/src/sprites.ts.md — unit-art drop-in slot: pure path resolver + async runtime texture cache, glyph fallback when PNG absent
+- packages/client/src/statFormat.ts -> docs/packages/client/src/statFormat.ts.md — single-source stat display formatter (formatStat/formatStatDelta); handles the as fixed-point/1000 conversion, everything else raw

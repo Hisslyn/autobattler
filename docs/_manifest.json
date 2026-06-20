@@ -366,10 +366,10 @@
     },
     {
       "path": "packages/client/src/statFormat.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/statFormat.ts.md",
+      "hash": "ecae2e7b8f564c0bae81a383fcc93387c5856476c185e04183b3bc3408089299",
+      "updated": "2026-06-20T02:28:00+00:00"
     },
     {
       "path": "packages/client/src/theme.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 52,
+    "done": 53,
     "total": 170
   }
 }
