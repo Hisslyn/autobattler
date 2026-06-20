@@ -23,10 +23,10 @@
     },
     {
       "path": "docker-compose.yml",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/docker-compose.yml.md",
+      "hash": "6c2ad6f76c9d708d7860ce4dac699e8a88f8e590d368290d2ef588e28571c839",
+      "updated": "2026-06-20T01:16:04.321969+00:00"
     },
     {
       "path": "package.json",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 3,
+    "done": 4,
     "total": 170
   }
 }
