@@ -261,10 +261,10 @@
     },
     {
       "path": "packages/client/src/inspectModel.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/inspectModel.ts.md",
+      "hash": "378cedac9288cccba12b5397a3b226aa2b544069213efeb035fd370c42367aa9",
+      "updated": "2026-06-20T01:46:53.411260+00:00"
     },
     {
       "path": "packages/client/src/inspectPanel.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 37,
+    "done": 38,
     "total": 170
   }
 }
