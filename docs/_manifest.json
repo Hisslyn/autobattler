@@ -1129,10 +1129,10 @@
     },
     {
       "path": "packages/sim/src/types.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/sim/src/types.ts.md",
+      "hash": "46e21ed95a1e80d97e6cffcce6271928c04d144072003c989a430a645a61db6e",
+      "updated": "2026-06-20T10:15:00+00:00"
     },
     {
       "path": "packages/sim/tests/abilities.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 161,
+    "done": 162,
     "total": 170
   }
 }
