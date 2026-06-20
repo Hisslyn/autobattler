@@ -674,10 +674,10 @@
     },
     {
       "path": "packages/data/package.json",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/data/package.json.md",
+      "hash": "e86ed5ca7c7bf071f129737efc63419905957aad482632495d4de6338d55242e",
+      "updated": "2026-06-20T05:08:00+00:00"
     },
     {
       "path": "packages/data/src/economy.json",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 96,
+    "done": 97,
     "total": 170
   }
 }
