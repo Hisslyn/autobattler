@@ -93,3 +93,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/tests/statFormat.test.ts -> docs/packages/client/tests/statFormat.test.ts.md — formatStat/formatStatDelta tests: as fixed-point÷1000 conversion vs raw-integer passthrough for every other StatKey, signed-delta formatting
 - packages/client/tests/theme.test.ts -> docs/packages/client/tests/theme.test.ts.md — repo-wide static scan: no 0x hex color literal allowed in client src outside theme.ts (single-source-of-color enforcement)
 - packages/client/tests/tierColor.test.ts -> docs/packages/client/tests/tierColor.test.ts.md — tierColor mapping tests + locked tier1-5 hex value regression guard + out-of-range clamp-to-tier1
+- packages/client/tests/torchMeter.test.ts -> docs/packages/client/tests/torchMeter.test.ts.md — litCount floor/cap math + torchLit asymmetric left-front-up/right-back-down fill direction tests
