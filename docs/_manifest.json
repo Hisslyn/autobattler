@@ -751,10 +751,10 @@
     },
     {
       "path": "packages/data/tests/rank.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/data/tests/rank.test.ts.md",
+      "hash": "968bb032933bd9dde4f6a4c36d2a730645f98ea1878cb75624ec431e455cd212",
+      "updated": "2026-06-20T06:05:00+00:00"
     },
     {
       "path": "packages/protocol/package.json",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 107,
+    "done": 108,
     "total": 170
   }
 }
