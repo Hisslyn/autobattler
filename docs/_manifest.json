@@ -93,10 +93,10 @@
     },
     {
       "path": "packages/client/PORTRAIT_LAYOUT_SPEC.md",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/PORTRAIT_LAYOUT_SPEC.md.md",
+      "hash": "7bfcdf8ff6acb6a9cf83e6132dc1da09fce659c9d30dbba78481b81e68e118fe",
+      "updated": "2026-06-20T01:24:03.340127+00:00"
     },
     {
       "path": "packages/client/index.html",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 13,
+    "done": 14,
     "total": 170
   }
 }
