@@ -877,10 +877,10 @@
     },
     {
       "path": "packages/rules/tests/consumables.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/tests/consumables.test.ts.md",
+      "hash": "63eada6bd72a13b92c0aa14f3fd2ad735b8c53009797400556303be2fb9b1a19",
+      "updated": "2026-06-20T07:28:00+00:00"
     },
     {
       "path": "packages/rules/tests/economy.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 125,
+    "done": 126,
     "total": 170
   }
 }

@@ -1,0 +1,48 @@
+# packages/rules/tests/consumables.test.ts
+
+**Path & purpose** — `packages/rules/tests/consumables.test.ts`. The exhaustive Vitest suite for `commands.ts`'s `USE_CONSUMABLE` command across all three consumable effects (`item_remover`/`remove_item`, `reforger`/`reforge`, `radiant_enhancer`/`radiant_upgrade`), plus SELL's item-return behavior and EQUIP's slot-cap interaction with phase-3 artifact/mythical items. This is the most thorough single-command test file in the package and is the best reference for the EXACT consumable id ↔ effect mapping and the artifact/mythical item-kind system.
+
+**Responsibility** — Verifies every typed error and every success path for `USE_CONSUMABLE`, using REAL consumable/item ids from `items.json` (`item_remover`, `reforger`, `radiant_enhancer`), and documents (via test fixtures) that `items.json` contains at least 2 distinct `kind:"artifact"` items and at least 1 `kind:"mythical"` item, with their own tier constants (`economy.itemTierArtifact`, `economy.itemTierMythical`).
+
+**Exports** — None (test file). Internal helper `setup(items, heldByUnit=[])`: builds a fresh PLANNING-phase match (`createMatch(11, gameData)`), gives player 0 ONE bench unit (using `gameData.units[0]`, with `ability` explicitly carried over unlike `combine.test.ts`'s/`commands.test.ts`'s helpers) holding `heldByUnit` as its equipped items, sets the player's loose inventory to `items`, and returns `{state, player, unit}`. Module-level constants `FIRST_COMPLETED`/`SECOND_COMPLETED`/`THIRD_COMPLETED` are the first three DISTINCT items in `gameData.items` satisfying `itemKind(i)==="completed" && i.recipe` (i.e. real recipe-built tier-2 items, found dynamically rather than hardcoded ids — resilient to `items.json` reordering).
+
+**Key behavior / test coverage**
+- **SELL + items**: confirms `commands.ts`'s SELL pushes a sold unit's equipped items (both a completed item and a loose-component-shaped string like `"iron_sword"`) back into the player's inventory, and removes the unit from bench.
+- **`item_remover` (effect `remove_item`)**:
+  - One equipped item → moved to inventory, unit ends with 0 items, consumable consumed (removed from `player.items`).
+  - 2-3 equipped items → ALL moved to inventory in one call, consumable consumed exactly ONCE (not once per item).
+  - Zero equipped items → `{ok:true}` no-op: unit stays empty, the consumable STAYS in inventory (not consumed) — confirms the documented "zero items is a no-op success... does NOT consume" rule exactly.
+- **`reforger` (effect `reforge`)**:
+  - One equipped item → reforged to a DIFFERENT item id at the SAME tier (`itemTier` before/after match, id differs), consumable consumed.
+  - 3 equipped items → EACH reforged independently to a different same-tier id (verified item-by-item against the ORIGINAL pre-call ids), consumable consumed exactly once for the whole multi-item operation.
+  - Zero equipped items → no-op success, consumable NOT consumed (same pattern as `item_remover`).
+  - **Determinism check (multi-item)**: running the exact same `setup` + a fixed-seed `mulberry32(42)` prng TWICE produces IDENTICAL resulting item arrays both times — a direct regression guard on `commands.ts`'s reforge being a pure function of the prng stream (no incidental ordering/Map-iteration nondeterminism).
+  - **Determinism check (single item, separate describe block at the bottom)**: same pattern, single equipped item, confirms byte-identical resulting id across two independent runs with the same seed.
+- **`radiant_enhancer` (effect `radiant_upgrade`)**:
+  - Upgrading a held tier-2 completed item replaces it with `"radiant_" + originalId` in the SAME equipped slot, consumable consumed. Verifies EVERY stat key on the resulting radiant item equals `Math.round((baseStatValue * economy.radiantStatMultiplier) / 1000)` — this is the EXACT, test-verified formula for radiant stat scaling (multiplier is fixed-point scale 1000, e.g. `radiantStatMultiplier=1750` → 1.75x, rounded to the nearest integer per stat).
+  - Upgrading ONE of two held tier-2 items leaves the OTHER item completely untouched (still present, unconverted) — confirms the upgrade is scoped to exactly the `targetItemId` slot, not a blanket unit-wide effect.
+- **`USE_CONSUMABLE` typed errors** (the bulk of the file):
+  - `CONSUMABLE_NOT_FOUND` — the named consumable isn't in the player's inventory at all, OR the named id IS in inventory but resolves to a NON-consumable item (e.g. `"iron_sword"`, a component) — both cases collapse to the same error code.
+  - `UNIT_NOT_FOUND` — `targetUnitId` doesn't resolve to any bench/board unit.
+  - `NO_TIER_2_ITEMS_EQUIPPED` — `radiant_upgrade` targeting a unit with ZERO equipped items, or a unit holding ONLY components (no completed/tier-2 item present at all) — both trigger this same error before even examining `targetItemId`.
+  - `NOT_TIER_2_ITEM` — the unit DOES hold some qualifying tier-2 item elsewhere, but the SPECIFIC `targetItemId` named in the command is itself a component (not eligible) — confirms the cheaper "does the unit have ANY tier-2 item" gate is checked separately from "is THIS SPECIFIC target a valid tier-2 item."
+  - `NOT_TIER_2_ITEM` — targeting an ALREADY-RADIANT item (`"radiant_" + FIRST_COMPLETED"`) even when the unit also holds an eligible tier-2 base item elsewhere — radiant items can never be re-upgraded.
+  - `NOT_TIER_2_ITEM` — targeting an ARTIFACT or a MYTHICAL item even when the unit also holds a true tier-2 item elsewhere — confirms artifacts/mythicals are explicitly OUTSIDE the radiant-upgrade-eligible set (only base completed/"tier-2" items qualify, not the phase-3 artifact/mythical tiers).
+  - `ITEM_NOT_EQUIPPED` — `targetItemId` names a real, otherwise-valid tier-2 item id, but the unit doesn't actually hold THAT SPECIFIC item (it holds a DIFFERENT tier-2 item instead).
+  - `NO_ALTERNATIVE_ITEM` — `reforge` when a STUBBED data set (constructed by filtering `gameData.items` down to make the target's tier a singleton) leaves no other same-tier item to reforge into; tested separately for a regular completed item AND for a mythical (confirming the "no alternative" check applies uniformly across tiers, including the rarest tier).
+- **Phase-3 artifacts/mythicals integration** (separate `describe` block): establishes via dynamic lookup that `gameData.items` contains `ARTIFACT_A`/`ARTIFACT_B` (two distinct `kind:"artifact"` items) and `MYTHICAL` (one `kind:"mythical"` item). Confirms:
+  - `reforger` on an artifact → a DIFFERENT artifact, same tier (`economy.itemTierArtifact`), and the result is itself confirmed `itemKind === "artifact"` (cross-tier leakage would fail this).
+  - `reforger` on a mythical → a DIFFERENT mythical, same tier (`economy.itemTierMythical`), same kind-confirmation pattern.
+  - Equipping a 4th item (an artifact, `ARTIFACT_B`, which has no recipe so can't auto-combine) onto an already-3-item-full unit → `ITEM_SLOTS_FULL`, with both the inventory and the unit's items left unchanged (the rejected EQUIP is fully inert).
+
+**Invariants & constraints**
+- This file is the canonical source for the EXACT consumable-id-to-effect mapping: `item_remover` → `remove_item`, `reforger` → `reforge`, `radiant_enhancer` → `radiant_upgrade` (these ids aren't otherwise stated verbatim in CLAUDE.md, which only refers to the effects generically).
+- Confirms `items.json` (phase 3) defines distinct `kind: "artifact"` and `kind: "mythical"` item categories, each with their own `economy.json` tier constant (`itemTierArtifact`, `itemTierMythical`), DISTINCT from `itemTierComponent`/`itemTierCompleted`/`itemTierRadiant` — five total item tiers in the full system, not just the three (component/completed/radiant) implied by the headline CLAUDE.md item description.
+- The radiant stat formula (`round(base * radiantStatMultiplier / 1000)`) is now pinned by this test — any future change to `getOrCreateRadiantItem`'s rounding/scaling logic in the data loader must keep this exact formula or this test (and the doc here) goes stale.
+- `radiant_upgrade`'s eligibility rule is layered: (1) unit must hold AT LEAST ONE base completed item somewhere (`NO_TIER_2_ITEMS_EQUIPPED` otherwise), THEN (2) the specific named `targetItemId` must itself be present on the unit (`ITEM_NOT_EQUIPPED`) AND be a base completed item, not artifact/mythical/radiant/component (`NOT_TIER_2_ITEM`) — both checks must pass independently.
+
+**Depends on** — `vitest`; `@autobattler/data` (`gameData`, `itemKind`, `itemTier`); `../src/match.js` (`createMatch`); `../src/commands.js` (`applyCommand`, `Command` type); `@autobattler/sim/src/prng.js` (`mulberry32` — seeds vary deliberately per test: 1, 3, 7, 42, chosen so the reforge picks land on genuinely different items for assertion purposes, not arbitrary); `@autobattler/sim/src/types.js` (`UnitInstance`).
+
+**Used by** — Not imported elsewhere; runs under `npm test`.
+
+**Notes** — The `NO_ALTERNATIVE_ITEM` tests construct a "stub" `GameData` by spreading `gameData` and overriding `.items` with a filtered array (removing all other same-tier candidates) — this is a clean pattern for isolating a single edge case without needing a separate fixture file, and any future test needing to simulate scarcity in `items.json` can reuse this exact technique. The seed choice for the mythical-reforge test (`mulberry32(3)`) versus the artifact-reforge test (`mulberry32(1)`) is a reminder that `reforge`'s candidate-pick (`prng() % candidates.length`) is sensitive to both the seed AND the live candidate-list size/order, so test seeds here were likely chosen empirically to land on assertable distinct outcomes rather than for any semantic reason.
