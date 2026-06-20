@@ -450,10 +450,10 @@
     },
     {
       "path": "packages/client/tests/benchLayout.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/benchLayout.test.ts.md",
+      "hash": "d3edd91024ac63cf78eefd655652c15203f33434e20443c56d98dbfc1c5ed9cd",
+      "updated": "2026-06-20T02:58:00+00:00"
     },
     {
       "path": "packages/client/tests/boardProjection.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 64,
+    "done": 65,
     "total": 170
   }
 }
