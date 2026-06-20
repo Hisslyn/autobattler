@@ -1171,10 +1171,10 @@
     },
     {
       "path": "packages/sim/tests/purity.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/sim/tests/purity.test.ts.md",
+      "hash": "79428d73e376cd344abec6ed867e44f3ee476c93bd680970b9305b9eb5f5860e",
+      "updated": "2026-06-20T10:45:00+00:00"
     },
     {
       "path": "tsconfig.json",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 167,
+    "done": 168,
     "total": 170
   }
 }
