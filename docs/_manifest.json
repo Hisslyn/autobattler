@@ -422,10 +422,10 @@
     },
     {
       "path": "packages/client/src/ui/styles.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/ui/styles.ts.md",
+      "hash": "f601d7d73d63a41789d40a8f382df9f6b5840fbac00856b919f9c5754c6cbeea",
+      "updated": "2026-06-20T02:46:00+00:00"
     },
     {
       "path": "packages/client/src/unitToken.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 60,
+    "done": 61,
     "total": 170
   }
 }
