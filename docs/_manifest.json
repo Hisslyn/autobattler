@@ -1185,14 +1185,14 @@
     },
     {
       "path": "vitest.config.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/vitest.config.ts.md",
+      "hash": "e2c8e9b96df4ef7b5a3c2f59a2c766ef1cd9721b5b00a4c88c07149272e1dbd6",
+      "updated": "2026-06-20T10:55:00+00:00"
     }
   ],
   "totals": {
-    "done": 169,
+    "done": 170,
     "total": 170
   }
 }

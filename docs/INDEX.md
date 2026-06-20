@@ -171,3 +171,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/sim/tests/prng.test.ts -> docs/packages/sim/tests/prng.test.ts.md — mulberry32 known-answer snapshot, same-seed/diverging-seed tests
 - packages/sim/tests/purity.test.ts -> docs/packages/sim/tests/purity.test.ts.md — static text scan of src/ forbidding Math.random/Date.now/parseFloat
 - tsconfig.json -> docs/tsconfig.json.md — single shared strict TypeScript config for the whole monorepo (no per-package overrides)
+- vitest.config.ts -> docs/vitest.config.ts.md — single shared Vitest config: discovers packages/*/tests/**/*.test.ts only
