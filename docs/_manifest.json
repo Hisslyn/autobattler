@@ -9,10 +9,10 @@
     },
     {
       "path": "CLAUDE.md",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/CLAUDE.md.md",
+      "hash": "715e47e12a1c4f02b91a1ec668e68c9d243334ae7b40fc41a85dd3260e311d8e",
+      "updated": "2026-06-20T01:14:57.932951+00:00"
     },
     {
       "path": "autobattler.md",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 1,
+    "done": 2,
     "total": 170
   }
 }
