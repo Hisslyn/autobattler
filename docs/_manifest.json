@@ -702,10 +702,10 @@
     },
     {
       "path": "packages/data/src/loader.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/data/src/loader.ts.md",
+      "hash": "7b923b0c11c06529b2db2fa16c93d4bb6368326bf5328168cb232cebe237e85b",
+      "updated": "2026-06-20T05:35:00+00:00"
     },
     {
       "path": "packages/data/src/loot.json",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 100,
+    "done": 101,
     "total": 170
   }
 }

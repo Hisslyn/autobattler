@@ -102,3 +102,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/data/src/economy.json -> docs/packages/data/src/economy.json.md — pool/shop-odds/income/streak/damage/overtime/crit/MMR/item-tier tuning constants (EconomyData); flags a shopSlots=6 vs CLAUDE.md "5 cards" discrepancy
 - packages/data/src/gameplay.json -> docs/packages/data/src/gameplay.json.md — match-shape + combat-pacing constants (GameplayData): player/board/bench sizing, star multipliers, mana rates, ticksPerSec, overtimeStartTick, AI bot tuning
 - packages/data/src/items.json -> docs/packages/data/src/items.json.md — full 51-item roster: 9 components, 36 completed (3 with passives), 3 consumables, 6 artifacts (2 named pairs), 3 mythicals
+- packages/data/src/loader.ts -> docs/packages/data/src/loader.ts.md — typed gameData loader + pure helpers (recipeResult, mmrToRank, itemKind, itemTier, getOrCreateRadiantItem); eagerly materializes radiant items at module load
