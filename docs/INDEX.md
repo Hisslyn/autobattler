@@ -143,3 +143,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/server/src/db/index.ts -> docs/packages/server/src/db/index.ts.md — db barrel module; createRepository() picks Postgres (DATABASE_URL set) vs in-memory
 - packages/server/src/db/memory.ts -> docs/packages/server/src/db/memory.ts.md — MemoryRepository: in-process Repository impl for dev/tests, no persistence across restarts
 - packages/server/src/db/postgres.ts -> docs/packages/server/src/db/postgres.ts.md — PostgresRepository: durable Repository impl, transactional createGuest/recordMatch, idempotent ensureSchema
+- packages/server/src/db/repo.ts -> docs/packages/server/src/db/repo.ts.md — Repository interface contract + Profile/MatchPlayerRecord/MatchHistoryEntry shapes

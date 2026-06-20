@@ -989,10 +989,10 @@
     },
     {
       "path": "packages/server/src/db/repo.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/src/db/repo.ts.md",
+      "hash": "4a4a5703102d89ce28e8de8127210842a7be02a41e0b5cd17f1cb29d096df9fb",
+      "updated": "2026-06-20T08:33:00+00:00"
     },
     {
       "path": "packages/server/src/db/schema.sql",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 141,
+    "done": 142,
     "total": 170
   }
 }
