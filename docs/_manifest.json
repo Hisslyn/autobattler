@@ -569,10 +569,10 @@
     },
     {
       "path": "packages/client/tests/lootReveal.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/lootReveal.test.ts.md",
+      "hash": "7147808dc99cfd05b55a570da57694cd3d1c678047ae57bcd35bbdca76653767",
+      "updated": "2026-06-20T04:14:00+00:00"
     },
     {
       "path": "packages/client/tests/metaTheme.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 81,
+    "done": 82,
     "total": 170
   }
 }
