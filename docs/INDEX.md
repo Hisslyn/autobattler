@@ -161,3 +161,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/sim/package.json -> docs/packages/sim/package.json.md — @autobattler/sim package manifest (pure, depends only on @autobattler/data)
 - packages/sim/src/engine.ts -> docs/packages/sim/src/engine.ts.md — simulateCombat: the pure deterministic combat engine (stats, traits, items, per-tick loop, overtime, event log)
 - packages/sim/src/fixed.ts -> docs/packages/sim/src/fixed.ts.md — integer fixed-point math helpers (SCALE=1000, fmul/fdiv/toFixed/fromFixed)
+- packages/sim/src/hex.ts -> docs/packages/sim/src/hex.ts.md — axial hex grid (7x8): distance, neighbors, bounds, A* pathfinder
