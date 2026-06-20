@@ -772,10 +772,10 @@
     },
     {
       "path": "packages/protocol/src/index.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/protocol/src/index.ts.md",
+      "hash": "3faf8039fb7182bb8ff15650671156427959881b6772497f81ee09c60d052244",
+      "updated": "2026-06-20T06:16:00+00:00"
     },
     {
       "path": "packages/protocol/src/messages.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 110,
+    "done": 111,
     "total": 170
   }
 }
