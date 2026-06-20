@@ -222,6 +222,8 @@ export class MatchScene {
   private traitLayer!: PIXI.Container;
   /** Landscape left-column rail tab (view-only UI state; never persisted). */
   private activeRailTab: "traits" | "items" = "traits";
+  /** Landscape trait-rail page when the list overflows (view-only UI state). */
+  private traitRailPage = 0;
   private scoutLayer!: PIXI.Container;
   /** Loot-orb reveal overlay (PvE resolution). */
   private lootLayer!: PIXI.Container;
@@ -2597,6 +2599,7 @@ export class MatchScene {
       g.on("pointertap", () => {
         if (this.activeRailTab === tab) return;
         this.activeRailTab = tab;
+        this.traitRailPage = 0;
         this.renderRailTabs(me);
       });
       this.traitLayer.addChild(g);
@@ -2616,8 +2619,11 @@ export class MatchScene {
    * current activation tier) on the left, the trait name + `count/denominator`
    * to its right. Active traits read bright/lit; sub-first-breakpoint traits are
    * greyed. Sort comes from `traitStripModel` (active-first → tier reached →
-   * count). When the list overflows the rail the remainder collapses into a
-   * trailing "+N" badge row. Assumes traitLayer is already cleared.
+   * count). When the list overflows the rail it pages: each page that has more
+   * rows after it reserves its last slot for a clickable "+N" pager (advance),
+   * and every page past the first reserves a slot for a "‹ Back" control
+   * (return to page 0). The current page lives in `traitRailPage` (view-only).
+   * Assumes traitLayer is already cleared.
    */
   private drawTraitRailContent(me: PlayerState): void {
     const chips = traitStripModel(me.board, gameData.units, gameData.traits);
@@ -2626,19 +2632,60 @@ export class MatchScene {
     const rowH = 40;
     const gapY = 6;
     const stride = rowH + gapY;
-    // How many full rows fit; reserve the last slot for a "+N" badge when the
-    // list overflows so the overflow row never clips.
+    // How many slots (rows + pager affordances) fit in the rail.
     const fit = Math.max(1, Math.floor((rail.h + gapY) / stride));
-    const overflow = chips.length > fit;
-    const visibleCount = overflow ? Math.max(0, fit - 1) : Math.min(chips.length, fit);
+
+    // No overflow: render every chip, no pager affordances.
+    if (chips.length <= fit) {
+      this.traitRailPage = 0;
+      let rowY = rail.y;
+      for (const chip of chips) {
+        this.drawTraitRow(this.traitLayer, chip, rail.x, rowY, rail.w, rowH);
+        rowY += stride;
+      }
+      return;
+    }
+
+    // Paginate. Page 0 reserves its last slot for a "+N" pager. Subsequent
+    // pages reserve their first slot for a "‹ Back" control and (when more rows
+    // remain after the page) their last slot for the "+N" pager.
+    const firstPageRows = fit - 1; // page 0: rows + trailing pager
+    const innerPageRows = Math.max(1, fit - 2); // pages>0 worst case: back + rows + pager
+    const lastPageRows = fit - 1; // last page>0: back + rows (no trailing pager)
+
+    // Build the page boundaries deterministically so clamp + render agree.
+    const starts: number[] = [];
+    let consumed = 0;
+    starts.push(0);
+    consumed = firstPageRows;
+    while (consumed < chips.length) {
+      starts.push(consumed);
+      const remaining = chips.length - consumed;
+      consumed += remaining <= lastPageRows ? remaining : innerPageRows;
+    }
+    const lastPage = starts.length - 1;
+    // Clamp a stale page (e.g. the board shrank) back into range.
+    this.traitRailPage = Math.max(0, Math.min(this.traitRailPage, lastPage));
+    const page = this.traitRailPage;
+
+    const start = starts[page]!;
+    const isFirst = page === 0;
+    const isLast = page === lastPage;
+    // Rows this page can show before its reserved affordance slots.
+    const rowCap = (isFirst ? fit : fit - 1) - (isLast ? 0 : 1);
+    const end = Math.min(chips.length, start + Math.max(0, rowCap));
 
     let rowY = rail.y;
-    for (let i = 0; i < visibleCount; i++) {
+    if (!isFirst) {
+      this.drawTraitPagerRow(this.traitLayer, "back", 0, rail.x, rowY, rail.w, rowH);
+      rowY += stride;
+    }
+    for (let i = start; i < end; i++) {
       this.drawTraitRow(this.traitLayer, chips[i]!, rail.x, rowY, rail.w, rowH);
       rowY += stride;
     }
-    if (overflow) {
-      this.drawTraitOverflowRow(this.traitLayer, chips.length - visibleCount, rail.x, rowY, rail.w, rowH);
+    if (!isLast) {
+      this.drawTraitPagerRow(this.traitLayer, "next", chips.length - end, rail.x, rowY, rail.w, rowH);
     }
   }
 
@@ -2698,9 +2745,14 @@ export class MatchScene {
     this.text(layer, countStr, tx, cyMid + 8, 9, sub, [0, 0.5]);
   }
 
-  /** Trailing "+N" overflow badge row for the landscape trait rail. */
-  private drawTraitOverflowRow(
-    layer: PIXI.Container, n: number, x: number, y: number, _w: number, h: number
+  /**
+   * Clickable pager badge row for the landscape trait rail. `"next"` shows a
+   * "+N" hexagon that advances `traitRailPage`; `"back"` shows a "‹" return
+   * control (with a "Back" label) that jumps to page 0. Both re-render the rail
+   * immediately via the same path the tab bar uses, keeping the tab bar intact.
+   */
+  private drawTraitPagerRow(
+    layer: PIXI.Container, dir: "next" | "back", n: number, x: number, y: number, w: number, h: number
   ): void {
     const hexR = Math.min(h / 2, 18);
     const hcx = x + hexR + 2;
@@ -2710,7 +2762,24 @@ export class MatchScene {
     hex.poly(pts).fill({ color: C.surfaceFloat });
     hex.poly(pts).stroke({ width: 2, color: C.chipBorder, alpha: 0.8 });
     layer.addChild(hex);
-    this.text(layer, `+${n}`, hcx, hcy, 11, C.textMuted, [0.5, 0.5], "700");
+    this.text(layer, dir === "next" ? `+${n}` : "‹", hcx, hcy, dir === "next" ? 11 : 16, C.textMuted, [0.5, 0.5], "700");
+    if (dir === "back") {
+      // Label so the return control reads unambiguously.
+      this.text(layer, "Back", hcx + hexR + 6, hcy, 10, C.textMuted, [0, 0.5], "700");
+    }
+
+    // Full-row tap target → page change + immediate re-render.
+    const hit = new PIXI.Graphics();
+    hit.rect(x, y, w, h).fill({ color: C.surfaceFloat, alpha: 0.001 });
+    hit.eventMode = "static";
+    hit.cursor = "pointer";
+    hit.hitArea = new PIXI.Rectangle(x, y, w, h);
+    hit.on("pointertap", () => {
+      this.traitRailPage = dir === "next" ? this.traitRailPage + 1 : 0;
+      const me = this.driver.getState().players[this.driver.seatIndex];
+      if (me) this.renderRailTabs(me);
+    });
+    layer.addChild(hit);
   }
 
   /** Six vertices of a pointy-top (vertex-up) hexagon, for `poly()`. */
@@ -3388,6 +3457,7 @@ export class MatchScene {
     this.combatLayer.removeChildren();
     this.closeScout();
     this.closeInspect();
+    this.traitRailPage = 0;
     const state = this.driver.getState();
     void this.opts.audio.setMusicState(phaseToMusicState("PLANNING"));
     // Round-start cue + income coins (income lands entering planning).
