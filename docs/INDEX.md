@@ -121,3 +121,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/rules/src/economy.ts -> docs/packages/rules/src/economy.ts.md — calcIncome (base+interest+streak) and levelForXp pure formulas
 - packages/rules/src/loot.ts -> docs/packages/rules/src/loot.ts.md — generateLoot (seeded PvE orb generation from loot.json) + applyLootOrb (gold/inventory grant)
 - packages/rules/src/match.ts -> docs/packages/rules/src/match.ts.md — createMatch/advancePhase/isMatchOver/getWinner/runMatchToEnd: top-level match lifecycle + PRNG-checkpoint threading
+- packages/rules/src/pool.ts -> docs/packages/rules/src/pool.ts.md — buildInitialPool/drawFromPool/returnToPool/returnUnitsToPool: the pool-conservation primitives

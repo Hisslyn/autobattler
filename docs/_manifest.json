@@ -835,10 +835,10 @@
     },
     {
       "path": "packages/rules/src/pool.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/src/pool.ts.md",
+      "hash": "939e9acd4bb2c0a772835ad434377b126f6552e1e52ee4cab1affb643424435e",
+      "updated": "2026-06-20T06:58:00+00:00"
     },
     {
       "path": "packages/rules/src/rounds.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 119,
+    "done": 120,
     "total": 170
   }
 }
