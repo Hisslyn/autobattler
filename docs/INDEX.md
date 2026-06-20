@@ -139,3 +139,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/rules/tests/serializeMatchState.ts -> docs/packages/rules/tests/serializeMatchState.ts.md — shared Map/Set-aware JSON snapshot helper for full-MatchState determinism comparisons
 - packages/rules/tests/shop.test.ts -> docs/packages/rules/tests/shop.test.ts.md — level-gated shop tier floor/ceiling sanity checks + slot count
 - packages/server/package.json -> docs/packages/server/package.json.md — @autobattler/server manifest (deps: data/protocol/rules/sim + pg + ws)
+- packages/server/src/auth.ts -> docs/packages/server/src/auth.ts.md — HMAC-signed opaque guest auth tokens (signToken/verifyToken)

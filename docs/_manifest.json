@@ -961,10 +961,10 @@
     },
     {
       "path": "packages/server/src/auth.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/src/auth.ts.md",
+      "hash": "80d7032fd15d8b348d3559f90c753a2b84dc577fee5c50698bc470e500b9c608",
+      "updated": "2026-06-20T08:16:00+00:00"
     },
     {
       "path": "packages/server/src/db/index.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 137,
+    "done": 138,
     "total": 170
   }
 }
