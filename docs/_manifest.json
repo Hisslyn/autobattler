@@ -464,10 +464,10 @@
     },
     {
       "path": "packages/client/tests/coachmarks.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/tests/coachmarks.test.ts.md",
+      "hash": "9c191823c405d76fe30a0f849cc619b406dd1bbdfd6aebf4fbca4bb61a68ca02",
+      "updated": "2026-06-20T03:05:00+00:00"
     },
     {
       "path": "packages/client/tests/combat.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 66,
+    "done": 67,
     "total": 170
   }
 }
