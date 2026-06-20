@@ -919,10 +919,10 @@
     },
     {
       "path": "packages/rules/tests/pool.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/tests/pool.test.ts.md",
+      "hash": "84f6241f55a741878225ba31a8febc320d82adadede989b94d825277f556644f",
+      "updated": "2026-06-20T07:55:00+00:00"
     },
     {
       "path": "packages/rules/tests/pve.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 131,
+    "done": 132,
     "total": 170
   }
 }
