@@ -317,10 +317,10 @@
     },
     {
       "path": "packages/client/src/net.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/net.ts.md",
+      "hash": "26a9bcf4eea17791cf2ab83e8af1a1a4bf79085c6d2dc563936ebd2d326171e3",
+      "updated": "2026-06-20T02:06:00+00:00"
     },
     {
       "path": "packages/client/src/netDriver.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 45,
+    "done": 46,
     "total": 170
   }
 }
