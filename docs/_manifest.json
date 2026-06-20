@@ -135,10 +135,10 @@
     },
     {
       "path": "packages/client/src/audio/director.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/client/src/audio/director.ts.md",
+      "hash": "6a6cc1f0b2a70bb98198a0efa212adbfac5303360f01b980902956e268490e89",
+      "updated": "2026-06-20T01:27:44.620636+00:00"
     },
     {
       "path": "packages/client/src/audio/manager.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 19,
+    "done": 20,
     "total": 170
   }
 }
