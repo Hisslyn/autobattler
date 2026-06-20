@@ -45,3 +45,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/itemIconDraw.ts -> docs/packages/client/src/itemIconDraw.ts.md — Pixi item-icon drawing (emblems, gilded completed-item frame + shine, consumable glyph fallback) + the drop-in art runtime cache
 - packages/client/src/itemModel.ts -> docs/packages/client/src/itemModel.ts.md — pure item/inventory/equipped-slot display models (tier classification, stat lines, passive/consumable descriptions)
 - packages/client/src/layout.ts -> docs/packages/client/src/layout.ts.md — pure orientation/scale/region-rect resolver for the match scene (portrait height-driven budget + landscape 4-cluster architecture); diverges materially from CLAUDE.md's landscape description
+- packages/client/src/lootReveal.ts -> docs/packages/client/src/lootReveal.ts.md — pure loot-orb reveal sequencing model: orders seeded LootOrb[] by rarity into deterministic RevealSteps for the PvE reveal animation
