@@ -1,0 +1,28 @@
+# packages/server/src/mmr.ts
+
+**Path & purpose** — `packages/server/src/mmr.ts`. Pure MMR (Elo-style rating) delta calculation for an 8-player free-for-all lobby — converts a list of `{mmr, placement}` entrants into a parallel list of integer rating deltas.
+
+**Responsibility** — Owns the math for "how much should each player's MMR change after this match," generalizing classical pairwise Elo to an N-player FFA by treating each player's "opponent" as the AVERAGE MMR of everyone else in the lobby (including bots, per CLAUDE.md: "bots count at mmrStart for the lobby average but are never persisted").
+
+**Exports**
+- `interface MmrEntrant { mmr: number; placement: number }` — one player's input to the calculation: their MMR going INTO the match and their final `placement` (1-indexed, `1 = winner ... n = last`, explicit in the doc comment).
+- `computeMmrDeltas(entrants: MmrEntrant[], k = gameData.economy.mmrK, eloDivisor = gameData.economy.mmrEloDivisor): number[]` — returns one signed integer delta per entrant, in the SAME ORDER as the input array (index-aligned, not keyed by id — callers must zip the result back against their own entrant list/seat order). `k` and `eloDivisor` default to the data-driven `economy.json` constants (`mmrK`, `mmrEloDivisor`) but are accepted as OPTIONAL override parameters (useful for testing different K-factors without needing to mutate `gameData`).
+
+**Key behavior**
+- For each entrant `e`: computes `avgOthers` = the average MMR of every OTHER entrant in the lobby (`(total - e.mmr) / (n - 1)`, where `total` is the sum of ALL entrants' MMR including `e` itself, so `total - e.mmr` excludes them).
+- Computes the standard Elo `expected` win probability: `1 / (1 + 10^((avgOthers - e.mmr) / eloDivisor))` — the classic logistic Elo expectation formula, just substituting "the average of the rest of the lobby" for "the single opponent's rating."
+- Computes `actual` score: `(n - placement) / (n - 1)` — this NORMALIZES placement into a `[0, 1]` range where the WINNER (`placement=1`) scores `(n-1)/(n-1) = 1.0` (a full win) and LAST PLACE (`placement=n`) scores `(n-n)/(n-1) = 0.0` (a full loss) — every placement in between scores linearly interpolated (e.g. in an 8-player lobby, placement 4 scores `(8-4)/7 = 4/7 ≈ 0.571`).
+- `delta = round(k * (actual - expected))` — the standard Elo update rule, scaled by `k` (the "K-factor," controlling how aggressively ratings move per match) and rounded to the nearest integer (since MMR is stored/compared as a plain `INTEGER` column per `schema.sql`, never fractional).
+
+**Invariants & constraints**
+- **Pure function** — no I/O, no randomness, fully deterministic given its inputs; suitable for unit testing with hand-picked entrant lists (per CLAUDE.md, exercised by `packages/server/tests/mmr.test.ts`).
+- Requires `n = entrants.length >= 2` — both `(n-1)` divisions (`avgOthers`, `actual`) would divide by zero for `n=1` (a single-entrant lobby is not a meaningful matchmaking scenario and isn't guarded against here — the caller, presumably always passing exactly 8 entrants per CLAUDE.md's "8-player FFA," is responsible for never calling this with fewer than 2).
+- The SUM of all deltas across a lobby is NOT guaranteed to be zero (unlike classical pairwise Elo, where one player's gain exactly equals their opponent's loss) — because each player's "opponent" (the lobby average excluding themselves) is a DIFFERENT quantity for each player, the zero-sum property of 1v1 Elo does not automatically hold for this N-player generalization. This is worth flagging: a reader expecting MMR to be perfectly conserved across all profiles after every match should NOT assume that — net MMR can drift up or down slightly across a population over many matches, an accepted property of this particular generalization rather than a bug.
+- `k`, `eloDivisor` are read from `gameData.economy.mmrK`/`mmrEloDivisor` by DEFAULT — consistent with the project's "all tuning numbers live in packages/data" invariant — though the function signature technically allows callers to override them (used by tests, not by any production code path as far as this file shows).
+- Bots ARE included as entrants in the `entrants` array passed to this function (per CLAUDE.md: "bots count at mmrStart for the lobby average") — meaning a bot's contribution to `total`/`avgOthers` affects every REAL player's calculated delta, even though the bot's OWN computed delta (also returned by this function, since it doesn't distinguish humans from bots at all — this module has no concept of "is this a bot") is simply discarded by the caller (`recorder.ts`) rather than ever being persisted (since bots never get a `Profile`/account row to write it to).
+
+**Depends on** — `@autobattler/data` (`gameData.economy.mmrK`, `gameData.economy.mmrEloDivisor`).
+
+**Used by** — `packages/server/src/recorder.ts` (presumably calls `computeMmrDeltas` with all 8 seats' pre-match MMR + final placement to compute each seat's `mmrAfter`, per CLAUDE.md's `recordMatchResult(repo, matchId, seats)` description and the MMR-constants note: "mmrStart 1000, mmrK 40, mmrEloDivisor 400"); `packages/server/tests/mmr.test.ts` (direct unit tests of the formula).
+
+**Notes** — This module has ZERO knowledge of accounts, sessions, bots-vs-humans, or persistence — it is a pure number-crunching utility consuming/producing plain `{mmr, placement}`/`number[]` shapes, deliberately decoupled from the server's session/account machinery so it's trivially unit-testable in isolation (consistent with keeping business logic separated from I/O-touching orchestration, mirroring the `sim`/`rules` purity philosophy even though `packages/server` as a whole is allowed I/O).

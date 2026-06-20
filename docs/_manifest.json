@@ -1024,10 +1024,10 @@
     },
     {
       "path": "packages/server/src/mmr.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/src/mmr.ts.md",
+      "hash": "22c44bb94c7bd166985c93cf77a558f5452bb56cf19311e9d5084ad0c22289e5",
+      "updated": "2026-06-20T08:52:00+00:00"
     },
     {
       "path": "packages/server/src/recorder.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 146,
+    "done": 147,
     "total": 170
   }
 }

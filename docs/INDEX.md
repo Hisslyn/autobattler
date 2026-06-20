@@ -148,3 +148,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/server/src/http.ts -> docs/packages/server/src/http.ts.md — minimal HTTP API (auth/guest, leaderboard, profile, history) sharing the WS port
 - packages/server/src/index.ts -> docs/packages/server/src/index.ts.md — server entry point: HTTP+WS bootstrap, connection lifecycle, C2S message dispatch
 - packages/server/src/matchmaker.ts -> docs/packages/server/src/matchmaker.ts.md — FIFO matchmaking queue: 8-player or 10s-timeout flush into a new room
+- packages/server/src/mmr.ts -> docs/packages/server/src/mmr.ts.md — Elo-style MMR delta calc for 8-player FFA (expected vs lobby average, actual from placement)
