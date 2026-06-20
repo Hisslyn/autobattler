@@ -79,10 +79,10 @@
     },
     {
       "path": "packages/balance/src/sweep.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/balance/src/sweep.ts.md",
+      "hash": "c13e0efbdc335b4a301d40d443fc83b6ae2f8afcd298c4b651510cad3bb8adea",
+      "updated": "2026-06-20T01:21:45.176666+00:00"
     },
     {
       "path": "packages/balance/tests/balance.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 11,
+    "done": 12,
     "total": 170
   }
 }
