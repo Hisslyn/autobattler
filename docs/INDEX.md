@@ -118,3 +118,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/rules/package.json -> docs/packages/rules/package.json.md — @autobattler/rules manifest: ESM, depends on data+sim, per-file subpath exports (commands/state/economy/rounds/loot/pool/shop/ai)
 - packages/rules/src/ai.ts -> docs/packages/rules/src/ai.ts.md — applyAiCommands: seeded bot planning policy (XP buy threshold, trait-overlap shop scoring, board autofill)
 - packages/rules/src/commands.ts -> docs/packages/rules/src/commands.ts.md — applyCommand: the legality+mutation gate for BUY/SELL/REROLL/BUY_XP/MOVE/EQUIP/UNEQUIP/COMBINE_ITEMS/USE_CONSUMABLE + auto-merge cascade
+- packages/rules/src/economy.ts -> docs/packages/rules/src/economy.ts.md — calcIncome (base+interest+streak) and levelForXp pure formulas

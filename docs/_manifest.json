@@ -814,10 +814,10 @@
     },
     {
       "path": "packages/rules/src/economy.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/src/economy.ts.md",
+      "hash": "d287a1e62c9d81e6105b998e8b2f5f0f92fa7519e400fa50d7dc1d499f5c8c38",
+      "updated": "2026-06-20T06:46:00+00:00"
     },
     {
       "path": "packages/rules/src/loot.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 116,
+    "done": 117,
     "total": 170
   }
 }
