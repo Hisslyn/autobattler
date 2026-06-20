@@ -50,3 +50,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/net.ts -> docs/packages/client/src/net.ts.md — NetClient: WS transport wrapper, envelope encode/decode, reconnect backoff, PING/PONG RTT, seat-token RECONNECT-on-reopen
 - packages/client/src/netDriver.ts -> docs/packages/client/src/netDriver.ts.md — NetDriver (IDriver for Online mode): reconstructs MatchState from server snapshots/deltas, runs local sim at COMBAT_START reconciled against server-canon COMBAT_RESULT
 - packages/client/src/onboarding.ts -> docs/packages/client/src/onboarding.ts.md — first-match coachmark localStorage gate (shouldShowCoachmarks/markCoachmarksSeen) + the static 5-step tour data (COACHMARK_STEPS)
+- packages/client/src/scenes/match.ts -> docs/packages/client/src/scenes/match.ts.md — MatchScene: the entire in-match Pixi UI (board/bench/shop/HUD/combat playback/resolution/match-over), rendered strictly from MatchState + CombatEvent logs
