@@ -137,3 +137,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/rules/tests/pve.test.ts -> docs/packages/rules/tests/pve.test.ts.md — stage/round PvE formula exhaustive pin + seeded loot determinism + mob-board/pool isolation + previewPveStage no-side-effect proof
 - packages/rules/tests/roundStats.test.ts -> docs/packages/rules/tests/roundStats.test.ts.md — lastRoundResult classification (won/lost/bye/pve) + per-match accumulator (roundWins/roundLosses/totalDamage) correctness
 - packages/rules/tests/serializeMatchState.ts -> docs/packages/rules/tests/serializeMatchState.ts.md — shared Map/Set-aware JSON snapshot helper for full-MatchState determinism comparisons
+- packages/rules/tests/shop.test.ts -> docs/packages/rules/tests/shop.test.ts.md — level-gated shop tier floor/ceiling sanity checks + slot count
