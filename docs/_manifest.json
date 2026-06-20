@@ -1052,10 +1052,10 @@
     },
     {
       "path": "packages/server/tests/integration.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/server/tests/integration.test.ts.md",
+      "hash": "e1cc908e2cbbe78e2fa5f3f7990960e4e4823da809b6f14121a985df2c5259b4",
+      "updated": "2026-06-20T09:18:00+00:00"
     },
     {
       "path": "packages/server/tests/mmr.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 150,
+    "done": 151,
     "total": 170
   }
 }
