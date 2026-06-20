@@ -130,3 +130,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/rules/tests/consumables.test.ts -> docs/packages/rules/tests/consumables.test.ts.md — USE_CONSUMABLE (item_remover/reforger/radiant_enhancer) full coverage + artifact/mythical tier interactions
 - packages/rules/tests/economy.test.ts -> docs/packages/rules/tests/economy.test.ts.md — known-answer pins for calcIncome (base/interest/streak) and levelForXp against live economy.json
 - packages/rules/tests/items.test.ts -> docs/packages/rules/tests/items.test.ts.md — PvE loot well-formedness + BUY-then-EQUIP integration check
+- packages/rules/tests/magicNumbers.test.ts -> docs/packages/rules/tests/magicNumbers.test.ts.md — static-analysis enforcement of "no hardcoded tuning numbers" across sim/src + rules/src
