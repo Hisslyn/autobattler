@@ -2610,18 +2610,117 @@ export class MatchScene {
     else this.renderItemBrowse(me);
   }
 
-  /** Vertical trait-chip stack in `traitRail`. Assumes traitLayer is already cleared. */
+  /**
+   * Landscape trait rail (tab 1): a vertical list of trait ROWS styled after the
+   * reference — a sizable pointy-top hexagon emblem (colored by the trait's
+   * current activation tier) on the left, the trait name + `count/denominator`
+   * to its right. Active traits read bright/lit; sub-first-breakpoint traits are
+   * greyed. Sort comes from `traitStripModel` (active-first → tier reached →
+   * count). When the list overflows the rail the remainder collapses into a
+   * trailing "+N" badge row. Assumes traitLayer is already cleared.
+   */
   private drawTraitRailContent(me: PlayerState): void {
     const chips = traitStripModel(me.board, gameData.units, gameData.traits);
     const rail = this.layout.regions.traitRail;
-    const chipH = 18;
-    const gapY = 4;
+
+    const rowH = 40;
+    const gapY = 6;
+    const stride = rowH + gapY;
+    // How many full rows fit; reserve the last slot for a "+N" badge when the
+    // list overflows so the overflow row never clips.
+    const fit = Math.max(1, Math.floor((rail.h + gapY) / stride));
+    const overflow = chips.length > fit;
+    const visibleCount = overflow ? Math.max(0, fit - 1) : Math.min(chips.length, fit);
+
     let rowY = rail.y;
-    for (const c of chips) {
-      if (rowY + chipH > rail.y + rail.h) break; // clip to the rail
-      this.drawTraitChip(this.traitLayer, c, rail.x, rowY);
-      rowY += chipH + gapY;
+    for (let i = 0; i < visibleCount; i++) {
+      this.drawTraitRow(this.traitLayer, chips[i]!, rail.x, rowY, rail.w, rowH);
+      rowY += stride;
     }
+    if (overflow) {
+      this.drawTraitOverflowRow(this.traitLayer, chips.length - visibleCount, rail.x, rowY, rail.w, rowH);
+    }
+  }
+
+  /**
+   * One landscape trait-rail row: pointy-top hexagon emblem (tier-colored) +
+   * glyph on the left, trait name over `count/denominator` on the right. The
+   * whole row is the tap target → opens the trait-detail panel.
+   */
+  private drawTraitRow(
+    layer: PIXI.Container, c: TraitChip, x: number, y: number, w: number, h: number
+  ): void {
+    const active = c.activeBreakpoint !== null;
+    // Tier color: active → step the existing tier ramp by the trait's reached
+    // tier mapped onto the trait's tier span so the TOP tier reads gold and
+    // lower active tiers step down; inactive → desaturated grey.
+    const tierIdx = active
+      ? Math.max(1, Math.min(5, 5 - (c.tierCount - c.activeTier)))
+      : 1;
+    const emblem = active ? tierColor(tierIdx) : C.borderSubtle;
+    const ink = active ? C.textPrimary : C.textDimmed;
+    const sub = active ? C.textMuted : C.textDimmed;
+
+    // Denominator: maxed → activeBreakpoint, active-not-maxed → nextBreakpoint,
+    // inactive → its first (next) breakpoint, falling back to the raw count.
+    const denom = c.nextBreakpoint ?? c.activeBreakpoint ?? c.count;
+    const countStr = `${c.count}/${denom}`;
+
+    // Tap target spanning the row.
+    const hit = new PIXI.Graphics();
+    hit.rect(x, y, w, h).fill({ color: C.surfaceFloat, alpha: 0.001 });
+    hit.eventMode = "static";
+    hit.cursor = "pointer";
+    hit.hitArea = new PIXI.Rectangle(x, y, w, h);
+    const tid = c.traitId;
+    const tcount = c.count;
+    hit.on("pointertap", () => this.openTraitDetail(tid, tcount));
+    layer.addChild(hit);
+
+    // Pointy-top hexagon emblem on the left.
+    const hexR = Math.min(h / 2, 18);
+    const hcx = x + hexR + 2;
+    const hcy = y + h / 2;
+    const pts = this.pointyHexPoints(hcx, hcy, hexR);
+    const hex = new PIXI.Graphics();
+    hex.poly(pts).fill({ color: emblem, alpha: active ? 1 : 0.55 });
+    hex.poly(pts).stroke({ width: 2, color: active ? emblem : C.chipBorder, alpha: active ? 1 : 0.7 });
+    hex.alpha = active ? 1 : 0.6;
+    layer.addChild(hex);
+    // Glyph centered inside the hexagon (dark ink over the lit emblem; muted
+    // over the grey inactive emblem).
+    this.glyph(layer, this.traitGlyph(c.traitId), hcx, hcy, hexR * 0.95, active ? C.panelBg : C.textDimmed);
+
+    // Name + count column to the right of the emblem.
+    const tx = hcx + hexR + 6;
+    const cyMid = y + h / 2;
+    this.text(layer, c.name, tx, cyMid - 7, 10, ink, [0, 0.5], active ? "700" : "400");
+    this.text(layer, countStr, tx, cyMid + 8, 9, sub, [0, 0.5]);
+  }
+
+  /** Trailing "+N" overflow badge row for the landscape trait rail. */
+  private drawTraitOverflowRow(
+    layer: PIXI.Container, n: number, x: number, y: number, _w: number, h: number
+  ): void {
+    const hexR = Math.min(h / 2, 18);
+    const hcx = x + hexR + 2;
+    const hcy = y + h / 2;
+    const pts = this.pointyHexPoints(hcx, hcy, hexR);
+    const hex = new PIXI.Graphics();
+    hex.poly(pts).fill({ color: C.surfaceFloat });
+    hex.poly(pts).stroke({ width: 2, color: C.chipBorder, alpha: 0.8 });
+    layer.addChild(hex);
+    this.text(layer, `+${n}`, hcx, hcy, 11, C.textMuted, [0.5, 0.5], "700");
+  }
+
+  /** Six vertices of a pointy-top (vertex-up) hexagon, for `poly()`. */
+  private pointyHexPoints(cx: number, cy: number, r: number): number[] {
+    const pts: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 3; // start at the top vertex
+      pts.push(cx + r * Math.cos(a), cy + r * Math.sin(a));
+    }
+    return pts;
   }
 
   /**

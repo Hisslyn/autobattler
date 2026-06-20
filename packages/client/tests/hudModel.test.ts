@@ -27,13 +27,19 @@ describe("traitStripModel", () => {
     expect(knight.activeBreakpoint).toBe(2);
     expect(knight.nextBreakpoint).toBe(4);
     expect(knight.color).toBe(traitColor("knight"));
+    // knight breakpoints are 2/4/6 → the first tier is satisfied (activeTier 1).
+    expect(knight.activeTier).toBe(1);
+    expect(knight.tierCount).toBe(3);
 
-    // A single unit of some trait stays inactive: count 1, next breakpoint 2.
+    // A single knight stays inactive: count 1, next breakpoint 2, activeTier 0
+    // (no breakpoint reached), tierCount 3 (knight breakpoints 2/4/6).
     const single = traitStripModel([unit(unitsWithTrait("knight")[0]!)], gameData.units, gameData.traits);
-    const inactive = single.find((c) => c.activeBreakpoint === null);
-    expect(inactive).toBeDefined();
-    expect(inactive!.count).toBe(1);
-    expect(inactive!.nextBreakpoint).toBe(2);
+    const inactiveKnight = single.find((c) => c.traitId === "knight")!;
+    expect(inactiveKnight.activeBreakpoint).toBeNull();
+    expect(inactiveKnight.count).toBe(1);
+    expect(inactiveKnight.nextBreakpoint).toBe(2);
+    expect(inactiveKnight.activeTier).toBe(0);
+    expect(inactiveKnight.tierCount).toBe(3);
 
     // active-first ordering
     const mixed = traitStripModel(
@@ -51,6 +57,52 @@ describe("traitStripModel", () => {
     const board = [unit(knights[0]!), unit(knights[0]!), unit(knights[1]!)];
     const knight = traitStripModel(board, gameData.units, gameData.traits).find((c) => c.traitId === "knight")!;
     expect(knight.count).toBe(2);
+  });
+
+  it("reports activeTier / tierCount and the maxed denominator", () => {
+    // summoner breakpoints are 2/4 — 4 distinct summoners maxes it (top tier).
+    const summoners = unitsWithTrait("summoner").slice(0, 4);
+    expect(summoners.length).toBe(4);
+    const c = traitStripModel(summoners.map(unit), gameData.units, gameData.traits)
+      .find((x) => x.traitId === "summoner")!;
+    expect(c.count).toBe(4);
+    expect(c.tierCount).toBe(2);
+    expect(c.activeTier).toBe(2);          // both breakpoints reached → top tier
+    expect(c.activeBreakpoint).toBe(4);
+    expect(c.nextBreakpoint).toBeNull();    // maxed → no next breakpoint
+    // activeTier equals tierCount ⇒ maxed (the count/denominator reads e.g. 4/4).
+    expect(c.activeTier).toBe(c.tierCount);
+  });
+
+  it("sorts by activation tier reached, not raw count (a maxed trait outranks a higher-count lower-tier one)", () => {
+    // summoner 2/4 maxed at 4 (activeTier 2) vs knight 2/4/6 at 5 (activeTier 2,
+    // still not maxed). With equal tiers the higher count (knight) sorts first;
+    // but drop summoner to its TOP tier while knight sits on its FIRST tier and
+    // the maxed-tier trait must come first even though its count is lower.
+    const summoners = unitsWithTrait("summoner").slice(0, 4); // count 4 → activeTier 2
+    const knights = unitsWithTrait("knight").slice(0, 5);      // count 5 → activeTier 2
+    expect(summoners.length).toBe(4);
+    expect(knights.length).toBe(5);
+
+    // Tier-2 summoner (maxed) vs tier-1 knight (count 3): tier wins over count.
+    const knights3 = unitsWithTrait("knight").slice(0, 3); // count 3 → activeTier 1
+    const board = [...summoners.map(unit), ...knights3.map(unit)];
+    const model = traitStripModel(board, gameData.units, gameData.traits);
+    const si = model.findIndex((c) => c.traitId === "summoner");
+    const ki = model.findIndex((c) => c.traitId === "knight");
+    const sm = model[si]!;
+    const km = model[ki]!;
+    expect(sm.activeTier).toBe(2);
+    expect(km.activeTier).toBe(1);
+    expect(si).toBeLessThan(ki); // higher activeTier sorts first regardless of count
+
+    // Sanity: with equal activeTier (both 2) the higher count sorts first.
+    const board2 = [...summoners.map(unit), ...knights.map(unit)];
+    const model2 = traitStripModel(board2, gameData.units, gameData.traits);
+    const si2 = model2.findIndex((c) => c.traitId === "summoner"); // tier2, count4
+    const ki2 = model2.findIndex((c) => c.traitId === "knight");   // tier2, count5
+    expect(model2[si2]!.activeTier).toBe(model2[ki2]!.activeTier);
+    expect(ki2).toBeLessThan(si2); // tie on tier → higher count first
   });
 });
 

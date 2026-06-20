@@ -13,6 +13,13 @@ export interface TraitChip {
   activeBreakpoint: number | null;
   /** Next breakpoint count above the current count, or null if maxed. */
   nextBreakpoint: number | null;
+  /**
+   * 1-based index of the highest satisfied breakpoint among the trait's sorted
+   * breakpoints (1 = first tier active … N = top tier), 0 when inactive.
+   */
+  activeTier: number;
+  /** Total number of breakpoints (tiers) the trait defines. */
+  tierCount: number;
   color: number;
 }
 
@@ -42,9 +49,13 @@ export function traitStripModel(
     const sorted = [...trait.breakpoints].sort((a, b) => a.count - b.count);
     let activeBreakpoint: number | null = null;
     let nextBreakpoint: number | null = null;
-    for (const bp of sorted) {
-      if (bp.count <= count) activeBreakpoint = bp.count;
-      else if (nextBreakpoint === null) nextBreakpoint = bp.count;
+    let activeTier = 0;
+    for (let i = 0; i < sorted.length; i++) {
+      const bp = sorted[i]!;
+      if (bp.count <= count) {
+        activeBreakpoint = bp.count;
+        activeTier = i + 1;
+      } else if (nextBreakpoint === null) nextBreakpoint = bp.count;
     }
     chips.push({
       traitId,
@@ -52,14 +63,19 @@ export function traitStripModel(
       count,
       activeBreakpoint,
       nextBreakpoint,
+      activeTier,
+      tierCount: sorted.length,
       color: traitColor(traitId),
     });
   }
 
+  // Active-first → highest reached tier first (a maxed 1/1 outranks a higher
+  // raw count that hasn't reached as high a tier) → count desc → id (stable).
   chips.sort((a, b) => {
     const aActive = a.activeBreakpoint !== null ? 1 : 0;
     const bActive = b.activeBreakpoint !== null ? 1 : 0;
     if (aActive !== bActive) return bActive - aActive;
+    if (a.activeTier !== b.activeTier) return b.activeTier - a.activeTier;
     if (a.count !== b.count) return b.count - a.count;
     return a.traitId.localeCompare(b.traitId);
   });
