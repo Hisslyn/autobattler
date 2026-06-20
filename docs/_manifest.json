@@ -912,10 +912,10 @@
     },
     {
       "path": "packages/rules/tests/pairing.test.ts",
-      "status": "pending",
-      "doc": "",
-      "hash": "",
-      "updated": ""
+      "status": "done",
+      "doc": "docs/packages/rules/tests/pairing.test.ts.md",
+      "hash": "4b68730b9bd07e793a498590d43787061d717b4e6326d429f4142b84d6c35185",
+      "updated": "2026-06-20T07:50:00+00:00"
     },
     {
       "path": "packages/rules/tests/pool.test.ts",
@@ -1192,7 +1192,7 @@
     }
   ],
   "totals": {
-    "done": 130,
+    "done": 131,
     "total": 170
   }
 }

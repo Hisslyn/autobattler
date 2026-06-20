@@ -132,3 +132,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/rules/tests/items.test.ts -> docs/packages/rules/tests/items.test.ts.md — PvE loot well-formedness + BUY-then-EQUIP integration check
 - packages/rules/tests/magicNumbers.test.ts -> docs/packages/rules/tests/magicNumbers.test.ts.md — static-analysis enforcement of "no hardcoded tuning numbers" across sim/src + rules/src
 - packages/rules/tests/match.test.ts -> docs/packages/rules/tests/match.test.ts.md — full-match determinism suite (50-run same-seed check, AI-driven match byte-identity, placement invariants)
+- packages/rules/tests/pairing.test.ts -> docs/packages/rules/tests/pairing.test.ts.md — buildPairings anti-repeat guarantee + fallback tiebreak + getPairingFor perspective normalization
