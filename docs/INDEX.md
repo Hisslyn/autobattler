@@ -48,3 +48,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/src/lootReveal.ts -> docs/packages/client/src/lootReveal.ts.md — pure loot-orb reveal sequencing model: orders seeded LootOrb[] by rarity into deterministic RevealSteps for the PvE reveal animation
 - packages/client/src/main.ts -> docs/packages/client/src/main.ts.md — client bootstrap entry: Pixi init, layout resolve + resize wiring, auth boot, UiApp mount, start/leave-match lifecycle
 - packages/client/src/net.ts -> docs/packages/client/src/net.ts.md — NetClient: WS transport wrapper, envelope encode/decode, reconnect backoff, PING/PONG RTT, seat-token RECONNECT-on-reopen
+- packages/client/src/netDriver.ts -> docs/packages/client/src/netDriver.ts.md — NetDriver (IDriver for Online mode): reconstructs MatchState from server snapshots/deltas, runs local sim at COMBAT_START reconciled against server-canon COMBAT_RESULT
