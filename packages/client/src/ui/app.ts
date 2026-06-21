@@ -2,7 +2,7 @@
 // Play, Profile, Leaderboard, How to Play, Settings) plus the in-match pause
 // panel and coachmark trigger. Holds no authoritative game state; gameplay runs
 // in the Pixi match scene driven by IDriver.
-import { mmrToRank } from "@autobattler/data";
+import { mmrToRank, RANK_BANDS } from "@autobattler/data";
 import { cssVar, rankCssVar, traitColorCss } from "../theme.js";
 import type { RankBand } from "@autobattler/data";
 import type { SettingsStore, Settings } from "../settings.js";
@@ -28,12 +28,51 @@ export interface UiAppOptions {
 
 type ScreenId = "main" | "play" | "profile" | "leaderboard" | "howto" | "settings";
 
+/** Minimal inline-SVG line icons for the main-menu chrome (no emoji, no webfont —
+ * mirrors the canvas glyph system's "draw it ourselves" approach, but in DOM).
+ * Strokes use currentColor so CSS controls tint via cssVar(...), never a literal. */
+type IconName = "person" | "book" | "bell" | "gear" | "coin" | "trophy" | "arrowRight" | "ticket";
+
+const ICON_PATHS: Record<IconName, string> = {
+  person: "M12 12.5a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8c0-3.6 3.2-6.5 7-6.5s7 2.9 7 6.5",
+  book: "M5 4.5h6.5A2.5 2.5 0 0 1 14 7v13a2 2 0 0 0-2-2H5V4.5Zm14 0h-6.5A2.5 2.5 0 0 0 10 7v13a2 2 0 0 1 2-2h7V4.5Z",
+  bell: "M12 4a5 5 0 0 0-5 5v3.5L5 16h14l-2-3.5V9a5 5 0 0 0-5-5Zm-2.2 14a2.2 2.2 0 0 0 4.4 0",
+  gear: "M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4ZM12 2.8l1 2.4 2.5-.8 1 2.4-2 1.7v2.6l2 1.7-1 2.4-2.5-.8-1 2.4h-2.4l-1-2.4-2.5.8-1-2.4 2-1.7v-2.6l-2-1.7 1-2.4 2.5.8 1-2.4h2.4Z",
+  coin: "M12 19.5a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15Zm0-11v7m-2.4-5.2c0 1 .9 1.4 2.4 1.7 1.9.4 2.6 1 2.6 2.1 0 1.2-1.1 2-2.6 2-1.2 0-2.1-.5-2.5-1.4",
+  trophy: "M7 4.5h10v3.5a5 5 0 0 1-10 0V4.5ZM7 6H4v1.5A3.5 3.5 0 0 0 7 11M17 6h3v1.5A3.5 3.5 0 0 1 17 11M10.5 14.5h3v2.5h-3z M8.5 19.5h7l-.7-2.5h-5.6Z",
+  arrowRight: "M5 12h13.5M13 6.5 18.5 12 13 17.5",
+  ticket: "M4.5 9a2 2 0 0 0 0 6v2a1.5 1.5 0 0 0 1.5 1.5h12A1.5 1.5 0 0 0 19.5 17v-2a2 2 0 0 1 0-6V7A1.5 1.5 0 0 0 18 5.5H6A1.5 1.5 0 0 0 4.5 7v2Zm6.5-2.5v11",
+};
+
+/** Build a small inline SVG icon (stroke = currentColor; tint via CSS). */
+function icon(name: IconName, size = 18): HTMLElement {
+  const wrap = el("span", { class: "ui-icon" });
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", String(size));
+  svg.setAttribute("height", String(size));
+  svg.setAttribute("fill", "none");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", ICON_PATHS[name]);
+  path.setAttribute("stroke", "currentColor");
+  path.setAttribute("stroke-width", "1.6");
+  path.setAttribute("stroke-linecap", "round");
+  path.setAttribute("stroke-linejoin", "round");
+  svg.appendChild(path);
+  wrap.appendChild(svg);
+  return wrap;
+}
+
 export class UiApp {
   private menuRoot: HTMLElement;
   private content: HTMLElement;
   private matchOverlay: HTMLElement;
   private stack: ScreenId[] = ["main"];
   private leaveHandler: (() => void) | null = null;
+
+  /** Currently-selected match mode for the main-menu play cluster (defaults to
+   * offline Practice). Set by the mode picker; read by the PLAY button. */
+  private playMode: PlayMode = "local";
 
   auth: AuthState | null;
 
@@ -97,16 +136,179 @@ export class UiApp {
 
   // ─── Screens ───────────────────────────────────────────────────────────────
 
+  /**
+   * Landscape-first main menu shell: top utility bar, left vertical nav,
+   * center-right key-art stage (placeholder art slots), bottom-left promo
+   * banner, bottom-right play cluster. Pure DOM/CSS chrome over the canvas —
+   * see references/main-menu.md for the full spec this implements 1:1.
+   */
   private mainMenu(): HTMLElement {
-    return el("div", { class: "ui-screen" }, [
-      el("div", { class: "ui-title ui-wordmark", text: "AUTOBATTLER" }),
-      el("div", { class: "ui-subtitle", text: this.auth ? `Signed in as ${this.auth.profile.name}` : "Offline — Practice only" }),
-      button("Play", () => this.navigate("play"), "ui-btn ui-btn-primary"),
-      button("Profile", () => this.navigate("profile"), "ui-btn"),
-      button("Leaderboard", () => this.navigate("leaderboard"), "ui-btn"),
-      button("How to Play", () => this.navigate("howto"), "ui-btn"),
-      button("Settings", () => this.navigate("settings"), "ui-btn"),
+    return el("div", { class: "ui-mainmenu" }, [
+      this.mmTopBar(),
+      this.mmLeftNav(),
+      this.mmKeyArtStage(),
+      this.mmPromoBanner(),
+      this.mmPlayCluster(),
     ]);
+  }
+
+  // ── 2.1 Top utility bar ────────────────────────────────────────────────────
+
+  private mmTopBar(): HTMLElement {
+    const name = this.auth?.profile.name ?? "Guest";
+    const rank = this.auth ? mmrToRank(this.auth.profile.mmr) : null;
+
+    const identity = el("button", { class: "mm-identity", attrs: { type: "button", "aria-label": "Profile" } }, [
+      el("span", { class: "mm-avatar-frame" }, [
+        el("span", { class: "mm-avatar-glyph" }, [icon("person", 20)]),
+        // slot:levelBadge — stub: no account-level system yet; static placeholder.
+        el("span", { class: "mm-level-badge", text: "1" }),
+      ]),
+      el("span", { class: "mm-identity-text" }, [
+        el("span", { class: "mm-player-name", text: name }),
+        rank ? this.rankBadge(rank) : null,
+      ]),
+    ]);
+    identity.addEventListener("click", () => this.navigate("profile"));
+
+    const currency = button("", () => this.onTapCurrency(), "mm-currency-chip");
+    currency.appendChild(icon("coin", 16));
+    currency.appendChild(el("span", { class: "mm-currency-val", text: "0" }));
+
+    const utilityProfile = el("button", { class: "mm-util-btn", attrs: { type: "button", "aria-label": "Profile" } }, [icon("person", 18)]);
+    utilityProfile.addEventListener("click", () => this.navigate("profile"));
+
+    const utilityCollection = el("button", { class: "mm-util-btn", attrs: { type: "button", "aria-label": "Collection" } }, [icon("book", 18)]);
+    utilityCollection.addEventListener("click", () => this.onOpenCollection());
+
+    const notifBtn = el("button", { class: "mm-util-btn mm-util-notif", attrs: { type: "button", "aria-label": "Notifications" } }, [
+      icon("bell", 18),
+      el("span", { class: "mm-notif-dot hidden" }),
+    ]);
+    notifBtn.addEventListener("click", () => this.onOpenNotifications());
+
+    const utilitySettings = el("button", { class: "mm-util-btn", attrs: { type: "button", "aria-label": "Settings" } }, [icon("gear", 18)]);
+    utilitySettings.addEventListener("click", () => this.navigate("settings"));
+
+    const rightCluster = el("div", { class: "mm-topbar-right" }, [
+      currency, utilityProfile, utilityCollection, notifBtn, utilitySettings,
+    ]);
+
+    return el("div", { class: "mm-topbar" }, [identity, rightCluster]);
+  }
+
+  // ── 2.2 Left vertical nav ──────────────────────────────────────────────────
+
+  private mmLeftNav(): HTMLElement {
+    const rank = this.auth ? mmrToRank(this.auth.profile.mmr) : RANK_BANDS[0]!;
+    const next = this.nextRankBand(rank);
+    const cur = this.auth?.profile.mmr ?? rank.minMmr;
+    const span = next ? Math.max(1, next.minMmr - rank.minMmr) : 1;
+    const into = next ? Math.min(span, Math.max(0, cur - rank.minMmr)) : span;
+    const pct = next ? Math.round((into / span) * 100) : 100;
+
+    const primary = el("button", { class: "mm-nav-row mm-nav-active", attrs: { type: "button" } }, [
+      el("span", { class: "mm-nav-icon mm-nav-medallion" }, [icon("trophy", 20)]),
+      el("div", { class: "mm-nav-col" }, [
+        el("span", { class: "mm-nav-label", text: "Leaderboard" }),
+        el("div", { class: "mm-nav-subblock" }, [
+          el("span", { class: "mm-nav-sub-text", text: rank.name }),
+          el("span", { class: "mm-nav-sub-text", text: next ? `${into} / ${span}` : "Max rank" }),
+          (() => {
+            const bar = el("div", { class: "mm-nav-progress-track" }, [el("div", { class: "mm-nav-progress-fill" })]);
+            (bar.firstChild as HTMLElement).style.width = `${pct}%`;
+            return bar;
+          })(),
+        ]),
+      ]),
+    ]);
+    primary.addEventListener("click", () => this.navigate("leaderboard"));
+
+    const secondary = el("button", { class: "mm-nav-row", attrs: { type: "button" } }, [
+      el("span", { class: "mm-nav-icon" }, [icon("book", 20)]),
+      el("div", { class: "mm-nav-col" }, [el("span", { class: "mm-nav-label", text: "How to Play" })]),
+    ]);
+    secondary.addEventListener("click", () => this.navigate("howto"));
+
+    const tertiary = el("button", { class: "mm-nav-row", attrs: { type: "button" } }, [
+      el("span", { class: "mm-nav-icon" }, [icon("ticket", 20)]),
+      el("div", { class: "mm-nav-col" }, [el("span", { class: "mm-nav-label", text: "Play" })]),
+    ]);
+    tertiary.addEventListener("click", () => this.navigate("play"));
+
+    return el("div", { class: "mm-leftnav" }, [primary, secondary, tertiary]);
+  }
+
+  /** Next rank band above `rank`, or null if `rank` is the top band. */
+  private nextRankBand(rank: RankBand): RankBand | null {
+    const idx = RANK_BANDS.findIndex((b) => b.id === rank.id);
+    return idx >= 0 && idx < RANK_BANDS.length - 1 ? RANK_BANDS[idx + 1]! : null;
+  }
+
+  // ── 2.3 Center-right key-art stage ─────────────────────────────────────────
+
+  private mmKeyArtStage(): HTMLElement {
+    return el("div", { class: "mm-keyart-stage" }, [
+      el("div", { class: "mm-keyart-bg", text: "keyArtBackground" }),
+      el("div", { class: "mm-keyart-ambient", text: "keyArtAmbientAccent" }),
+      el("div", { class: "mm-keyart-hero", text: "keyArtHero" }),
+    ]);
+  }
+
+  // ── 2.4 Bottom-left promo banner ───────────────────────────────────────────
+
+  private mmPromoBanner(): HTMLElement {
+    const card = el("button", { class: "mm-promo-card", attrs: { type: "button" } }, [
+      el("span", { class: "mm-promo-thumb" }, [icon("ticket", 18)]),
+      el("span", { class: "mm-promo-text" }, [
+        el("span", { class: "mm-promo-title", text: "Season Pass" }),
+        el("span", { class: "mm-promo-subtitle", text: "Coming soon" }),
+      ]),
+    ]);
+    card.addEventListener("click", () => this.onOpenPromo());
+    return card;
+  }
+
+  // ── 2.5 Bottom-right play cluster ──────────────────────────────────────────
+
+  private mmPlayCluster(): HTMLElement {
+    const modeChip = el("button", { class: "mm-mode-chip", attrs: { type: "button" } }, [
+      el("span", { class: "mm-mode-icon" }, [icon("ticket", 14)]),
+      el("span", { class: "mm-mode-label", text: this.playMode === "local" ? "Practice" : "Online" }),
+    ]);
+    modeChip.addEventListener("click", () => this.onOpenModePicker(modeChip));
+
+    const playBtn = el("button", { class: "mm-play-btn", attrs: { type: "button" } }, [
+      el("span", { class: "mm-play-label", text: "PLAY" }),
+      icon("arrowRight", 20),
+    ]);
+    playBtn.addEventListener("click", () => this.opts.onStartMatch(this.playMode));
+
+    return el("div", { class: "mm-play-cluster" }, [modeChip, playBtn]);
+  }
+
+  // ── Main-menu stub handlers (NEW slots — no underlying feature yet) ───────
+
+  // stub: premium currency does not exist; no-op until an economy is designed.
+  private onTapCurrency(): void { /* stub: no premium currency yet */ }
+
+  // stub: no collection/roster browser screen exists yet.
+  private onOpenCollection(): void { /* stub: route to a future collection browser */ }
+
+  // stub: no notification system exists yet.
+  private onOpenNotifications(): void { /* stub: no-op until notifications exist */ }
+
+  // stub: no battle-pass/season system exists yet.
+  private onOpenPromo(): void { /* stub: no-op until a season-pass feature exists */ }
+
+  /**
+   * stub: opens the mode picker (Practice/Online). Wire to reuse the existing
+   * playMenu()'s Practice/Online cards or a compact inline popover; on
+   * selection set `this.playMode` and re-render. Left as a no-op landing on
+   * the existing Play screen for now so the destination still works end to end.
+   */
+  private onOpenModePicker(_anchor: HTMLElement): void {
+    this.navigate("play");
   }
 
   /** Title + subtitle tap-card (Play submenu). */
@@ -119,8 +321,8 @@ export class UiApp {
   }
 
   private playMenu(): HTMLElement {
-    const practice = this.playCard("Practice", "Play offline against AI bots.", () => this.opts.onStartMatch("local"));
-    const online = this.playCard("Online", "Ranked lobby on the server.", () => this.opts.onStartMatch("online"), !this.auth);
+    const practice = this.playCard("Practice", "Play offline against AI bots.", () => { this.playMode = "local"; this.opts.onStartMatch("local"); });
+    const online = this.playCard("Online", "Ranked lobby on the server.", () => { this.playMode = "online"; this.opts.onStartMatch("online"); }, !this.auth);
     if (!this.auth) online.title = "Server unreachable";
     return this.wrap([
       el("div", { class: "ui-title", text: "Play" }),
