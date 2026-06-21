@@ -213,6 +213,20 @@ export const C = {
   hpBarDead:  0x2a2a2a,
 } as const;
 
+// ─── Tealight gold-meter candle screen-space offset (renderer-only) ──────────
+// After the perspective projection, each candle column is nudged horizontally
+// OUTWARD (away from the board) by this many SCREEN px, opening a fixed gap
+// between the column and the board edge regardless of perspective depth. The
+// left column shifts toward screen-left (−), the right toward screen-right (+).
+// Set to half a candle's base rendered width (TORCH_W / 2 = 32 / 2) so the gap
+// is exactly half a candle wide.
+export const CANDLE_COLUMN_SCREEN_OFFSET = 16;
+
+// ─── Menu hamburger ↔ Player 1 gap (renderer-only) ───────────────────────────
+// Horizontal gap in SCREEN px between the right edge of the ☰ pause button and
+// the "Player 1" (seat 0) rail entry it sits to the left of.
+export const HAMBURGER_RAIL_GAP = 8;
+
 // ─── Board perspective tilt (renderer-only) ──────────────────────────────────
 // Single tunable for the full-perspective board projection (boardProjection.ts).
 // 0 = a flat board (the projection becomes the identity). A positive value recedes

@@ -10,7 +10,7 @@ import { PLANNING_TIMER_MS } from "../driver.js";
 import { CombatPlayer, toDisplayHex } from "../combat/player.js";
 import type { PlaybackSpeed } from "../combat/player.js";
 import { CombatView } from "../combat/view.js";
-import { C, tierColor, CHIP_TEXT_SIZE, CHIP_TEXT_FONT, BOARD_TILT } from "../theme.js";
+import { C, tierColor, CHIP_TEXT_SIZE, CHIP_TEXT_FONT, BOARD_TILT, CANDLE_COLUMN_SCREEN_OFFSET, HAMBURGER_RAIL_GAP } from "../theme.js";
 import { drawUnitToken } from "../unitToken.js";
 import { drawGlyph, glyphForTraits } from "../glyphs.js";
 import type { GlyphKind } from "../glyphs.js";
@@ -278,6 +278,10 @@ export class MatchScene {
    * second instead of freezing at the value rendered on phase entry. */
   private planningTimerText: PIXI.Text | null = null;
   private planningTimerFn: ((t: PIXI.Ticker) => void) | null = null;
+  /** Retained stage-bar progress capsule + its geometry, redrawn each frame from
+   * the live planning clock so it drains smoothly (not only on state changes). */
+  private planningProgressBar: PIXI.Graphics | null = null;
+  private planningProgressGeom: { x: number; y: number; w: number; h: number } | null = null;
   private resolutionAutoTimer: ReturnType<typeof setTimeout> | null = null;
   /** Drives the visible Continue countdown without a per-second re-render of the box. */
   private resolutionCountdownFn: ((t: PIXI.Ticker) => void) | null = null;
@@ -835,30 +839,57 @@ export class MatchScene {
     }
 
     // ── Progress capsule beneath the bar (depletes left→right) ───────────────
+    // Retained + its geometry stored so the planning ticker can redraw the fill
+    // every frame from the LIVE clock (getPlanningTimeLeft), draining smoothly
+    // rather than only on a state-changing re-render.
     const pgY = bottomY + MatchScene.STAGE_PROGRESS_GAP;
     const pgH = MatchScene.STAGE_PROGRESS_H;
     const pg = new PIXI.Graphics();
     pg.eventMode = "none";
-    pg.roundRect(barX, pgY, barW, pgH, 2).fill({ color: C.stageBarTrack, alpha: planning ? 0.9 : 0.5 });
-    if (planning) {
-      const frac = Math.max(0, Math.min(1, timeLeft / PLANNING_TIMER_MS));
-      const fillW = Math.max(0, barW * frac);
-      if (fillW > 0) {
-        pg.roundRect(barX, pgY, fillW, pgH, 2).fill({ color: urgent ? C.hpLow : C.stageProgress, alpha: 1 });
-      }
-    }
     this.hudLayer.addChild(pg);
+    this.planningProgressBar = planning ? pg : null;
+    this.planningProgressGeom = { x: barX, y: pgY, w: barW, h: pgH };
+    if (planning) {
+      this.redrawPlanningProgress(timeLeft);
+    } else {
+      pg.roundRect(barX, pgY, barW, pgH, 2).fill({ color: C.stageBarTrack, alpha: 0.5 });
+    }
+  }
+
+  /** Redraw the retained stage-bar progress capsule from a live remaining-time
+   * value (ms). Called by renderStageBar and per-frame by the planning ticker so
+   * the bar drains smoothly with the countdown number. Presentation only. */
+  private redrawPlanningProgress(timeLeft: number): void {
+    const pg = this.planningProgressBar;
+    const geom = this.planningProgressGeom;
+    if (!pg || !geom) return;
+    const secs = Math.max(0, Math.ceil(timeLeft / 1000));
+    const urgent = secs <= 5;
+    const frac = Math.max(0, Math.min(1, timeLeft / PLANNING_TIMER_MS));
+    const fillW = Math.max(0, geom.w * frac);
+    pg.clear();
+    pg.roundRect(geom.x, geom.y, geom.w, geom.h, 2).fill({ color: C.stageBarTrack, alpha: 0.9 });
+    if (fillW > 0) {
+      pg.roundRect(geom.x, geom.y, fillW, geom.h, 2).fill({ color: urgent ? C.hpLow : C.stageProgress, alpha: 1 });
+    }
   }
 
   /**
-   * Top-LEFT ☰ pause button, drawn into the HUD layer so it scales/positions
-   * with the viewport. Fires `onPause` on tap (the shell owns the pause modal).
-   * The shop panel layer is above the HUD, so an open shop overlays it via z.
+   * Top-RIGHT ☰ pause button, drawn into the HUD layer so it scales/positions
+   * with the viewport. Sits immediately to the LEFT of the "Player 1" (seat 0)
+   * rail entry, vertically aligned with that row (HAMBURGER_RAIL_GAP apart).
+   * Fires `onPause` on tap (the shell owns the pause modal). The shop panel layer
+   * is above the HUD, so an open shop overlays it via z.
    */
-  private renderPauseButton(status: { x: number; y: number; w: number; h: number }): void {
+  private renderPauseButton(rail: { x: number; y: number; w: number; h: number }): void {
     const w = 30, h = 22;
-    const x = status.x + 6;
-    const y = status.y + 6;
+    // Seat 0 = "Player 1": portrait rail is 8×1 (seat 0 leftmost), landscape is
+    // 1×8 (seat 0 top row). Pin the button just left of that tile, centered on it.
+    const tile = this.isLandscape
+      ? opponentRailTile(0, 1, 8, rail)
+      : opponentRailTile(0, 8, 1, rail);
+    const x = Math.round(tile.tileX - HAMBURGER_RAIL_GAP - w);
+    const y = Math.round(tile.tileY + tile.tileH / 2 - h / 2);
     const g = new PIXI.Graphics();
     g.roundRect(x, y, w, h, 6).fill({ color: C.panelBg, alpha: 0.95 });
     g.roundRect(x, y, w, h, 6).stroke({ width: 1, color: C.chipBorder });
@@ -900,11 +931,12 @@ export class MatchScene {
     const boardCenterX = board.x + board.w / 2;
     this.renderStageBar(boardCenterX, status.y, state);
 
-    // Top-LEFT ☰ pause button — rendered in the HUD layer so it scales and
-    // repositions with the viewport like the rest of the chrome. The shop panel
-    // layer sits above the HUD, so it overlays this button via z-ordering (no
-    // hide-while-shop workaround needed).
-    this.renderPauseButton(status);
+    // Top-RIGHT ☰ pause button — rendered in the HUD layer so it scales and
+    // repositions with the viewport like the rest of the chrome, placed just
+    // left of the "Player 1" rail entry. The shop panel layer sits above the
+    // HUD, so it overlays this button via z-ordering (no hide-while-shop
+    // workaround needed).
+    this.renderPauseButton(rail);
 
     // ── B. Opponent rail: 8 seat tiles ──────────────────────────────────────
     // Portrait: a single horizontal row of 8 tiles. Landscape: a single 1×8
@@ -1091,19 +1123,23 @@ export class MatchScene {
     // (+y); opponent (right) candles slide toward the BACK/top border (−y).
     const candleDy = 0.6 * HEX_H;
 
-    const pushColumn = (boardX: number, flags: boolean[], back: number, front: number, dy: number): void => {
+    // Screen-space horizontal nudge applied AFTER projection so each column sits
+    // a fixed half-candle gap outward from the board edge regardless of depth.
+    const pushColumn = (
+      boardX: number, flags: boolean[], back: number, front: number, dy: number, screenDx: number
+    ): void => {
       for (let i = 0; i < TORCHES_PER_SIDE; i++) {
         const by = yAt(i, back, front) + dy;
         const base = this.fwd({ x: boardX, y: by });
-        pillars.push({ sx: base.x, sy: base.y, scale: this.depthScaleAt({ x: boardX, y: by }), lit: flags[i]!, y: by });
+        pillars.push({ sx: base.x + screenDx, sy: base.y, scale: this.depthScaleAt({ x: boardX, y: by }), lit: flags[i]!, y: by });
       }
     };
 
-    // Player flanks the FRONT half (back-most pillar at the midline).
-    pushColumn(leftX, torchLit(me.gold, "left"), TORCH_MID, TORCH_FRONT, candleDy);
-    // Opponent flanks the BACK half, always drawn; lit only during combat.
+    // Player flanks the FRONT half (back-most pillar at the midline); shifted left.
+    pushColumn(leftX, torchLit(me.gold, "left"), TORCH_MID, TORCH_FRONT, candleDy, -CANDLE_COLUMN_SCREEN_OFFSET);
+    // Opponent flanks the BACK half, always drawn; lit only during combat; shifted right.
     const oppFlags = combat ? torchLit(this.opponentGold(), "right") : new Array<boolean>(TORCHES_PER_SIDE).fill(false);
-    pushColumn(rightX, oppFlags, TORCH_BACK, TORCH_MID, -candleDy);
+    pushColumn(rightX, oppFlags, TORCH_BACK, TORCH_MID, -candleDy, CANDLE_COLUMN_SCREEN_OFFSET);
 
     // Depth-sort: far (smaller board y) first so nearer pillars overlap them.
     pillars.sort((a, b) => a.y - b.y);
@@ -3428,12 +3464,15 @@ export class MatchScene {
     this.clearPlanningTimerTick();
     let acc = 0;
     const fn = (ticker: PIXI.Ticker): void => {
+      if (this.driver.getState().phase !== "PLANNING") return;
+      const left = this.driver.getPlanningTimeLeft();
+      // Progress bar drains every frame from the same live clock the number reads.
+      this.redrawPlanningProgress(left);
       acc += ticker.deltaMS;
-      if (acc < 250) return; // ~4Hz: cheap, still smooth at the second boundary
+      if (acc < 250) return; // ~4Hz number update: cheap, still smooth at the second boundary
       acc = 0;
       const node = this.planningTimerText;
-      if (!node || this.driver.getState().phase !== "PLANNING") return;
-      const left = this.driver.getPlanningTimeLeft();
+      if (!node) return;
       const secs = Math.max(0, Math.ceil(left / 1000));
       node.text = `${secs}`;
       node.style.fill = secs <= 5 ? C.hpLow : C.textPrimary;
@@ -3447,6 +3486,8 @@ export class MatchScene {
       this.app.ticker.remove(this.planningTimerFn);
       this.planningTimerFn = null;
     }
+    this.planningProgressBar = null;
+    this.planningProgressGeom = null;
   }
 
   private onPlanningStart(): void {
