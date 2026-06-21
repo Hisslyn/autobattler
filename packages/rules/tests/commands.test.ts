@@ -30,6 +30,18 @@ function makeUnit(uid: number, defId: string): UnitInstance {
   };
 }
 
+// Bench is 9 FIXED positional slots (holes allowed); build one from live units.
+function makeBench(units: UnitInstance[]): (UnitInstance | null)[] {
+  const bench: (UnitInstance | null)[] = new Array(gameData.gameplay.benchMax).fill(null);
+  units.forEach((u, i) => { bench[i] = u; });
+  return bench;
+}
+
+/** Count of occupied bench slots. */
+function benchCount(bench: (UnitInstance | null)[]): number {
+  return bench.filter((u) => u != null).length;
+}
+
 describe("command validation", () => {
   it("BUY rejects insufficient gold", () => {
     const state = createMatch(1, gameData);
@@ -61,16 +73,15 @@ describe("command validation", () => {
     player.level = 1;
     // Clear the default starting unit, then fill bench to max with 9 distinct
     // units so no merge is possible.
-    player.bench = [];
-    for (let i = 0; i < 9; i++) {
-      player.bench.push(makeUnit(9000 + i, gameData.units[i]!.id));
-    }
+    player.bench = makeBench(
+      Array.from({ length: 9 }, (_, i) => makeUnit(9000 + i, gameData.units[i]!.id))
+    );
     const defId = gameData.units[10]!.id;
     player.shop[0] = { defId, tier: gameData.units[10]!.tier };
     const result = applyCommand(state, 0, { type: "BUY", shopSlotIndex: 0 }, prng, gameData);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toBe("BENCH_FULL");
-    expect(player.bench.length).toBe(9);
+    expect(benchCount(player.bench)).toBe(9);
   });
 
   it("BUY with full bench succeeds when it immediately completes a merge", () => {
@@ -82,19 +93,18 @@ describe("command validation", () => {
     const defId = gameData.units[0]!.id;
     // Clear the default starting unit, then build a full bench:
     // 2 copies of defId + 7 distinct fillers.
-    player.bench = [];
-    player.bench.push(makeUnit(9000, defId));
-    player.bench.push(makeUnit(9001, defId));
-    for (let i = 0; i < 7; i++) {
-      player.bench.push(makeUnit(9100 + i, gameData.units[i + 1]!.id));
-    }
-    expect(player.bench.length).toBe(9);
+    player.bench = makeBench([
+      makeUnit(9000, defId),
+      makeUnit(9001, defId),
+      ...Array.from({ length: 7 }, (_, i) => makeUnit(9100 + i, gameData.units[i + 1]!.id)),
+    ]);
+    expect(benchCount(player.bench)).toBe(9);
     player.shop[0] = { defId, tier: 1 };
     const result = applyCommand(state, 0, { type: "BUY", shopSlotIndex: 0 }, prng, gameData);
     expect(result.ok).toBe(true);
     // Net bench growth <= 0: 3 copies merged into one 2-star
-    expect(player.bench.length).toBeLessThanOrEqual(9);
-    const twoStar = player.bench.find((u) => u.defId === defId && u.star === 2);
+    expect(benchCount(player.bench)).toBeLessThanOrEqual(9);
+    const twoStar = player.bench.find((u) => u != null && u.defId === defId && u.star === 2);
     expect(twoStar).toBeDefined();
   });
 
@@ -108,7 +118,7 @@ describe("command validation", () => {
     const u2 = makeUnit(8002, defId);
     // Board already at cap (1 unit for level 1)
     player.board[0] = u1;
-    player.bench = [u2];
+    player.bench = makeBench([u2]);
     const result = applyCommand(
       state, 0,
       { type: "MOVE", unitUid: u2.uid, toBench: false, toIndex: 1 },
@@ -118,17 +128,126 @@ describe("command validation", () => {
     if (!result.ok) expect(result.error).toBe("BOARD_FULL");
   });
 
+  // ── Fixed positional bench (9 slots, no compaction) ──────────────────────
+  describe("bench is 9 fixed positional slots", () => {
+    const defId = () => gameData.units[0]!.id;
+    const otherId = () => gameData.units[1]!.id;
+
+    it("BUY fills the lowest-index empty slot", () => {
+      const state = createMatch(1, gameData);
+      const prng = mulberry32(1);
+      const player = state.players[0]!;
+      player.gold = 100;
+      // Bench: slot 0 occupied (starting unit), slots 1-2 occupied, leave a gap at 1.
+      player.bench = makeBench([]);
+      player.bench[0] = makeUnit(100, otherId());
+      player.bench[2] = makeUnit(101, otherId()); // gap at slot 1
+      const buyId = gameData.units[5]!.id;
+      player.shop[0] = { defId: buyId, tier: gameData.units[5]!.tier };
+      const res = applyCommand(state, 0, { type: "BUY", shopSlotIndex: 0 }, prng, gameData);
+      expect(res.ok).toBe(true);
+      // Lowest empty slot was 1 → the new unit must land there.
+      expect(player.bench[1]?.defId).toBe(buyId);
+      expect(player.bench[0]?.uid).toBe(100);
+      expect(player.bench[2]?.uid).toBe(101);
+    });
+
+    it("MOVE bench→empty bench slot moves to exactly that slot, leaving the old empty", () => {
+      const state = createMatch(1, gameData);
+      const prng = mulberry32(1);
+      const player = state.players[0]!;
+      const u = makeUnit(200, defId());
+      player.bench = makeBench([]);
+      player.bench[0] = u;
+      const res = applyCommand(state, 0, { type: "MOVE", unitUid: 200, toBench: true, toIndex: 5 }, prng, gameData);
+      expect(res.ok).toBe(true);
+      expect(player.bench[5]?.uid).toBe(200);
+      expect(player.bench[0]).toBeNull();
+      // No reflow: every other slot stays empty.
+      expect(benchCount(player.bench)).toBe(1);
+    });
+
+    it("MOVE bench→occupied bench slot SWAPS the two units' slots", () => {
+      const state = createMatch(1, gameData);
+      const prng = mulberry32(1);
+      const player = state.players[0]!;
+      const a = makeUnit(300, defId());
+      const b = makeUnit(301, otherId());
+      player.bench = makeBench([]);
+      player.bench[1] = a;
+      player.bench[6] = b;
+      const res = applyCommand(state, 0, { type: "MOVE", unitUid: 300, toBench: true, toIndex: 6 }, prng, gameData);
+      expect(res.ok).toBe(true);
+      expect(player.bench[6]?.uid).toBe(300);
+      expect(player.bench[1]?.uid).toBe(301);
+      expect(benchCount(player.bench)).toBe(2);
+    });
+
+    it("SELL empties only that unit's slot — never shifts others (rightmost gap persists)", () => {
+      const state = createMatch(1, gameData);
+      const prng = mulberry32(1);
+      const player = state.players[0]!;
+      player.bench = makeBench([]);
+      player.bench[0] = makeUnit(400, defId());
+      player.bench[3] = makeUnit(401, otherId());
+      player.bench[8] = makeUnit(402, otherId()); // rightmost slot occupied
+      const res = applyCommand(state, 0, { type: "SELL", unitUid: 401 }, prng, gameData);
+      expect(res.ok).toBe(true);
+      expect(player.bench[3]).toBeNull();
+      // Others unmoved — including the rightmost slot gap.
+      expect(player.bench[0]?.uid).toBe(400);
+      expect(player.bench[8]?.uid).toBe(402);
+    });
+
+    it("MOVE bench→board empties only that bench slot (no reflow)", () => {
+      const state = createMatch(1, gameData);
+      const prng = mulberry32(1);
+      const player = state.players[0]!;
+      player.level = 3;
+      player.bench = makeBench([]);
+      player.bench[2] = makeUnit(500, defId());
+      player.bench[5] = makeUnit(501, otherId());
+      const res = applyCommand(state, 0, { type: "MOVE", unitUid: 500, toBench: false, toIndex: 0 }, prng, gameData);
+      expect(res.ok).toBe(true);
+      expect(player.board[0]?.uid).toBe(500);
+      expect(player.bench[2]).toBeNull();
+      expect(player.bench[5]?.uid).toBe(501); // untouched, still at slot 5
+    });
+
+    it("arbitrary gaps persist across a sequence of operations", () => {
+      const state = createMatch(1, gameData);
+      const prng = mulberry32(1);
+      const player = state.players[0]!;
+      player.level = 3;
+      player.bench = makeBench([]);
+      player.bench[0] = makeUnit(600, defId());
+      player.bench[4] = makeUnit(601, otherId());
+      player.bench[7] = makeUnit(602, otherId());
+      // Move 600 (slot 0) to empty slot 8.
+      applyCommand(state, 0, { type: "MOVE", unitUid: 600, toBench: true, toIndex: 8 }, prng, gameData);
+      // Swap 601 (slot 4) with 602 (slot 7).
+      applyCommand(state, 0, { type: "MOVE", unitUid: 601, toBench: true, toIndex: 7 }, prng, gameData);
+      expect(player.bench[8]?.uid).toBe(600);
+      expect(player.bench[7]?.uid).toBe(601);
+      expect(player.bench[4]?.uid).toBe(602);
+      expect(player.bench[0]).toBeNull();
+      expect(benchCount(player.bench)).toBe(3);
+      // Bench length never grows past benchMax.
+      expect(player.bench.length).toBe(gameData.gameplay.benchMax);
+    });
+  });
+
   it("SELL returns gold and unit goes away", () => {
     const state = createMatch(1, gameData);
     const prng = mulberry32(1);
     const player = state.players[0]!;
     const defId = gameData.units[0]!.id;
     const unit = makeUnit(7001, defId);
-    player.bench = [unit];
+    player.bench = makeBench([unit]);
     const goldBefore = player.gold;
     const result = applyCommand(state, 0, { type: "SELL", unitUid: 7001 }, prng, gameData);
     expect(result.ok).toBe(true);
-    expect(player.bench.length).toBe(0);
+    expect(benchCount(player.bench)).toBe(0);
     expect(player.gold).toBeGreaterThan(goldBefore);
   });
 
@@ -163,7 +282,7 @@ describe("command validation", () => {
     const prng = mulberry32(1);
     const player = state.players[0]!;
     player.gold = 100;
-    player.bench = [makeUnit(5001, gameData.units[0]!.id)];
+    player.bench = makeBench([makeUnit(5001, gameData.units[0]!.id)]);
     player.items = ["iron_sword"];
     const slot = player.shop.findIndex((s) => s !== null);
     const commands = [
@@ -192,7 +311,7 @@ describe("command validation", () => {
     const prng = mulberry32(1);
     const player = state.players[0]!;
     const defId = gameData.units[0]!.id;
-    player.bench = [makeUnit(6001, defId)];
+    player.bench = makeBench([makeUnit(6001, defId)]);
     player.items = []; // no items
     const result = applyCommand(
       state, 0,

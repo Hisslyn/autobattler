@@ -78,13 +78,36 @@ export function flipRows(hex: HexCoord): HexCoord {
   return { q: hex.q, r: ROWS - 1 - hex.r };
 }
 
+const HALF = ROWS / 2; // 4 — sim rows 0..3 = side 0, 4..7 = side 1
+
 /**
- * Maps a sim hex to display coords (display row 0 = top) so the viewer's
- * units always land on the bottom rows: side 0 occupies sim rows 0..3 and
- * gets the row flip, side 1 already sits on rows 4..7.
+ * Maps a sim hex to display coords (display row 0 = top) so the viewer's own
+ * units land on the bottom rows (4..7) in the SAME orientation they had during
+ * planning, and the opponent is mirrored onto the top rows (0..3).
+ *
+ * Planning renders my board straight from its slot array — slot row
+ * `floor(idx/COLS)` (0 = the player-zone's far/back row, 3 = the near/front row)
+ * — so combat must put my far row at the player zone's top and my near row at
+ * its bottom. The previous `flipRows` for side 0 inverted that order, so a
+ * back-row placement appeared in the front row once combat started. The mapping
+ * below preserves the placement 1:1 for BOTH sides:
+ *
+ *   side 0 (mine = sim 0..3): mine → r + HALF  (sim 0 → 4 top … sim 3 → 7 front)
+ *                             opp  → ROWS-1-r  (sim 4 → 3 … sim 7 → 0, mirrored)
+ *   side 1 (mine = sim 4..7): mine → ROWS-1-r+HALF (sim 7 → 4 top … sim 4 → 7 front)
+ *                             opp  → r          (sim 0 → 0 … sim 3 → 3, mirrored)
  */
 export function toDisplayHex(hex: HexCoord, mySide: 0 | 1): HexCoord {
-  return mySide === 0 ? flipRows(hex) : hex;
+  const r = hex.r;
+  const mine = mySide === 0 ? r < HALF : r >= HALF;
+  if (mine) {
+    // My units: bottom half, keeping planning's near/far ordering.
+    const planningRow = mySide === 0 ? r : ROWS - 1 - r; // 0 = far/back … 3 = near/front
+    return { q: hex.q, r: planningRow + HALF };
+  }
+  // Opponent: mirrored onto the top half so their front faces my front.
+  const displayRow = mySide === 0 ? ROWS - 1 - r : r;
+  return { q: hex.q, r: displayRow };
 }
 
 export class CombatPlayer {

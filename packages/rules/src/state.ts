@@ -12,7 +12,7 @@ export interface PlayerState {
   gold: number;
   xp: number;
   level: number;
-  bench: UnitInstance[];
+  bench: (UnitInstance | null)[];
   board: (UnitInstance | null)[];
   items: string[];
   shop: (ShopSlot | null)[];

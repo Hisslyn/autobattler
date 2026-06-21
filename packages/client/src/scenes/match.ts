@@ -262,7 +262,8 @@ export class MatchScene {
   private isDragging = false;
   private dragUnit: { uid: number; fromBench: boolean; fromIdx: number } | null = null;
   private dragSprite: PIXI.Container | null = null;
-  private scoutTargetId: number | null = null;
+  /** Player being peeked (their board shown in-place); null = viewing my own board. */
+  private peekTargetId: number | null = null;
   /** Active item drag (inventory chip → unit EQUIP or item COMBINE). */
   private dragItem: { id: string; index: number } | null = null;
   /** True once an item drag has moved past the tap threshold (vs a tap). */
@@ -604,10 +605,27 @@ export class MatchScene {
     if (!me) return;
     this.renderHud(state, me);
     if (state.phase === "PLANNING") {
-      this.renderBoard(me);
+      // Peeking another player swaps ONLY the board view to their (mirrored)
+      // board + trait strip; bench/shop/HUD stay mine. View-only, no mutation.
+      const peeked = this.peekTargetId !== null ? state.players[this.peekTargetId] : null;
+      if (peeked) {
+        this.renderPeekBoard(peeked);
+        this.renderPeekChrome(state, this.peekTargetId!);
+        // Peeked trait strip (traits only — never the item-browse tab, which would
+        // read the peeked player's PRIVATE inventory).
+        if (this.isLandscape) {
+          this.traitLayer.removeChildren();
+          this.drawTraitRailContent(peeked);
+        } else {
+          this.renderTraitStrip(peeked);
+        }
+      } else {
+        this.scoutLayer.removeChildren();
+        this.renderBoard(me);
+        if (this.isLandscape) this.renderRailTabs(me);
+        else this.renderTraitStrip(me);
+      }
       this.renderBench(me);
-      if (this.isLandscape) this.renderRailTabs(me);
-      else this.renderTraitStrip(me);
       this.renderShop(me);
       this.renderShopToggle(me);
       this.renderShopPanel(me);
@@ -1003,7 +1021,7 @@ export class MatchScene {
         hit.eventMode = "static";
         hit.cursor = "pointer";
         const capturedId = i;
-        hit.on("pointerdown", () => this.openScout(capturedId, state));
+        hit.on("pointerdown", () => this.enterPeek(capturedId));
         this.hudLayer.addChild(hit);
       }
     }
@@ -1059,7 +1077,7 @@ export class MatchScene {
         hit.eventMode = "static";
         hit.cursor = "pointer";
         const capturedId = i;
-        hit.on("pointerdown", () => this.openScout(capturedId, state));
+        hit.on("pointerdown", () => this.enterPeek(capturedId));
         this.hudLayer.addChild(hit);
       }
     }
@@ -1586,6 +1604,7 @@ export class MatchScene {
     if (sel) return sel;
     if (this.dragUnit) {
       return me.bench
+        .filter((u): u is UnitInstance => u != null)
         .concat(me.board.filter((u): u is UnitInstance => u != null))
         .find((u) => u.uid === this.dragUnit!.uid) ?? null;
     }
@@ -1813,6 +1832,7 @@ export class MatchScene {
   private onItemDragEnd(px: number, py: number, me: PlayerState): void {
     const drag = this.dragItem!;
     this.closeCombineHint();
+    if (this.peekTargetId !== null) return; // peek is view-only: no equip/combine
 
     // 0) Consumables target a UNIT only (board/bench) — never combine onto another
     // item. If dropped anywhere but a unit, the consumable stays put (no-op).
@@ -1922,7 +1942,7 @@ export class MatchScene {
   private consumableStateSig(uid: number): string {
     const me = this.driver.getState().players[this.driver.seatIndex];
     if (!me) return "";
-    const u = me.board.find((x) => x?.uid === uid) ?? me.bench.find((x) => x.uid === uid);
+    const u = me.board.find((x) => x?.uid === uid) ?? me.bench.find((x) => x?.uid === uid);
     return `${u?.items.join(",") ?? ""}|${me.items.join(",")}`;
   }
 
@@ -1944,7 +1964,7 @@ export class MatchScene {
   private unitItemCount(uid: number): number {
     const me = this.driver.getState().players[this.driver.seatIndex];
     if (!me) return 0;
-    const u = me.board.find((x) => x?.uid === uid) ?? me.bench.find((x) => x.uid === uid);
+    const u = me.board.find((x) => x?.uid === uid) ?? me.bench.find((x) => x?.uid === uid);
     return u?.items.length ?? 0;
   }
 
@@ -1957,7 +1977,7 @@ export class MatchScene {
       // Board-anchored VFX → forward through the perspective transform.
       return this.fwd(hexToPixel(bIdx % BOARD_COLS, Math.floor(bIdx / BOARD_COLS), this.boardOffsetX, this.boardOffsetY, this.boardScale));
     }
-    const benchIdx = me.bench.findIndex((x) => x.uid === uid);
+    const benchIdx = me.bench.findIndex((x) => x?.uid === uid);
     if (benchIdx >= 0) {
       return this.benchSlotCenter(benchIdx);
     }
@@ -2933,6 +2953,7 @@ export class MatchScene {
 
   private startDragBench(idx: number, unit: UnitInstance, e: PIXI.FederatedPointerEvent): void {
     if (this.inspectOpen) return;
+    if (this.peekTargetId !== null) return; // peek is view-only: no board edits
     this.selectedBenchIdx = null;
     this.selectedBoardIdx = null;
     this.isDragging = true;
@@ -3040,7 +3061,8 @@ export class MatchScene {
       // area is a valid drop-to-sell target, and in any residual overlap with the
       // bench's forgiving band the sell action wins (drop-to-sell never loses to a
       // bench MOVE).
-      const dragged = me.bench.concat(me.board.filter((u): u is UnitInstance => u != null))
+      const dragged = me.bench.filter((u): u is UnitInstance => u != null)
+        .concat(me.board.filter((u): u is UnitInstance => u != null))
         .find((u) => u.uid === this.dragUnit!.uid) ?? null;
       const refund = dragged ? sellValue(dragged, gameData) : 0;
       const result = this.driver.playerCommand({ type: "SELL", unitUid: this.dragUnit.uid });
@@ -3102,6 +3124,7 @@ export class MatchScene {
 
   private onBenchSlotClick(idx: number, me: PlayerState): void {
     if (this.isDragging) return;
+    if (this.peekTargetId !== null) return; // peek is view-only
 
     if (this.selectedBoardIdx !== null) {
       const src = me.board[this.selectedBoardIdx];
@@ -3176,6 +3199,7 @@ export class MatchScene {
   }
 
   private onShopBuy(idx: number): void {
+    if (this.peekTargetId !== null) return; // peek is view-only
     const before = this.starSnapshot();
     const result = this.driver.playerCommand({ type: "BUY", shopSlotIndex: idx });
     if (!result.ok) { this.showToast(result.error); return; }
@@ -3211,7 +3235,7 @@ export class MatchScene {
     const me = this.driver.getState().players[this.driver.seatIndex];
     if (!me) return m;
     for (const u of me.board) if (u) m.set(u.uid, u.star);
-    for (const u of me.bench) m.set(u.uid, u.star);
+    for (const u of me.bench) if (u) m.set(u.uid, u.star);
     return m;
   }
 
@@ -3226,8 +3250,8 @@ export class MatchScene {
       }
     }
     for (let i = 0; i < me.bench.length; i++) {
-      const u = me.bench[i]!;
-      if (u.star >= 2 && (before.get(u.uid) ?? 0) < u.star) {
+      const u = me.bench[i];
+      if (u && u.star >= 2 && (before.get(u.uid) ?? 0) < u.star) {
         return this.benchSlotCenter(i);
       }
     }
@@ -3282,74 +3306,92 @@ export class MatchScene {
     }
   }
 
-  // ─── SCOUTING ─────────────────────────────────────────────────────────────
+  // ─── PEEK (in-board scouting: swap the board view, no popup) ───────────────
 
-  private openScout(playerId: number, state: MatchState): void {
-    this.scoutTargetId = playerId;
-    this.renderScout(playerId, state);
+  /**
+   * Peek another player: instead of a popup, swap the in-board view to show THEIR
+   * current board on the same hex grid (mirrored vertically so it reads as the
+   * opposing side), with a name banner + a back affordance. View-only — never
+   * touches my board or the sim; exiting restores my own board exactly.
+   */
+  private enterPeek(playerId: number): void {
+    const state = this.driver.getState();
+    if (state.phase !== "PLANNING") return;
+    if (playerId === this.driver.seatIndex) return;
+    if (!state.players[playerId]) return;
+    // Drop any in-progress selection/drag/inspect so the peeked view is clean.
+    this.selectedBenchIdx = null;
+    this.selectedBoardIdx = null;
+    this.closeInspect();
+    this.peekTargetId = playerId;
+    this.render(state);
   }
 
-  private renderScout(playerId: number, state: MatchState): void {
+  /** Leave peek and restore my own board view. */
+  private exitPeek(): void {
+    if (this.peekTargetId === null) return;
+    this.peekTargetId = null;
     this.scoutLayer.removeChildren();
+    this.closeInspect();
+    this.render(this.driver.getState());
+  }
 
-    const target = state.players[playerId];
-    if (!target) return;
+  /**
+   * Tears down peek state + chrome WITHOUT re-rendering (used on phase change /
+   * combat / match-over, where the caller renders the next phase itself).
+   */
+  private clearPeek(): void {
+    this.peekTargetId = null;
+    this.scoutLayer.removeChildren();
+  }
 
-    // Panel sits below the status row and fills the design space, clamped so it
-    // works in short landscape (designH=390) as well as portrait.
-    const { designW, designH, regions } = this.layout;
-    const pad = 20;
-    const panelX = pad;
-    const panelY = regions.statusRow.h + pad;
-    const panelW = designW - 2 * pad;
-    const panelH = designH - panelY - pad;
-    const panelCx = panelX + panelW / 2;
+  /**
+   * Renders the peeked player's board onto the main hex grid, mirrored vertically
+   * (reflected front-to-back across the board's horizontal centerline) so it reads
+   * as the opposing side. Read-only: long-press a token to inspect (no drag/drop).
+   */
+  private renderPeekBoard(target: PlayerState): void {
+    this.boardLayer.removeChildren();
+    this.drawBoardPanel(this.boardLayer);
+    const offX = this.boardOffsetX;
+    const oppY = this.oppBoardOffsetY; // the peeked board occupies the top (enemy) half
+    const s = this.boardScale;
+    const hexR = this.hexTileR;
+    const tokR = this.boardTokenR;
+    const fwd = (p: { x: number; y: number }): { x: number; y: number } => this.fwd(p);
 
-    // Scrim below the panel — tap outside to dismiss (consistent with inspect).
-    const scrim = new PIXI.Graphics();
-    scrim.rect(0, 0, designW, designH).fill({ color: C.bgScrim, alpha: 0.001 });
-    scrim.eventMode = "static";
-    scrim.cursor = "pointer";
-    scrim.on("pointerdown", () => this.closeScout());
-    this.scoutLayer.addChild(scrim);
+    // Top-zone tiles (the peeked board sits here, mirrored).
+    for (let r = 0; r < BOARD_ROWS; r++) {
+      for (let q = 0; q < BOARD_COLS; q++) {
+        const bp = hexToPixel(q, r, offX, oppY, s);
+        const g = new PIXI.Graphics();
+        drawHex(g, bp.x, bp.y, hexR, C.enemyHex, 1, {}, fwd);
+        g.eventMode = "none";
+        this.boardLayer.addChild(g);
+      }
+    }
+    const grid = new PIXI.Graphics();
+    for (let r = 0; r < BOARD_ROWS; r++) {
+      for (let q = 0; q < BOARD_COLS; q++) {
+        const bp = hexToPixel(q, r, offX, oppY, s);
+        addHexPath(grid, bp.x, bp.y, hexR, fwd);
+      }
+    }
+    grid.stroke({ width: 1, color: C.boardBorder, alpha: 0.4 });
+    grid.eventMode = "none";
+    this.boardLayer.addChild(grid);
 
-    const overlay = new PIXI.Graphics();
-    overlay.roundRect(panelX, panelY, panelW, panelH, 8).fill({ color: C.bgScout, alpha: 0.92 });
-    overlay.eventMode = "static"; // swallow taps so they don't dismiss via the scrim
-    this.scoutLayer.addChild(overlay);
-
-    // Name (left) + a small HP bar with a numeric label (right) — separated, so
-    // the two facts read as a clear hierarchy rather than one concatenated string.
-    const nameTxt = new PIXI.Text(this.seatName(state, playerId), {
-      fontSize: 13, fill: C.textBanner, fontFamily: "monospace",
-    });
-    nameTxt.anchor.set(0, 0);
-    nameTxt.x = panelX + 10;
-    nameTxt.y = panelY + 8;
-    this.scoutLayer.addChild(nameTxt);
-
-    const hp = Math.max(0, target.hp);
-    const hpFrac = Math.max(0, Math.min(1, hp / 100));
-    const hpBarW = 60, hpBarX = panelX + panelW - 90, hpBarY = panelY + 12;
-    const hpBar = new PIXI.Graphics();
-    hpBar.rect(hpBarX, hpBarY, hpBarW, 5).fill({ color: C.hpBg });
-    hpBar.rect(hpBarX, hpBarY, Math.round(hpBarW * hpFrac), 5)
-      .fill({ color: hpFrac < 0.25 ? C.hpLow : C.hpGreen });
-    hpBar.eventMode = "none";
-    this.scoutLayer.addChild(hpBar);
-    this.text(this.scoutLayer, `${hp} HP`, panelX + panelW - 28, panelY + 14, 9, C.textMuted, [0, 0.5]);
-
-    // Board units — long-press any token to open the SAME unit-inspect panel as
-    // your own board, so a scouted board reads identically to your inspect view.
-    // Inner board offset is derived from the panel width so the grid stays centered.
-    const boardOffX = panelX + (panelW - BOARD_COLS * HEX_W) / 2 + HEX_R;
-    const boardOffY = panelY + 50;
+    // Peeked units: slot row pr (0=their back, 3=their front) reflects across the
+    // board's horizontal centerline → display enemy row = BOARD_ROWS-1-pr.
     for (let idx = 0; idx < BOARD_SLOTS; idx++) {
       const unit = target.board[idx];
       if (!unit) continue;
       const q = idx % BOARD_COLS;
-      const r = Math.floor(idx / BOARD_COLS);
-      const { x, y } = hexToPixel(q, r, boardOffX, boardOffY);
+      const pr = Math.floor(idx / BOARD_COLS);
+      const displayRow = BOARD_ROWS - 1 - pr; // vertical mirror across the centerline
+      const bp = hexToPixel(q, displayRow, offX, oppY, s);
+      const sp = this.fwd(bp);
+      const sc = this.depthScaleAt(bp);
       const uc = new PIXI.Container();
       uc.eventMode = "static";
       uc.cursor = "pointer";
@@ -3357,42 +3399,56 @@ export class MatchScene {
       uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.armInspect(u.defId, u, e));
       uc.on("pointerup", () => this.clearPress());
       uc.on("pointerupoutside", () => this.clearPress());
-      drawUnit(uc, unit, x, y, 14);
-      this.scoutLayer.addChild(uc);
+      drawUnit(uc, unit, sp.x, sp.y, Math.round(tokR * sc), false, true, true);
+      this.boardLayer.addChild(uc);
     }
-
-    // Trait strip — same diamond+glyph chips as your own board (traitStripModel),
-    // each tappable to open the shared trait-detail panel.
-    const chips = traitStripModel(target.board, gameData.units, gameData.traits);
-    const padX = panelX + 10;
-    const rowRight = panelX + panelW - 10;
-    let cx = padX;
-    let rowY = boardOffY + BOARD_ROWS * HEX_H + 16;
-    for (const c of chips) {
-      const w = this.traitChipWidth(c);
-      if (cx + w > rowRight) { cx = padX; rowY += 24; }
-      this.drawTraitChip(this.scoutLayer, c, cx, rowY);
-      cx += w + 5;
-    }
-
-    // Close button — visual stays 30×24, hit area expands to a 44px min target.
-    const closeBtn = new PIXI.Graphics();
-    closeBtn.roundRect(panelX + panelW - 30, panelY + 4, 30, 24, 4).fill({ color: C.bgCloseBtn, alpha: 0.9 });
-    closeBtn.eventMode = "static";
-    closeBtn.cursor = "pointer";
-    closeBtn.hitArea = new PIXI.Rectangle(panelX + panelW - 44, panelY, 44, 36);
-    closeBtn.on("pointerdown", () => this.closeScout());
-    this.scoutLayer.addChild(closeBtn);
-    const closeX = new PIXI.Text("X", { fontSize: 11, fill: C.textMuted, fontFamily: "monospace" });
-    closeX.anchor.set(0.5, 0.5);
-    closeX.x = panelX + panelW - 15;
-    closeX.y = panelY + 16;
-    this.scoutLayer.addChild(closeX);
   }
 
-  private closeScout(): void {
-    this.scoutTargetId = null;
+  /**
+   * Peek chrome (banner + back affordance) drawn into scoutLayer. Names a peeked
+   * board and gives an obvious way back to my own board.
+   */
+  private renderPeekChrome(state: MatchState, playerId: number): void {
     this.scoutLayer.removeChildren();
+    const target = state.players[playerId];
+    if (!target) return;
+    const { regions } = this.layout;
+
+    // Name + HP banner pinned just under the status row, centered over the board.
+    const board = regions.board;
+    const bannerW = Math.min(board.w, 220);
+    const bannerH = 26;
+    const bannerX = board.x + (board.w - bannerW) / 2;
+    const bannerY = Math.max(regions.statusRow.h + 2, board.y - bannerH - 2);
+
+    const banner = new PIXI.Graphics();
+    banner.roundRect(bannerX, bannerY, bannerW, bannerH, 6).fill({ color: C.bgScout, alpha: 0.96 });
+    banner.roundRect(bannerX, bannerY, bannerW, bannerH, 6).stroke({ width: 1, color: C.tier3, alpha: 0.85 });
+    banner.eventMode = "static"; // swallow taps over the banner
+    this.scoutLayer.addChild(banner);
+
+    const hp = Math.max(0, target.hp);
+    this.glyph(this.scoutLayer, "eye", bannerX + 14, bannerY + bannerH / 2, 8, C.tier3);
+    this.text(
+      this.scoutLayer,
+      `${this.seatName(state, playerId)}  ·  ${hp} HP`,
+      bannerX + 26, bannerY + bannerH / 2, 11, C.textBanner, [0, 0.5]
+    );
+
+    // Back affordance — a clear "← Back" button hugging the banner's right edge,
+    // with a 44px min hit target. Tap to restore my own board.
+    const backW = 56, backH = bannerH - 6;
+    const backX = bannerX + bannerW - backW - 4;
+    const backY = bannerY + 3;
+    const back = new PIXI.Graphics();
+    back.roundRect(backX, backY, backW, backH, 4).fill({ color: C.bgCloseBtn, alpha: 0.95 });
+    back.roundRect(backX, backY, backW, backH, 4).stroke({ width: 1, color: C.chipBorder, alpha: 0.9 });
+    back.eventMode = "static";
+    back.cursor = "pointer";
+    back.hitArea = new PIXI.Rectangle(backX - 4, backY - (44 - backH) / 2, backW + 8, 44);
+    back.on("pointerdown", () => this.exitPeek());
+    this.scoutLayer.addChild(back);
+    this.text(this.scoutLayer, "← Back", backX + backW / 2, backY + backH / 2, 10, C.textPrimary, [0.5, 0.5]);
   }
 
   // (The PvE creep board is previewed directly on the enemy half of the main
@@ -3496,7 +3552,7 @@ export class MatchScene {
     this.clearLootReveal();
     this.clearPress();
     this.combatLayer.removeChildren();
-    this.closeScout();
+    this.clearPeek();
     this.closeInspect();
     this.traitRailPage = 0;
     const state = this.driver.getState();
@@ -3546,7 +3602,7 @@ export class MatchScene {
   private renderCombat(state: MatchState): void {
     this.teardownPlayback();
     this.clearPress();
-    this.closeScout();
+    this.clearPeek();
     this.closeInspect();
     this.combatLayer.removeChildren();
     // Hide planning UI
@@ -3763,6 +3819,7 @@ export class MatchScene {
   private onResolutionPhase(): void {
     // Online the server may advance before playback ends: auto-skip to end.
     this.teardownPlayback();
+    this.clearPeek();
     this.renderSkipButton(); // hides the playtest Skip pill (phase no longer PLANNING)
     const state = this.driver.getState();
     this.renderResolution(state);
@@ -4116,6 +4173,7 @@ export class MatchScene {
     this.teardownPlayback();
     this.clearResolutionTimer();
     this.clearLootReveal();
+    this.clearPeek();
     this.closeInspect();
     void this.opts.audio.setMusicState("results");
     const seat = this.driver.seatIndex;

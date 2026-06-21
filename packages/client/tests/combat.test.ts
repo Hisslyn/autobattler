@@ -137,6 +137,32 @@ describe("display mirroring", () => {
       }
     }
   });
+
+  // A board slot index encodes its planning hex: q = idx % COLS, planningRow =
+  // floor(idx / COLS) ∈ {0..3} (0 = far/back row, 3 = near/front row). Planning
+  // renders my unit at player-zone display row `planningRow` (i.e. display row
+  // planningRow + 4). Combat must land it on the SAME display row, or a back-row
+  // unit visibly jumps to the front when combat starts (the bug under test).
+  const HALF = ROWS / 2; // 4
+  function simRowForSlot(planningRow: number, side: 0 | 1): number {
+    // Mirrors rules' boardToCombatState slot→hex mapping.
+    return side === 0 ? planningRow : ROWS - 1 - planningRow;
+  }
+
+  it("combat keeps every placed row (incl. the back row) on its planning display row", () => {
+    for (const side of [0, 1] as const) {
+      for (let planningRow = 0; planningRow < HALF; planningRow++) {
+        for (let q = 0; q < COLS; q++) {
+          const simHex = { q, r: simRowForSlot(planningRow, side) };
+          const display = toDisplayHex(simHex, side);
+          // My unit must display in the player zone (bottom rows 4..7) at exactly
+          // planningRow + HALF — same vertical slot planning drew it in.
+          expect(display.q).toBe(q);
+          expect(display.r).toBe(planningRow + HALF);
+        }
+      }
+    }
+  });
 });
 
 describe("skip", () => {

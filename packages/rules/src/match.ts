@@ -19,7 +19,7 @@ export function createMatch(seed: number, data: GameData): MatchState {
       gold: gp.startingGold,
       xp: 0,
       level: 1,
-      bench: [],
+      bench: new Array(gp.benchMax).fill(null),
       board: new Array(gp.boardSlots).fill(null),
       items: [],
       shop: new Array(data.economy.shopSlots).fill(null),
@@ -88,7 +88,8 @@ export function createMatch(seed: number, data: GameData): MatchState {
         items: [],
         ...(startUnitDef.ability ? { ability: startUnitDef.ability } : {}),
       };
-      player.bench.push(unit);
+      const slot = player.bench.indexOf(null);
+      if (slot >= 0) player.bench[slot] = unit;
     }
   }
 

@@ -522,11 +522,18 @@ export function runCombatPhase(
     state.placements.push(player.id);
     // Return their units (bench + board) and undrafted shop copies to pool,
     // then clear holdings so pool conservation counts each copy once.
-    returnUnitsToPool(state, [...player.bench, ...player.board.filter((u): u is UnitInstance => u != null)], data);
+    returnUnitsToPool(
+      state,
+      [
+        ...player.bench.filter((u): u is UnitInstance => u != null),
+        ...player.board.filter((u): u is UnitInstance => u != null),
+      ],
+      data
+    );
     for (const slot of player.shop) {
       if (slot) returnToPool(state.pool, slot.defId);
     }
-    player.bench = [];
+    player.bench = new Array(data.gameplay.benchMax).fill(null);
     player.board = new Array(data.gameplay.boardSlots).fill(null);
     player.shop = new Array(data.economy.shopSlots).fill(null);
   }

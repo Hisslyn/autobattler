@@ -531,7 +531,7 @@ describe("item drag EQUIP command path", () => {
     driver.startPlanning();
     const me = driver.getState().players[driver.seatIndex]!;
     const unit = benchUnit(9999);
-    me.bench.push(unit);
+    me.bench[me.bench.indexOf(null)] = unit;
     me.items.push(COMPONENT);
 
     // The inventory model both the bar and the tab-2 browse consume sees the item.
@@ -551,7 +551,7 @@ describe("item drag EQUIP command path", () => {
     driver.startPlanning();
     const me = driver.getState().players[driver.seatIndex]!;
     const unit = benchUnit(9998);
-    me.bench.push(unit);
+    me.bench[me.bench.indexOf(null)] = unit;
     me.items.push(COMPONENT);
 
     const first = driver.playerCommand({ type: "EQUIP", unitUid: unit.uid, itemId: COMPONENT });

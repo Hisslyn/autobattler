@@ -34,7 +34,8 @@ function setup(items: string[], heldByUnit: string[] = []) {
     statusEffects: [],
     items: [...heldByUnit],
   };
-  player.bench.push(unit);
+  const slot = player.bench.indexOf(null);
+  player.bench[slot] = unit;
   player.items = [...items];
   return { state, player, unit };
 }
@@ -54,7 +55,7 @@ describe("SELL returns equipped items to inventory", () => {
     const prng = mulberry32(1);
     const res = applyCommand(state, 0, { type: "SELL", unitUid: unit.uid }, prng, gameData);
     expect(res.ok).toBe(true);
-    expect(player.bench.find((u) => u.uid === unit.uid)).toBeUndefined();
+    expect(player.bench.find((u) => u != null && u.uid === unit.uid)).toBeUndefined();
     expect(player.items).toContain(FIRST_COMPLETED);
     expect(player.items).toContain("iron_sword");
   });

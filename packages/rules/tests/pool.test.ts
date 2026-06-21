@@ -12,12 +12,22 @@ function totalInPool(pool: Map<string, number>): number {
   return t;
 }
 
+// Bench is 9 FIXED positional slots (holes allowed); build one from live units.
+function makeBench<T>(units: T[]): (T | null)[] {
+  const bench: (T | null)[] = new Array(gameData.gameplay.benchMax).fill(null);
+  units.forEach((u, i) => { bench[i] = u; });
+  return bench;
+}
+
 // Shop slots ARE drawn from the pool at roll time.
 // Conservation invariant: pool + shop slots + bench/board copies = constant.
 function totalInMatch(state: ReturnType<typeof createMatch>): number {
   let t = totalInPool(state.pool);
   for (const p of state.players) {
-    for (const u of [...p.bench, ...p.board.filter((u) => u != null)]) {
+    for (const u of [
+      ...p.bench.filter((u) => u != null),
+      ...p.board.filter((u) => u != null),
+    ]) {
       t += u.star === 1 ? 1 : u.star === 2 ? 3 : 9;
     }
     for (const slot of p.shop) {
@@ -58,7 +68,10 @@ describe("pool conservation", () => {
       0
     );
     // Starting bench: one unit per player (1-star = 1 pool copy each)
-    const benchCount = state.players.reduce((n, p) => n + p.bench.length, 0);
+    const benchCount = state.players.reduce(
+      (n, p) => n + p.bench.filter((u) => u != null).length,
+      0
+    );
     expect(shopCount).toBeGreaterThan(0);
     // Pool is depleted by both shop draws and starting bench draws
     expect(totalInPool(state.pool)).toBe(initialTotal() - shopCount - benchCount);
@@ -70,9 +83,10 @@ describe("pool conservation", () => {
     const state = createMatch(1, gameData);
     const startId = gameData.gameplay.startingUnitId;
     for (const p of state.players) {
-      expect(p.bench.length).toBe(1);
-      expect(p.bench[0]!.defId).toBe(startId);
-      expect(p.bench[0]!.star).toBe(1);
+      const live = p.bench.filter((u) => u != null);
+      expect(live.length).toBe(1);
+      expect(live[0]!.defId).toBe(startId);
+      expect(live[0]!.star).toBe(1);
     }
   });
 
@@ -94,7 +108,8 @@ describe("pool conservation", () => {
     expect(buyRes.ok).toBe(true);
     expect(totalInMatch(state)).toBe(before);
 
-    const unit = player.bench[player.bench.length - 1]!;
+    const liveBench = player.bench.filter((u) => u != null);
+    const unit = liveBench[liveBench.length - 1]!;
     const sellRes = applyCommand(state, 0, { type: "SELL", unitUid: unit.uid }, prng, gameData);
     expect(sellRes.ok).toBe(true);
     expect(totalInMatch(state)).toBe(before);
@@ -167,7 +182,7 @@ describe("pool conservation", () => {
     const eliminated = state.players.filter((p) => !p.alive);
     expect(eliminated.length).toBeGreaterThan(0);
     for (const p of eliminated) {
-      expect(p.bench.length).toBe(0);
+      expect(p.bench.every((u) => u === null)).toBe(true);
       expect(p.board.every((u) => u === null)).toBe(true);
       expect(p.shop.every((s) => s === null)).toBe(true);
     }
@@ -207,12 +222,13 @@ describe("merge cascade", () => {
     // Clear the starting bench unit so this test is self-contained.
     // Return the copy to the pool to keep conservation.
     for (const u of player.bench) {
+      if (!u) continue;
       const copies = gameData.gameplay.copiesPerStar[String(u.star)] ?? 1;
       for (let i = 0; i < copies; i++) {
         returnToPool(state.pool, u.defId);
       }
     }
-    player.bench = [];
+    player.bench = makeBench([]);
 
     // Force shop to have 3 copies of same unit (treated as already drawn)
     player.shop = [
@@ -227,8 +243,8 @@ describe("merge cascade", () => {
     applyCommand(state, 0, { type: "BUY", shopSlotIndex: 1 }, prng, gameData);
     applyCommand(state, 0, { type: "BUY", shopSlotIndex: 2 }, prng, gameData);
 
-    const twoStars = player.bench.filter((u) => u.defId === defId && u.star === 2);
-    const oneStars = player.bench.filter((u) => u.defId === defId && u.star === 1);
+    const twoStars = player.bench.filter((u) => u != null && u.defId === defId && u.star === 2);
+    const oneStars = player.bench.filter((u) => u != null && u.defId === defId && u.star === 1);
     expect(twoStars.length).toBe(1);
     expect(oneStars.length).toBe(0);
   });
@@ -267,7 +283,7 @@ describe("merge cascade", () => {
     };
 
     // Override bench entirely (the starting unit is discarded from bench)
-    player.bench = [makeUnit(1, 2), makeUnit(2, 2)];
+    player.bench = makeBench([makeUnit(1, 2), makeUnit(2, 2)]);
     player.board[0] = makeUnit(3, 2);
 
     player.shop = [
@@ -282,7 +298,7 @@ describe("merge cascade", () => {
     applyCommand(state, 0, { type: "BUY", shopSlotIndex: 1 }, prng, gameData);
     applyCommand(state, 0, { type: "BUY", shopSlotIndex: 2 }, prng, gameData);
 
-    const allUnits = [...player.bench, ...player.board.filter((u) => u != null)];
+    const allUnits = [...player.bench.filter((u) => u != null), ...player.board.filter((u) => u != null)];
     const threeStars = allUnits.filter((u) => u.defId === defId && u.star === 3);
     expect(threeStars.length).toBe(1);
   });
@@ -319,15 +335,15 @@ describe("merge cascade", () => {
     };
 
     // 3 units with 2 items each -> 6 items total (override bench entirely)
-    player.bench = [
+    player.bench = makeBench([
       makeUnit(1, ["iron_sword", "chain_vest"]),
       makeUnit(2, ["mana_crystal", "iron_sword"]),
-    ];
+    ]);
     player.board[0] = makeUnit(3, ["chain_vest", "mana_crystal"]);
 
     tryAutoMerge(state, 0, defId, gameData);
 
-    const all = [...player.bench, ...player.board.filter((u) => u != null)];
+    const all = [...player.bench.filter((u) => u != null), ...player.board.filter((u) => u != null)];
     const merged = all.find((u) => u.defId === defId && u.star === 2);
     expect(merged).toBeDefined();
     expect(merged!.items.length).toBe(3);

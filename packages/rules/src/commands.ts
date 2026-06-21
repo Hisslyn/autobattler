@@ -47,6 +47,21 @@ function countBoardUnits(board: (UnitInstance | null)[]): number {
   return board.reduce((n, u) => n + (u ? 1 : 0), 0);
 }
 
+/** Live units on the (holed) bench. */
+function benchUnits(bench: (UnitInstance | null)[]): UnitInstance[] {
+  return bench.filter((u): u is UnitInstance => u != null);
+}
+
+/** True when no bench slot is free. */
+function benchFull(bench: (UnitInstance | null)[]): boolean {
+  return bench.indexOf(null) < 0;
+}
+
+/** Lowest-index empty bench slot, or -1 when the bench is full. */
+function firstEmptyBenchSlot(bench: (UnitInstance | null)[]): number {
+  return bench.indexOf(null);
+}
+
 function findUnitAnywhere(
   state: MatchState,
   playerId: number,
@@ -54,7 +69,7 @@ function findUnitAnywhere(
 ): { onBench: boolean; idx: number } | null {
   const player = state.players[playerId];
   if (!player) return null;
-  let idx = player.bench.findIndex((u) => u.uid === uid);
+  let idx = player.bench.findIndex((u) => u != null && u.uid === uid);
   if (idx >= 0) return { onBench: true, idx };
   idx = player.board.findIndex((u) => u != null && u.uid === uid);
   if (idx >= 0) return { onBench: false, idx };
@@ -72,18 +87,20 @@ export function tryAutoMerge(
 
   for (const targetStar of [1, 2] as const) {
     const allUnits = [
-      ...player.bench,
+      ...benchUnits(player.bench),
       ...player.board.filter((u): u is UnitInstance => u != null),
     ].filter((u) => u.defId === defId && u.star === targetStar);
     if (allUnits.length < 3) continue;
 
-    // Remove 3 copies, collecting their items (slot order per source)
+    // Remove 3 copies, collecting their items (slot order per source). Bench
+    // slots are cleared in place (set to null) so other units never reflow.
     const sourceItems: string[] = [];
     let removed = 0;
     for (let i = player.bench.length - 1; i >= 0 && removed < 3; i--) {
-      if (player.bench[i]!.defId === defId && player.bench[i]!.star === targetStar) {
-        sourceItems.push(...player.bench[i]!.items);
-        player.bench.splice(i, 1);
+      const u = player.bench[i];
+      if (u && u.defId === defId && u.star === targetStar) {
+        sourceItems.push(...u.items);
+        player.bench[i] = null;
         removed++;
       }
     }
@@ -124,15 +141,20 @@ export function tryAutoMerge(
     // Overflow items go to the player's unequipped inventory
     player.items.push(...sourceItems.slice(3));
 
-    // Place on bench if space, else first empty board slot
-    if (player.bench.length < data.gameplay.benchMax) {
-      player.bench.push(newUnit);
+    // Place on the lowest empty bench slot if any, else first empty board slot.
+    const benchSlot = firstEmptyBenchSlot(player.bench);
+    if (benchSlot >= 0) {
+      player.bench[benchSlot] = newUnit;
     } else {
       const emptySlot = player.board.indexOf(null);
       if (emptySlot >= 0 && countBoardUnits(player.board) < player.level) {
         player.board[emptySlot] = newUnit;
       } else {
-        player.bench.push(newUnit);
+        // Bench full and no legal board slot — the merge still must land somewhere;
+        // overwrite is impossible, so this only fires in pathological states. Drop
+        // onto the last bench slot as a final fallback (cannot grow the array).
+        const last = player.bench.length - 1;
+        player.bench[last] = newUnit;
       }
     }
 
@@ -167,11 +189,11 @@ export function applyCommand(
       if (!def) return { ok: false, error: "UNIT_NOT_FOUND" };
       const cost = def.tier;
       if (player.gold < cost) return { ok: false, error: "INSUFFICIENT_GOLD" };
-      if (player.bench.length >= data.gameplay.benchMax) {
+      if (benchFull(player.bench)) {
         // Full bench: only allow if this purchase immediately completes a merge
         // (3rd star-1 copy), so net bench growth is <= 0.
         const sameStarCopies = [
-          ...player.bench,
+          ...benchUnits(player.bench),
           ...player.board.filter((u): u is UnitInstance => u != null),
         ].filter((u) => u.defId === slot.defId && u.star === 1).length;
         if (sameStarCopies < 2) return { ok: false, error: "BENCH_FULL" };
@@ -203,7 +225,18 @@ export function applyCommand(
         statusEffects: [],
         items: [],
       };
-      player.bench.push(newUnit);
+      // Drop into the lowest empty bench slot. A full bench only reached here on
+      // a merge-completing buy (checked above): place on a free board slot so
+      // tryAutoMerge can find + consume it (net occupancy unchanged after merge);
+      // if even that is full, fall back to the last bench slot.
+      const benchSlot = firstEmptyBenchSlot(player.bench);
+      if (benchSlot >= 0) {
+        player.bench[benchSlot] = newUnit;
+      } else {
+        const boardSlot = player.board.indexOf(null);
+        if (boardSlot >= 0) player.board[boardSlot] = newUnit;
+        else player.bench[player.bench.length - 1] = newUnit;
+      }
 
       tryAutoMerge(state, playerId, def.id, data);
       return { ok: true };
@@ -222,7 +255,7 @@ export function applyCommand(
       player.items.push(...unit.items);
 
       if (found.onBench) {
-        player.bench.splice(found.idx, 1);
+        player.bench[found.idx] = null;
       } else {
         player.board[found.idx] = null;
       }
@@ -262,15 +295,31 @@ export function applyCommand(
       if (!unit) return { ok: false, error: "UNIT_NOT_FOUND" };
 
       if (cmd.toBench) {
-        if (player.bench.length >= data.gameplay.benchMax) return { ok: false, error: "BENCH_FULL" };
-        // Remove from source
+        // Bench is 9 FIXED positional slots — never reflows. The target slot is
+        // chosen explicitly (clamped into range); if it's empty the unit moves
+        // there, if occupied the two units SWAP slots. A bench→bench move onto
+        // the unit's own slot is a no-op.
+        const targetSlot = Math.min(Math.max(0, cmd.toIndex), player.bench.length - 1);
+        // No free slot AND the target is empty would be contradictory; only a
+        // bench→bench move into the source's own slot can't change occupancy.
+        if (found.onBench && found.idx === targetSlot) return { ok: true };
+
+        const occupant = player.bench[targetSlot] ?? null;
+        // A bench→bench move into a full bench is fine (it's a swap or same slot);
+        // a board→bench move needs the target slot itself to be free OR be a swap
+        // back onto the board... but the board source slot is single, so any
+        // board→bench lands the occupant (if any) back onto that board slot.
         if (found.onBench) {
-          player.bench.splice(found.idx, 1);
+          // Bench↔bench: move to empty slot, or swap two occupied slots.
+          player.bench[found.idx] = occupant; // null when target was empty → source emptied
+          player.bench[targetSlot] = unit;
         } else {
-          player.board[found.idx] = null;
+          // Board→bench: clear the board slot, place onto the target bench slot;
+          // any bench occupant swaps back onto the now-empty board slot.
+          if (!occupant && benchFull(player.bench)) return { ok: false, error: "BENCH_FULL" };
+          player.board[found.idx] = occupant; // occupant (or null) returns to the board slot
+          player.bench[targetSlot] = unit;
         }
-        const clampedIdx = Math.min(Math.max(0, cmd.toIndex), player.bench.length);
-        player.bench.splice(clampedIdx, 0, unit);
       } else {
         // Moving to board slot
         const targetSlot = Math.min(Math.max(0, cmd.toIndex), data.gameplay.boardSlots - 1);
@@ -284,16 +333,16 @@ export function applyCommand(
             return { ok: false, error: "BOARD_FULL" };
           }
         }
-        // Remove from source
+        // Remove from source (bench slot cleared in place — never reflow)
         if (found.onBench) {
-          player.bench.splice(found.idx, 1);
+          player.bench[found.idx] = null;
         } else {
           player.board[found.idx] = null;
         }
-        // Swap occupant back to source if needed
+        // Swap occupant back to the source slot if needed
         if (occupant) {
           if (found.onBench) {
-            player.bench.splice(Math.min(found.idx, player.bench.length), 0, occupant);
+            player.bench[found.idx] = occupant;
           } else {
             player.board[found.idx] = occupant;
           }
