@@ -2,13 +2,6 @@
 
 Readable map from source path to its documentation file. One line per documented source file.
 
-- .gitignore -> docs/.gitignore.md — shared root git ignore rules (node_modules/dist/env/cache/tsbuildinfo; balance-report.* deliberately NOT ignored)
-- AUDIT.md -> docs/AUDIT.md.md — point-in-time (2026-06-13) repo health/invariant audit report, now stale relative to current code
-- CLAUDE.md -> docs/CLAUDE.md.md — canonical, living project brief: architecture, hard invariants, workspace layout, per-package internals reference
-- autobattler.md -> docs/autobattler.md.md — original pre-implementation design doc (vision/rationale, now partly superseded by CLAUDE.md)
-- docker-compose.yml -> docs/docker-compose.yml.md — local Postgres 16 container for dev/test persistence
-- package.json -> docs/package.json.md — root npm workspace manifest: workspaces glob, shared dev tooling, top-level scripts
-- packages/balance/package.json -> docs/packages/balance/package.json.md — @autobattler/balance manifest: ESM, depends only on sim+data
 - packages/balance/src/cli.ts -> docs/packages/balance/src/cli.ts.md — balance CLI entry; the only I/O-permitted script outside the server; writes balance-report.md/.json
 - packages/balance/src/compositions.ts -> docs/packages/balance/src/compositions.ts.md — 24 budget-normalized archetype comps + buildBoard/activeTraits helpers for the sweep
 - packages/balance/src/index.ts -> docs/packages/balance/src/index.ts.md — public barrel re-exporting runner/sweep/report/compositions
@@ -16,12 +9,7 @@ Readable map from source path to its documentation file. One line per documented
 - packages/balance/src/runner.ts -> docs/packages/balance/src/runner.ts.md — runs N seeded combats between two boards via simulateCombat, aggregates MatchupResult
 - packages/balance/src/sweep.ts -> docs/packages/balance/src/sweep.ts.md — round-robin tournament over all comps; aggregates per-comp/unit/tier/trait win rates into SweepReport
 - packages/balance/tests/balance.test.ts -> docs/packages/balance/tests/balance.test.ts.md — end-to-end balance package tests: determinism, budget/coverage invariants, smoke report round-trip
-- packages/client/PORTRAIT_LAYOUT_SPEC.md -> docs/packages/client/PORTRAIT_LAYOUT_SPEC.md.md — implemented spec for the height-driven portrait layout budget algorithm in layout.ts
 - packages/client/index.html -> docs/packages/client/index.html.md — Vite entry HTML: viewport lock, #app canvas mount, #safe-probe safe-area reader, main.ts script tag
-- packages/client/package.json -> docs/packages/client/package.json.md — @autobattler/client manifest: depends on data/protocol/rules/sim + pixi.js v8, dev/build/typecheck scripts
-- packages/client/public/audio/README.md -> docs/packages/client/public/audio/README.md.md — audio drop-in-file convention: per-state music + per-event SFX overrides, generative/procedural fallback
-- packages/client/public/items/README.md -> docs/packages/client/public/items/README.md.md — item-art drop-in slot convention: <itemId>.png overrides procedural emblem icons
-- packages/client/public/units/README.md -> docs/packages/client/public/units/README.md.md — unit-art drop-in slot convention: <unitId>.png overrides procedural class glyph
 - packages/client/src/audio/director.ts -> docs/packages/client/src/audio/director.ts.md — pure phase->music-state mapping, file/generative resolution, crossfade math, autoplay-unlock state machine
 - packages/client/src/audio/manager.ts -> docs/packages/client/src/audio/manager.ts.md — Web Audio engine: node graph, SFX voice synthesis, music crossfade/file-override, combat fx -> sound bridge
 - packages/client/src/audio/music.ts -> docs/packages/client/src/audio/music.ts.md — generative loopable music: pure progression/motif/voice-leading theory + Web Audio lookahead scheduler engine
@@ -96,27 +84,14 @@ Readable map from source path to its documentation file. One line per documented
 - packages/client/tests/tierColor.test.ts -> docs/packages/client/tests/tierColor.test.ts.md — tierColor mapping tests + locked tier1-5 hex value regression guard + out-of-range clamp-to-tier1
 - packages/client/tests/torchMeter.test.ts -> docs/packages/client/tests/torchMeter.test.ts.md — litCount floor/cap math + torchLit asymmetric left-front-up/right-back-down fill direction tests
 - packages/client/tests/traitDetailModel.test.ts -> docs/packages/client/tests/traitDetailModel.test.ts.md — traitDetailModel reached-vs-single-active breakpoint flag tests on real knight 2/4/6 data + breakpointEffect stat-label/fixed-point formatting
-- packages/client/tsconfig.json -> docs/packages/client/tsconfig.json.md — client-scoped TS compiler config for Vite (only per-package tsconfig in the repo); not used by the root tsc --build typecheck gate
-- packages/client/vite.config.ts -> docs/packages/client/vite.config.ts.md — workspace-resolver Vite plugin mapping @autobattler/* bare specifiers directly to sibling packages' .ts source files
-- packages/data/design-notes.md -> docs/packages/data/design-notes.md.md — content design rationale + the most complete documentation of item-system phases 2-3 (consumables/artifacts/mythicals/pair-passives) + future-deferred behavior backlog
-- packages/data/package.json -> docs/packages/data/package.json.md — @autobattler/data manifest: ESM, zero deps, main/exports point directly at loader.ts (no JSON subpath exports)
-- packages/data/src/economy.json -> docs/packages/data/src/economy.json.md — pool/shop-odds/income/streak/damage/overtime/crit/MMR/item-tier tuning constants (EconomyData); flags a shopSlots=6 vs CLAUDE.md "5 cards" discrepancy
-- packages/data/src/gameplay.json -> docs/packages/data/src/gameplay.json.md — match-shape + combat-pacing constants (GameplayData): player/board/bench sizing, star multipliers, mana rates, ticksPerSec, overtimeStartTick, AI bot tuning
-- packages/data/src/items.json -> docs/packages/data/src/items.json.md — full 51-item roster: 9 components, 36 completed (3 with passives), 3 consumables, 6 artifacts (2 named pairs), 3 mythicals
+- packages/client/vite.config.ts -> SKIPPED (config) — workspace-resolver Vite plugin mapping @autobattler/* bare specifiers directly to sibling packages' .ts source files
 - packages/data/src/loader.ts -> docs/packages/data/src/loader.ts.md — typed gameData loader + pure helpers (recipeResult, mmrToRank, itemKind, itemTier, getOrCreateRadiantItem); eagerly materializes radiant items at module load
-- packages/data/src/loot.json -> docs/packages/data/src/loot.json.md — seeded PvE loot tables: weighted rarity reward pools (gold/component/item) + per-round orb-count drop schedule
-- packages/data/src/mobs.json -> docs/packages/data/src/mobs.json.md — PvE creep stat/ability defs + scripted per-round stage encounters (mob placements by slot/star)
-- packages/data/src/ranks.json -> docs/packages/data/src/ranks.json.md — ordered MMR rank-band thresholds (Bronze..Master); single source for mmrToRank
-- packages/data/src/traits.json -> docs/packages/data/src/traits.json.md — 22 trait defs (12 origins + 10 classes), breakpoint tables (count -> flat stat bonus) consumed by sim applyTraits
-- packages/data/src/units.json -> docs/packages/data/src/units.json.md — full 50-unit roster: tier/origin/classes/stats/ability per unit (13/13/12/8/4 across tiers 1-5)
 - packages/data/tests/integrity.test.ts -> docs/packages/data/tests/integrity.test.ts.md — cross-validates all data JSON: referential integrity, count invariants (50 units, 36 recipes, 6 artifacts/3 mythicals, etc.)
 - packages/data/tests/rank.test.ts -> docs/packages/data/tests/rank.test.ts.md — known-answer boundary tests for mmrToRank against real ranks.json thresholds
-- packages/protocol/package.json -> docs/packages/protocol/package.json.md — @autobattler/protocol manifest: ESM, zero deps, main/exports point at src/index.ts
 - packages/protocol/src/envelope.ts -> docs/packages/protocol/src/envelope.ts.md — {v,t,p} wire envelope; encode/decodeC2S/decodeS2C + field validators for loot/names/stats/round-result/USE_CONSUMABLE
 - packages/protocol/src/index.ts -> docs/packages/protocol/src/index.ts.md — public barrel re-exporting messages.ts + envelope.ts
 - packages/protocol/src/messages.ts -> docs/packages/protocol/src/messages.ts.md — C2SMessage/S2CMessage discriminated unions + loot/round-result/match-stats wire types + ErrorCode
 - packages/protocol/tests/protocol.test.ts -> docs/packages/protocol/tests/protocol.test.ts.md — encode/decode round-trips for every S2C type + malformed-payload rejection + full validateC2S/USE_CONSUMABLE coverage
-- packages/rules/package.json -> docs/packages/rules/package.json.md — @autobattler/rules manifest: ESM, depends on data+sim, per-file subpath exports (commands/state/economy/rounds/loot/pool/shop/ai)
 - packages/rules/src/ai.ts -> docs/packages/rules/src/ai.ts.md — applyAiCommands: seeded bot planning policy (XP buy threshold, trait-overlap shop scoring, board autofill)
 - packages/rules/src/commands.ts -> docs/packages/rules/src/commands.ts.md — applyCommand: the legality+mutation gate for BUY/SELL/REROLL/BUY_XP/MOVE/EQUIP/UNEQUIP/COMBINE_ITEMS/USE_CONSUMABLE + auto-merge cascade
 - packages/rules/src/economy.ts -> docs/packages/rules/src/economy.ts.md — calcIncome (base+interest+streak) and levelForXp pure formulas
@@ -139,7 +114,6 @@ Readable map from source path to its documentation file. One line per documented
 - packages/rules/tests/roundStats.test.ts -> docs/packages/rules/tests/roundStats.test.ts.md — lastRoundResult classification (won/lost/bye/pve) + per-match accumulator (roundWins/roundLosses/totalDamage) correctness
 - packages/rules/tests/serializeMatchState.ts -> docs/packages/rules/tests/serializeMatchState.ts.md — shared Map/Set-aware JSON snapshot helper for full-MatchState determinism comparisons
 - packages/rules/tests/shop.test.ts -> docs/packages/rules/tests/shop.test.ts.md — level-gated shop tier floor/ceiling sanity checks + slot count
-- packages/server/package.json -> docs/packages/server/package.json.md — @autobattler/server manifest (deps: data/protocol/rules/sim + pg + ws)
 - packages/server/src/auth.ts -> docs/packages/server/src/auth.ts.md — HMAC-signed opaque guest auth tokens (signToken/verifyToken)
 - packages/server/src/db/index.ts -> docs/packages/server/src/db/index.ts.md — db barrel module; createRepository() picks Postgres (DATABASE_URL set) vs in-memory
 - packages/server/src/db/memory.ts -> docs/packages/server/src/db/memory.ts.md — MemoryRepository: in-process Repository impl for dev/tests, no persistence across restarts
@@ -159,7 +133,6 @@ Readable map from source path to its documentation file. One line per documented
 - packages/server/tests/profile.test.ts -> docs/packages/server/tests/profile.test.ts.md — validateName unit tests + in-process PATCH /profile HTTP integration test
 - packages/server/tests/repo.test.ts -> docs/packages/server/tests/repo.test.ts.md — shared Repository contract suite run against MemoryRepository + (conditionally) PostgresRepository
 - packages/server/tests/room.test.ts -> docs/packages/server/tests/room.test.ts.md — in-process fake-timer room tests: client resimulation matches COMBAT_RESULT, phase timing, STATE_DELTA privacy
-- packages/sim/package.json -> docs/packages/sim/package.json.md — @autobattler/sim package manifest (pure, depends only on @autobattler/data)
 - packages/sim/src/engine.ts -> docs/packages/sim/src/engine.ts.md — simulateCombat: the pure deterministic combat engine (stats, traits, items, per-tick loop, overtime, event log)
 - packages/sim/src/fixed.ts -> docs/packages/sim/src/fixed.ts.md — integer fixed-point math helpers (SCALE=1000, fmul/fdiv/toFixed/fromFixed)
 - packages/sim/src/hex.ts -> docs/packages/sim/src/hex.ts.md — axial hex grid (7x8): distance, neighbors, bounds, A* pathfinder
@@ -171,6 +144,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/sim/tests/pairPassive.test.ts -> docs/packages/sim/tests/pairPassive.test.ts.md — co-equip item pair-passive tests (voidstaff+voidmantle shield, warblade+warplate burn)
 - packages/sim/tests/prng.test.ts -> docs/packages/sim/tests/prng.test.ts.md — mulberry32 known-answer snapshot, same-seed/diverging-seed tests
 - packages/sim/tests/purity.test.ts -> docs/packages/sim/tests/purity.test.ts.md — static text scan of src/ forbidding Math.random/Date.now/parseFloat
-- tsconfig.json -> docs/tsconfig.json.md — single shared strict TypeScript config for the whole monorepo (no per-package overrides)
-- vitest.config.ts -> docs/vitest.config.ts.md — single shared Vitest config: discovers packages/*/tests/**/*.test.ts only
-- references/stage bar/stage-bar-spec.md -> docs/references/stage bar/stage-bar-spec.md.md — implementation handoff spec for the stage bar HUD component (now implemented in match.ts)
+- vitest.config.ts -> SKIPPED (config) — single shared Vitest config: discovers packages/*/tests/**/*.test.ts only

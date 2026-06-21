@@ -1,55 +1,6 @@
 {
   "files": [
     {
-      "path": ".gitignore",
-      "status": "done",
-      "doc": "docs/.gitignore.md",
-      "hash": "459fb40fc70530f6f709a89f2c55f178c5fafa5ca691fc7d56b7865153d82598",
-      "updated": "2026-06-20T11:00:00+00:00"
-    },
-    {
-      "path": "AUDIT.md",
-      "status": "done",
-      "doc": "docs/AUDIT.md.md",
-      "hash": "52453494c7383753537e057a564ac719655ab3fcf1baf4aa2288c1e7099e8350",
-      "updated": "2026-06-20T01:14:14.038597Z"
-    },
-    {
-      "path": "CLAUDE.md",
-      "status": "done",
-      "doc": "docs/CLAUDE.md.md",
-      "hash": "715e47e12a1c4f02b91a1ec668e68c9d243334ae7b40fc41a85dd3260e311d8e",
-      "updated": "2026-06-20T01:14:57.932951+00:00"
-    },
-    {
-      "path": "autobattler.md",
-      "status": "done",
-      "doc": "docs/autobattler.md.md",
-      "hash": "17683d15920dd829dea181e8b233258e584cb4776fc1cad251436df95bf1d7bf",
-      "updated": "2026-06-20T01:15:36.254347+00:00"
-    },
-    {
-      "path": "docker-compose.yml",
-      "status": "done",
-      "doc": "docs/docker-compose.yml.md",
-      "hash": "6c2ad6f76c9d708d7860ce4dac699e8a88f8e590d368290d2ef588e28571c839",
-      "updated": "2026-06-20T01:16:04.321969+00:00"
-    },
-    {
-      "path": "package.json",
-      "status": "done",
-      "doc": "docs/package.json.md",
-      "hash": "4b23ee44fb9fcbdcdf5d3b9ef4deebdd00ee05d1694affec6a90e98fbec552e5",
-      "updated": "2026-06-20T01:16:37.815458+00:00"
-    },
-    {
-      "path": "packages/balance/package.json",
-      "status": "done",
-      "doc": "docs/packages/balance/package.json.md",
-      "hash": "3da8e621468d13a0d4248ee9ab8b9a2e4e050624ad59b4e3f97e3d1365a249da",
-      "updated": "2026-06-20T01:17:07.881650+00:00"
-    },
-    {
       "path": "packages/balance/src/cli.ts",
       "status": "done",
       "doc": "docs/packages/balance/src/cli.ts.md",
@@ -99,46 +50,11 @@
       "updated": "2026-06-20T01:22:50.922951+00:00"
     },
     {
-      "path": "packages/client/PORTRAIT_LAYOUT_SPEC.md",
-      "status": "done",
-      "doc": "docs/packages/client/PORTRAIT_LAYOUT_SPEC.md.md",
-      "hash": "7bfcdf8ff6acb6a9cf83e6132dc1da09fce659c9d30dbba78481b81e68e118fe",
-      "updated": "2026-06-20T01:24:03.340127+00:00"
-    },
-    {
       "path": "packages/client/index.html",
       "status": "done",
       "doc": "docs/packages/client/index.html.md",
       "hash": "41165b9bf0d05ca348d8f0994303e30c91f25a68f2157a22a4bbcfebe6ff6982",
       "updated": "2026-06-20T01:24:42.996321+00:00"
-    },
-    {
-      "path": "packages/client/package.json",
-      "status": "done",
-      "doc": "docs/packages/client/package.json.md",
-      "hash": "12f613f16cf9a744d7787baec03be78fcf20fee3ebcf6b1d86259b0e8df8a873",
-      "updated": "2026-06-20T01:25:17.408092+00:00"
-    },
-    {
-      "path": "packages/client/public/audio/README.md",
-      "status": "done",
-      "doc": "docs/packages/client/public/audio/README.md.md",
-      "hash": "6da769c2a9166e49e1d4eb7cae221e91292a315f43387a5ae64b938d30cb2389",
-      "updated": "2026-06-20T01:26:06.465839+00:00"
-    },
-    {
-      "path": "packages/client/public/items/README.md",
-      "status": "done",
-      "doc": "docs/packages/client/public/items/README.md.md",
-      "hash": "d2cb9e4fadf96281d1220c45487a1b5acb9454ac1f4bd0180950661e5c3e9fa2",
-      "updated": "2026-06-20T01:26:35.099929+00:00"
-    },
-    {
-      "path": "packages/client/public/units/README.md",
-      "status": "done",
-      "doc": "docs/packages/client/public/units/README.md.md",
-      "hash": "137c796dbb199cd23cc62c465d36db509388425bf999b347956c831c63a4425e",
-      "updated": "2026-06-20T01:27:03.191180+00:00"
     },
     {
       "path": "packages/client/src/audio/director.ts",
@@ -659,53 +575,11 @@
       "updated": "2026-06-20T04:51:00+00:00"
     },
     {
-      "path": "packages/client/tsconfig.json",
-      "status": "done",
-      "doc": "docs/packages/client/tsconfig.json.md",
-      "hash": "5f02b087e204951a4263b47e31d5c918102b6ca49afc9e4a395e22db839f165f",
-      "updated": "2026-06-20T04:55:00+00:00"
-    },
-    {
       "path": "packages/client/vite.config.ts",
-      "status": "done",
-      "doc": "docs/packages/client/vite.config.ts.md",
-      "hash": "467c2e9d7f2fde124ddd244c8a4a012559633053a6bd5f8716cf04f313a3e044",
-      "updated": "2026-06-20T04:58:00+00:00"
-    },
-    {
-      "path": "packages/data/design-notes.md",
-      "status": "done",
-      "doc": "docs/packages/data/design-notes.md.md",
-      "hash": "06df709babbba274fbf8bcb9d68473ba97ff1f216d0ddbf39e721b2eceab5fd8",
-      "updated": "2026-06-20T05:05:00+00:00"
-    },
-    {
-      "path": "packages/data/package.json",
-      "status": "done",
-      "doc": "docs/packages/data/package.json.md",
-      "hash": "e86ed5ca7c7bf071f129737efc63419905957aad482632495d4de6338d55242e",
-      "updated": "2026-06-20T05:08:00+00:00"
-    },
-    {
-      "path": "packages/data/src/economy.json",
-      "status": "done",
-      "doc": "docs/packages/data/src/economy.json.md",
-      "hash": "d4d22001e4282dcde9e0cd699fd62522026f674e51ab557a05526c5ac4b8bbaf",
-      "updated": "2026-06-20T05:14:00+00:00"
-    },
-    {
-      "path": "packages/data/src/gameplay.json",
-      "status": "done",
-      "doc": "docs/packages/data/src/gameplay.json.md",
-      "hash": "2ddaa81a1877a2314bae85d77cbefccef5f73cd2bca1c97c99f2a51a4450f878",
-      "updated": "2026-06-20T05:18:00+00:00"
-    },
-    {
-      "path": "packages/data/src/items.json",
-      "status": "done",
-      "doc": "docs/packages/data/src/items.json.md",
-      "hash": "c046a62264e099f9a48ccd4c9fbede26b2b8c7646b2b3a5e2eb88781ef85908e",
-      "updated": "2026-06-20T05:28:00+00:00"
+      "status": "skipped",
+      "doc": null,
+      "updated": "2026-06-21T11:58:10.837392+00:00",
+      "reason": "config"
     },
     {
       "path": "packages/data/src/loader.ts",
@@ -713,41 +587,6 @@
       "doc": "docs/packages/data/src/loader.ts.md",
       "hash": "7b923b0c11c06529b2db2fa16c93d4bb6368326bf5328168cb232cebe237e85b",
       "updated": "2026-06-20T05:35:00+00:00"
-    },
-    {
-      "path": "packages/data/src/loot.json",
-      "status": "done",
-      "doc": "docs/packages/data/src/loot.json.md",
-      "hash": "5c691ead7af0f45c728ed47ddb9275a7f0e500c19520f09f5c7b7313763de23f",
-      "updated": "2026-06-20T05:40:00+00:00"
-    },
-    {
-      "path": "packages/data/src/mobs.json",
-      "status": "done",
-      "doc": "docs/packages/data/src/mobs.json.md",
-      "hash": "61482a3ed592235cbefba4b4caed3f0d6c2e80473d56c7cec88e7f096246eaea",
-      "updated": "2026-06-20T05:45:00+00:00"
-    },
-    {
-      "path": "packages/data/src/ranks.json",
-      "status": "done",
-      "doc": "docs/packages/data/src/ranks.json.md",
-      "hash": "4845e4b618a7b686f2c578948ca1d071d985efc692e75deb224774bced518d49",
-      "updated": "2026-06-20T05:48:00+00:00"
-    },
-    {
-      "path": "packages/data/src/traits.json",
-      "status": "done",
-      "doc": "docs/packages/data/src/traits.json.md",
-      "hash": "0f57f126c226a8ae6f7feb634b2abeafee07ecb1c9b627d4e41a7e466a9504d6",
-      "updated": "2026-06-20T05:52:00+00:00"
-    },
-    {
-      "path": "packages/data/src/units.json",
-      "status": "done",
-      "doc": "docs/packages/data/src/units.json.md",
-      "hash": "1b560f1882bb0a763bd753f26ecd4ebfa7979e348f6900ef42f0f8f978abf986",
-      "updated": "2026-06-20T05:58:00+00:00"
     },
     {
       "path": "packages/data/tests/integrity.test.ts",
@@ -762,13 +601,6 @@
       "doc": "docs/packages/data/tests/rank.test.ts.md",
       "hash": "968bb032933bd9dde4f6a4c36d2a730645f98ea1878cb75624ec431e455cd212",
       "updated": "2026-06-20T06:05:00+00:00"
-    },
-    {
-      "path": "packages/protocol/package.json",
-      "status": "done",
-      "doc": "docs/packages/protocol/package.json.md",
-      "hash": "3d297b41803f3c9513d91fc0aeeb71d31f686a91ed6d1afd64786123561a5e94",
-      "updated": "2026-06-20T06:08:00+00:00"
     },
     {
       "path": "packages/protocol/src/envelope.ts",
@@ -797,13 +629,6 @@
       "doc": "docs/packages/protocol/tests/protocol.test.ts.md",
       "hash": "5970cb96fa5e354772ee7efaf516c1bb8ef8ed90c0b7eeab22941ef8067eac07",
       "updated": "2026-06-20T06:25:00+00:00"
-    },
-    {
-      "path": "packages/rules/package.json",
-      "status": "done",
-      "doc": "docs/packages/rules/package.json.md",
-      "hash": "68970f52e8efc33bcbc2ba1bdb00b824fcee62b18fedf2d3877acf65e15f89f6",
-      "updated": "2026-06-20T06:28:00+00:00"
     },
     {
       "path": "packages/rules/src/ai.ts",
@@ -960,13 +785,6 @@
       "updated": "2026-06-20T08:10:00+00:00"
     },
     {
-      "path": "packages/server/package.json",
-      "status": "done",
-      "doc": "docs/packages/server/package.json.md",
-      "hash": "a6120d1e9b1dfb3ae19c3b49c2a770ecac05a171ab5552c4b1f327fa4e755e9a",
-      "updated": "2026-06-20T08:13:00+00:00"
-    },
-    {
       "path": "packages/server/src/auth.ts",
       "status": "done",
       "doc": "docs/packages/server/src/auth.ts.md",
@@ -1100,13 +918,6 @@
       "updated": "2026-06-20T09:45:00+00:00"
     },
     {
-      "path": "packages/sim/package.json",
-      "status": "done",
-      "doc": "docs/packages/sim/package.json.md",
-      "hash": "d6e77220352045c5a9bbe7c2c2d7d5fd10fc7952191c53a95abe37e0581f3ac2",
-      "updated": "2026-06-20T09:50:00+00:00"
-    },
-    {
       "path": "packages/sim/src/engine.ts",
       "status": "done",
       "doc": "docs/packages/sim/src/engine.ts.md",
@@ -1184,29 +995,16 @@
       "updated": "2026-06-20T10:45:00+00:00"
     },
     {
-      "path": "tsconfig.json",
-      "status": "done",
-      "doc": "docs/tsconfig.json.md",
-      "hash": "35d52fd341f2315276880932f5fe90b850aee5172aa3d28beea0c6ed4fae56af",
-      "updated": "2026-06-20T10:50:00+00:00"
-    },
-    {
       "path": "vitest.config.ts",
-      "status": "done",
-      "doc": "docs/vitest.config.ts.md",
-      "hash": "e2c8e9b96df4ef7b5a3c2f59a2c766ef1cd9721b5b00a4c88c07149272e1dbd6",
-      "updated": "2026-06-20T10:55:00+00:00"
-    },
-    {
-      "path": "references/stage bar/stage-bar-spec.md",
-      "status": "done",
-      "doc": "docs/references/stage bar/stage-bar-spec.md.md",
-      "hash": "2fa3fee6668ea8492a85c77cd543911e46ad1537fe8aea9e5d520244bdb4a3ae",
-      "updated": "2026-06-20T11:05:00+00:00"
+      "status": "skipped",
+      "doc": null,
+      "updated": "2026-06-21T11:58:10.837392+00:00",
+      "reason": "config"
     }
   ],
   "totals": {
-    "done": 172,
-    "total": 172
+    "done": 141,
+    "skipped": 2,
+    "total": 143
   }
 }
