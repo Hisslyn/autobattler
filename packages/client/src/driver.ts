@@ -72,6 +72,10 @@ export const PLANNING_TIMER_MS = 30_000;
 // genuine playback finishes (0.25x default → real duration is 4x the 1x duration).
 const PLAYBACK_CAP_BUFFER_MS = 2_000;
 const SLOWEST_PLAYBACK_SPEED = 0.25;
+// Presentation-only playback time-scale the scene applies on top of the speed
+// setting (see combat/player.ts PLAYBACK_TIME_SCALE). The cap must account for
+// it so it never fires before genuine (slowed) playback finishes.
+const PLAYBACK_TIME_SCALE = 0.2;
 
 export type DriverEvent =
   | { type: "state"; state: MatchState }
@@ -265,7 +269,7 @@ export class LocalDriver implements IDriver {
     const result = this.getMyCombatResult();
     const oneXMs = result ? Math.ceil((result.ticks * 1000) / gameData.gameplay.ticksPerSec) : 0;
     const capMs = result
-      ? Math.ceil(oneXMs / SLOWEST_PLAYBACK_SPEED) + PLAYBACK_CAP_BUFFER_MS
+      ? Math.ceil(oneXMs / (SLOWEST_PLAYBACK_SPEED * PLAYBACK_TIME_SCALE)) + PLAYBACK_CAP_BUFFER_MS
       : 0;
     this.pendingResolution = true;
     this.playbackCapTimerId = setTimeout(() => this.combatPlaybackDone(), capMs);

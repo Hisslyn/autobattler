@@ -18,6 +18,12 @@ import type { PlaybackState } from "./reducer.js";
 // 0.25 = quarter the 1x pace (the new experienced default); 1x keeps its prior meaning.
 export type PlaybackSpeed = 0.25 | 0.5 | 1 | 2;
 
+// Presentation-only playback time-scale applied at the scene call site (NOT
+// inside CombatPlayer, so determinism tests over advance(dtMs) are unchanged):
+// the wall-clock delta fed to advance() is multiplied by this so fights play
+// back 5x slower and can be monitored. Sim/outcomes/tests are untouched.
+export const PLAYBACK_TIME_SCALE = 0.2;
+
 /** Ability effect kind keyed into per-kind visuals/sounds. */
 export type AbilityFxKind = AbilityEffect["kind"];
 

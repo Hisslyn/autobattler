@@ -7,7 +7,7 @@ import type { UnitInstance, CombatEvent } from "@autobattler/sim/src/types.js";
 import type { HexCoord } from "@autobattler/sim/src/hex.js";
 import type { IDriver } from "../driver.js";
 import { PLANNING_TIMER_MS } from "../driver.js";
-import { CombatPlayer, toDisplayHex } from "../combat/player.js";
+import { CombatPlayer, toDisplayHex, PLAYBACK_TIME_SCALE } from "../combat/player.js";
 import type { PlaybackSpeed } from "../combat/player.js";
 import { CombatView } from "../combat/view.js";
 import { C, tierColor, CHIP_TEXT_SIZE, CHIP_TEXT_FONT, BOARD_TILT, CANDLE_COLUMN_SCREEN_OFFSET, HAMBURGER_RAIL_GAP } from "../theme.js";
@@ -625,6 +625,8 @@ export class MatchScene {
       // board + trait strip; bench/shop/HUD stay mine. View-only, no mutation.
       const peeked = this.peekTargetId !== null ? state.players[this.peekTargetId] : null;
       if (peeked) {
+        // Read-only peek: the board, trait strip, bench, and econ all show the
+        // PEEKED player (mutations are blocked elsewhere via peekTargetId guards).
         this.renderPeekBoard(peeked);
         this.renderPeekChrome(state, this.peekTargetId!);
         // Peeked trait strip (traits only — never the item-browse tab, which would
@@ -635,16 +637,18 @@ export class MatchScene {
         } else {
           this.renderTraitStrip(peeked);
         }
+        this.renderPeekBench(peeked);
+        this.renderPeekEcon(peeked);
       } else {
         this.scoutLayer.removeChildren();
         this.renderBoard(me);
         if (this.isLandscape) this.renderRailTabs(me);
         else this.renderTraitStrip(me);
+        this.renderBench(me);
+        this.renderShop(me);
+        this.renderShopToggle(me);
+        this.renderShopPanel(me);
       }
-      this.renderBench(me);
-      this.renderShop(me);
-      this.renderShopToggle(me);
-      this.renderShopPanel(me);
     }
   }
 
@@ -892,7 +896,9 @@ export class MatchScene {
 
   /** Redraw the retained stage-bar progress capsule from a live remaining-time
    * value (ms). Called by renderStageBar and per-frame by the planning ticker so
-   * the bar drains smoothly with the countdown number. Presentation only. */
+   * the bar drains smoothly with the countdown number. Depletes LEFT→RIGHT: the
+   * remaining portion is anchored at the RIGHT edge and recedes rightward (the
+   * left empties first). Presentation only. */
   private redrawPlanningProgress(timeLeft: number): void {
     const pg = this.planningProgressBar;
     const geom = this.planningProgressGeom;
@@ -904,7 +910,10 @@ export class MatchScene {
     pg.clear();
     pg.roundRect(geom.x, geom.y, geom.w, geom.h, 2).fill({ color: C.stageBarTrack, alpha: 0.9 });
     if (fillW > 0) {
-      pg.roundRect(geom.x, geom.y, fillW, geom.h, 2).fill({ color: urgent ? C.hpLow : C.stageProgress, alpha: 1 });
+      // Right-anchored fill: empties from the left edge, remaining portion hugs
+      // the right edge and shrinks rightward as time runs out.
+      pg.roundRect(geom.x + geom.w - fillW, geom.y, fillW, geom.h, 2)
+        .fill({ color: urgent ? C.hpLow : C.stageProgress, alpha: 1 });
     }
   }
 
@@ -1097,6 +1106,14 @@ export class MatchScene {
         const capturedId = i;
         hit.on("pointerdown", () => this.enterPeek(capturedId));
         this.hudLayer.addChild(hit);
+      } else if (isSelf && this.peekTargetId !== null && state.phase === "PLANNING") {
+        // While peeking, tapping your OWN avatar returns to your own board.
+        const hit = new PIXI.Graphics();
+        hit.rect(tileX, tileY, tileW, tileH).fill({ color: C.bgOverlay, alpha: 0.001 });
+        hit.eventMode = "static";
+        hit.cursor = "pointer";
+        hit.on("pointerdown", () => this.exitPeek());
+        this.hudLayer.addChild(hit);
       }
     }
   }
@@ -1149,6 +1166,14 @@ export class MatchScene {
         hit.cursor = "pointer";
         const capturedId = i;
         hit.on("pointerdown", () => this.enterPeek(capturedId));
+        this.hudLayer.addChild(hit);
+      } else if (isSelf && this.peekTargetId !== null && state.phase === "PLANNING") {
+        // While peeking, tapping your OWN avatar returns to your own board.
+        const hit = new PIXI.Graphics();
+        hit.rect(tileX, tileY, tileW, tileH).fill({ color: C.bgOverlay, alpha: 0.001 });
+        hit.eventMode = "static";
+        hit.cursor = "pointer";
+        hit.on("pointerdown", () => this.exitPeek());
         this.hudLayer.addChild(hit);
       }
     }
@@ -3137,8 +3162,7 @@ export class MatchScene {
         .find((u) => u.uid === this.dragUnit!.uid) ?? null;
       const refund = dragged ? sellValue(dragged, gameData) : 0;
       const result = this.driver.playerCommand({ type: "SELL", unitUid: this.dragUnit.uid });
-      const sc = this.sellZoneCenterAt(px, py);
-      if (result.ok) { this.opts.audio.play("sell"); this.spawnSellPop(sc.x, sc.y, refund); }
+      if (result.ok) { this.opts.audio.play("sell"); this.spawnSellPop(refund); }
       else this.showToast(result.error);
     } else {
       // Otherwise check the bench (orientation-aware hit testing). Sell was already
@@ -3235,9 +3259,7 @@ export class MatchScene {
       const result = this.driver.playerCommand({ type: "SELL", unitUid: sel.uid });
       if (result.ok) {
         this.opts.audio.play("sell");
-        const r = this.leftSellRect();
-        const sc = popAt ?? { x: r.x + r.w / 2, y: r.y + r.h / 2 };
-        this.spawnSellPop(sc.x, sc.y, refund);
+        this.spawnSellPop(refund);
       } else {
         this.showToast(result.error);
       }
@@ -3245,24 +3267,34 @@ export class MatchScene {
     this.render(this.driver.getState());
   }
 
-  /** Sell feedback: a "+N" gold floater rising from the sell zone. */
-  private spawnSellPop(x: number, y: number, refund: number): void {
-    this.spawnPlanningPop(x, y, C.textSell);
+  /**
+   * Sell feedback: a "+N" gold floater that ALWAYS rises from the gold/shop
+   * medallion in the bottom-right HUD (never over the sold unit or the sell
+   * zone). Spawned on lootLayer — the top overlay layer ABOVE the HUD — so the
+   * floater renders over the medallion instead of being occluded behind it
+   * (planningFxLayer sits below the HUD chrome).
+   */
+  private spawnSellPop(refund: number): void {
     if (this.opts.settings.get().reducedMotion) return;
+    // Anchor over the gold/shop medallion (the money-sack toggle slot).
+    const m = this.shopToggleRect();
+    const x = m.x + m.w / 2;
+    const y = m.y + m.h / 2;
     const node = new PIXI.Container();
     node.position.set(x, y - 18);
     this.glyph(node, "coin", -8, 0, 9, C.accentGold);
     this.text(node, `+${refund}`, 3, 0, 11, C.textGold, [0, 0.5]);
-    this.planningFxLayer.addChild(node);
+    node.eventMode = "none";
+    this.lootLayer.addChild(node);
     let age = 0;
     const ttl = 620;
     const fn = (ticker: PIXI.Ticker): void => {
       age += ticker.deltaMS;
-      node.y -= ticker.deltaMS * 0.02;
+      node.y -= ticker.deltaMS * 0.04; // float upward off the medallion
       node.alpha = Math.max(0, 1 - age / ttl);
       if (age >= ttl) {
         this.app.ticker.remove(fn);
-        this.planningFxLayer.removeChild(node);
+        this.lootLayer.removeChild(node);
         node.destroy({ children: true });
       }
     };
@@ -3394,6 +3426,14 @@ export class MatchScene {
     this.selectedBenchIdx = null;
     this.selectedBoardIdx = null;
     this.closeInspect();
+    // Close my own shop drop-down so its panel/backdrop never lingers over the
+    // read-only peeked econ region (tear down any in-flight slide ticker too).
+    this.shopPanelOpen = false;
+    if (this.shopPanelAnimFn !== null) {
+      this.app.ticker.remove(this.shopPanelAnimFn);
+      this.shopPanelAnimFn = null;
+    }
+    this.shopPanelOffsetY = -(this.shopPanelRect().h + SHOP_PANEL_HIDE_MARGIN);
     this.peekTargetId = playerId;
     this.render(state);
   }
@@ -3476,8 +3516,9 @@ export class MatchScene {
   }
 
   /**
-   * Peek chrome (banner + back affordance) drawn into scoutLayer. Names a peeked
-   * board and gives an obvious way back to my own board.
+   * Peek chrome (name + HP banner) drawn into scoutLayer. Names the peeked board.
+   * No back button — returning is done by tapping your OWN avatar in the rail
+   * (and tapping a different avatar switches the peek to that player).
    */
   private renderPeekChrome(state: MatchState, playerId: number): void {
     this.scoutLayer.removeChildren();
@@ -3502,24 +3543,98 @@ export class MatchScene {
     this.glyph(this.scoutLayer, "eye", bannerX + 14, bannerY + bannerH / 2, 8, C.tier3);
     this.text(
       this.scoutLayer,
-      `${this.seatName(state, playerId)}  ·  ${hp} HP`,
-      bannerX + 26, bannerY + bannerH / 2, 11, C.textBanner, [0, 0.5]
+      `${this.seatName(state, playerId)}  ·  ${hp} HP  ·  tap your avatar to return`,
+      bannerX + 26, bannerY + bannerH / 2, 9, C.textBanner, [0, 0.5]
     );
+  }
 
-    // Back affordance — a clear "← Back" button hugging the banner's right edge,
-    // with a 44px min hit target. Tap to restore my own board.
-    const backW = 56, backH = bannerH - 6;
-    const backX = bannerX + bannerW - backW - 4;
-    const backY = bannerY + 3;
-    const back = new PIXI.Graphics();
-    back.roundRect(backX, backY, backW, backH, 4).fill({ color: C.bgCloseBtn, alpha: 0.95 });
-    back.roundRect(backX, backY, backW, backH, 4).stroke({ width: 1, color: C.chipBorder, alpha: 0.9 });
-    back.eventMode = "static";
-    back.cursor = "pointer";
-    back.hitArea = new PIXI.Rectangle(backX - 4, backY - (44 - backH) / 2, backW + 8, 44);
-    back.on("pointerdown", () => this.exitPeek());
-    this.scoutLayer.addChild(back);
-    this.text(this.scoutLayer, "← Back", backX + backW / 2, backY + backH / 2, 10, C.textPrimary, [0.5, 0.5]);
+  /**
+   * Read-only peeked bench: the peeked player's bench units drawn into the
+   * existing bench region, with NO drag/sell/tap wiring. View-only.
+   */
+  private renderPeekBench(target: PlayerState): void {
+    this.benchLayer.removeChildren();
+
+    // Landscape: the column-bg panel behind the left rail (matches renderBench).
+    if (this.isLandscape && this.layout.clusters) {
+      const lr = this.layout.clusters.leftRail;
+      const colBg = new PIXI.Graphics();
+      colBg.roundRect(lr.x - 4, lr.y - 4, lr.w + 8, lr.h + 8, 6).fill({ color: C.bgHud, alpha: 0.4 });
+      colBg.eventMode = "none";
+      this.benchLayer.addChild(colBg);
+    }
+
+    for (let i = 0; i < 9; i++) {
+      const { x: cx, y: cy } = this.benchSlotCenter(i);
+      const unit = target.bench[i];
+      const occupied = unit != null;
+      let cellW: number, cellH: number, cellX: number, cellY: number;
+      if (this.isLandscape) {
+        const r = this.layout.regions.bench;
+        cellW = r.w / 9; cellH = r.h; cellX = cx - cellW / 2; cellY = cy - cellH / 2;
+      } else {
+        const { slotH, slotW } = this.benchGeom();
+        cellW = slotW; cellH = slotH; cellX = cx - slotW / 2; cellY = cy - slotH / 2;
+      }
+      const g = new PIXI.Graphics();
+      g.roundRect(cellX + 1, cellY, cellW - 2, cellH, 4)
+        .fill({ color: occupied ? C.benchOccupied : C.benchEmpty, alpha: occupied ? 1.0 : 0.5 });
+      g.roundRect(cellX + 1, cellY, cellW - 2, cellH, 4)
+        .stroke({ width: 1, color: occupied ? C.chipBorder : C.benchEmptyRim, alpha: occupied ? 0.9 : 0.5 });
+      g.eventMode = "none"; // view-only: no slot interaction while peeking
+      this.benchLayer.addChild(g);
+      if (unit) {
+        const uc = new PIXI.Container();
+        uc.eventMode = "none";
+        const r = Math.max(12, Math.min(18, Math.round(0.42 * Math.min(cellW, cellH))));
+        drawUnit(uc, unit, cx, cy, r, false, false, true);
+        this.benchLayer.addChild(uc);
+      }
+    }
+  }
+
+  /**
+   * Read-only peeked economy: the peeked player's gold + level/XP shown in the
+   * econ/HUD region (where my own controls normally sit). No interactive buttons.
+   * Clears the shop/toggle/panel layers so my own shop chrome never lingers.
+   */
+  private renderPeekEcon(target: PlayerState): void {
+    this.shopLayer.removeChildren();
+    this.shopToggleLayer.removeChildren();
+    this.shopPanelLayer.removeChildren();
+    this.shopBackdropLayer.removeChildren();
+
+    const hud = this.layout.regions.hud;
+    const cy = hud.y + hud.h / 2;
+    const x0 = hud.x + 10;
+
+    // Level badge.
+    this.glyph(this.shopLayer, "banner", x0 + 6, cy, 12, C.tier3);
+    this.text(this.shopLayer, `L${target.level}`, x0 + 16, cy, 13, C.textPrimary, [0, 0.5], "700");
+
+    // XP progress (level/XP) — a thin bar after the level badge.
+    const xp = xpProgress(target.xp, target.level, gameData.economy.levelXpThresholds);
+    const barX = x0 + 44, barW = 60, barH = 6, barY = cy - barH / 2;
+    const xpg = new PIXI.Graphics();
+    xpg.roundRect(barX, barY, barW, barH, 2).fill({ color: C.xpArcTrack, alpha: 0.9 });
+    if (xp.frac > 0) {
+      xpg.roundRect(barX, barY, Math.max(0, barW * xp.frac), barH, 2).fill({ color: C.xpPurple, alpha: 1 });
+    }
+    xpg.eventMode = "none";
+    this.shopLayer.addChild(xpg);
+
+    // Gold (coin glyph + amount).
+    const goldX = barX + barW + 16;
+    this.glyph(this.shopLayer, "coin", goldX, cy, 13, C.accentGold);
+    this.text(this.shopLayer, `${target.gold}`, goldX + 12, cy, 18, C.textGold, [0, 0.5]);
+
+    // Streak (read-only), matching the own-board econ display.
+    const streak = target.winStreak > 0 ? target.winStreak : target.loseStreak > 0 ? -target.loseStreak : 0;
+    if (streak !== 0) {
+      const sX = goldX + 64;
+      this.glyph(this.shopLayer, "flame", sX, cy, 12, C.streakOrange);
+      this.text(this.shopLayer, `${streak > 0 ? "+" : ""}${streak}`, sX + 12, cy, 12, C.streakOrange, [0, 0.5]);
+    }
   }
 
   // (The PvE creep board is previewed directly on the enemy half of the main
@@ -3588,7 +3703,16 @@ export class MatchScene {
    * down on every phase change / destroy via clearPlanningTimerTick.
    */
   private startPlanningTimerTick(): void {
-    this.clearPlanningTimerTick();
+    // Remove only a prior ticker fn — do NOT null the progress-bar refs here.
+    // renderStageBar (called immediately before this in onPlanningStart) just
+    // assigned the live bar + geom; calling the full clearPlanningTimerTick()
+    // would wipe them, leaving the bar frozen until the next state re-render (the
+    // first-round "number drains but bar doesn't move" bug — there's no player
+    // interaction yet on round 1 to trigger that re-render).
+    if (this.planningTimerFn) {
+      this.app.ticker.remove(this.planningTimerFn);
+      this.planningTimerFn = null;
+    }
     let acc = 0;
     const fn = (ticker: PIXI.Ticker): void => {
       if (this.driver.getState().phase !== "PLANNING") return;
@@ -3820,8 +3944,11 @@ export class MatchScene {
     this.combatLayer.addChild(view.container);
 
     const tickerFn = (ticker: PIXI.Ticker): void => {
-      const frame = player.advance(ticker.deltaMS);
-      view.renderFrame(frame, ticker.deltaMS);
+      // Presentation-only slowdown: feed both the clock and the view the same
+      // scaled delta so playback (and its tweens) run 5x slower for monitoring.
+      const dt = ticker.deltaMS * PLAYBACK_TIME_SCALE;
+      const frame = player.advance(dt);
+      view.renderFrame(frame, dt);
       this.opts.audio.handleCombatFx(frame.fx);
       if (frame.done) this.finishPlayback();
     };
