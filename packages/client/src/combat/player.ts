@@ -20,9 +20,11 @@ export type PlaybackSpeed = 0.25 | 0.5 | 1 | 2;
 
 // Presentation-only playback time-scale applied at the scene call site (NOT
 // inside CombatPlayer, so determinism tests over advance(dtMs) are unchanged):
-// the wall-clock delta fed to advance() is multiplied by this so fights play
-// back 5x slower and can be monitored. Sim/outcomes/tests are untouched.
-export const PLAYBACK_TIME_SCALE = 0.2;
+// the wall-clock delta fed to advance() is multiplied by this. 1 = no extra
+// slowdown — playback runs at the user-selected speed. (This was temporarily set
+// to 0.2 to monitor fights, which made unit movement look frozen at the 0.25x
+// default. Sim/outcomes/tests are untouched.)
+export const PLAYBACK_TIME_SCALE = 1;
 
 /** Ability effect kind keyed into per-kind visuals/sounds. */
 export type AbilityFxKind = AbilityEffect["kind"];

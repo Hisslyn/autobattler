@@ -74,8 +74,9 @@ const PLAYBACK_CAP_BUFFER_MS = 2_000;
 const SLOWEST_PLAYBACK_SPEED = 0.25;
 // Presentation-only playback time-scale the scene applies on top of the speed
 // setting (see combat/player.ts PLAYBACK_TIME_SCALE). The cap must account for
-// it so it never fires before genuine (slowed) playback finishes.
-const PLAYBACK_TIME_SCALE = 0.2;
+// it so it never fires before genuine playback finishes. Kept in sync with the
+// scene's source constant (1 = no extra slowdown).
+const PLAYBACK_TIME_SCALE = 1;
 
 export type DriverEvent =
   | { type: "state"; state: MatchState }
