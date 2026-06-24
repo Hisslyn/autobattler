@@ -27,6 +27,14 @@ import { radiantDropRoute } from "../consumablePicker.js";
 import { lootRevealModel } from "../lootReveal.js";
 import type { RevealStep } from "../lootReveal.js";
 import { onUnitArtReady } from "../sprites.js";
+import {
+  PLAYER_1_AVATAR_NUM,
+  generateAvatarAssignment,
+  requestAvatarArt,
+  resolveAvatarTexture,
+  avatarTextureLookup,
+  onAvatarArtReady,
+} from "../avatars.js";
 import { drawItemIcon, onItemArtReady } from "../itemIconDraw.js";
 import {
   Z_COMBAT_HEADER, Z_RESOLUTION_OVERLAY, Z_RESOLUTION_BUTTON, Z_RESOLUTION_CONTROL,
@@ -308,6 +316,11 @@ export class MatchScene {
   private unsub: () => void = () => {};
   private unsubArt: () => void = () => {};
   private unsubItemArt: () => void = () => {};
+  private unsubAvatarArt: () => void = () => {};
+  /** Cosmetic seat→avatar map, generated once at match init and stable for the
+   *  whole match (seat 0 = the human's PLAYER_1_AVATAR_NUM, others random distinct).
+   *  Not sim state; never re-rolled mid-match. */
+  private avatarAssignment: Map<number, number> | null = null;
 
   constructor(app: PIXI.Application, driver: IDriver, opts: MatchSceneOptions) {
     this.container = new PIXI.Container();
@@ -350,6 +363,9 @@ export class MatchScene {
       const s = this.driver.getState();
       if (s.phase === "PLANNING") this.render(s);
     });
+    // An avatar PNG finishing its lazy load: repaint so the opponent rail swaps
+    // its glyph for the portrait (the rail is part of the HUD, drawn every render).
+    this.unsubAvatarArt = onAvatarArtReady(() => this.render(this.driver.getState()));
 
     this.render(driver.getState());
     driver.startPlanning();
@@ -924,6 +940,66 @@ export class MatchScene {
     this.hudLayer.addChild(g);
   }
 
+  /** Lazily build (once) and return the cosmetic seat→avatar map for this match.
+   *  Generated on first opponent-rail render and never re-rolled, so every later
+   *  render reads the same stable assignment. Cosmetic only (not sim state). */
+  private getAvatarAssignment(): Map<number, number> {
+    if (!this.avatarAssignment) {
+      this.avatarAssignment = generateAvatarAssignment();
+    }
+    return this.avatarAssignment;
+  }
+
+  /**
+   * Draw a seat's avatar clipped to the rail circle at (cx, cy, r). The bundled
+   * PNG already carries its rarity ring, so NO second ring is stacked on top —
+   * any current-opponent / self emphasis is drawn UNDER the portrait (a thin
+   * accent disc that peeks as a hairline), and eliminated seats dim. Falls back
+   * to the panelBg disc + glyph when the texture hasn't loaded yet.
+   * Returns true if the portrait texture was drawn (caller skips the glyph then).
+   */
+  private drawSeatAvatar(
+    cx: number,
+    cy: number,
+    r: number,
+    seat: number,
+    opts: { elim: boolean; accent: number | null }
+  ): boolean {
+    const alpha = opts.elim ? 0.4 : 1;
+    const avatarNum = this.getAvatarAssignment().get(seat) ?? PLAYER_1_AVATAR_NUM;
+    requestAvatarArt(avatarNum);
+    const tex = resolveAvatarTexture(avatarNum, avatarTextureLookup);
+
+    // Accent: thin disc UNDER the portrait, slightly larger so it reads as a
+    // hairline rim (subtle), never a heavy ring stroke over the rarity artwork.
+    if (opts.accent !== null) {
+      const ring = new PIXI.Graphics();
+      ring.circle(cx, cy, r + 1.5).fill({ color: opts.accent, alpha });
+      this.hudLayer.addChild(ring);
+    }
+
+    if (tex) {
+      const sprite = new PIXI.Sprite(tex);
+      sprite.anchor.set(0.5);
+      sprite.position.set(cx, cy);
+      const d = r * 2;
+      const src = Math.max(1, tex.width, tex.height);
+      sprite.scale.set(d / src);
+      sprite.alpha = alpha;
+      const mask = new PIXI.Graphics();
+      mask.circle(cx, cy, r).fill({ color: C.textPrimary });
+      sprite.mask = mask;
+      this.hudLayer.addChild(mask, sprite);
+      return true;
+    }
+
+    // Fallback while loading (or if absent): the prior empty disc.
+    const disc = new PIXI.Graphics();
+    disc.circle(cx, cy, r).fill({ color: C.panelBg, alpha });
+    this.hudLayer.addChild(disc);
+    return false;
+  }
+
   private renderHud(state: MatchState, me: PlayerState): void {
     this.hudLayer.removeChildren();
     const { designW, regions } = this.layout;
@@ -979,20 +1055,18 @@ export class MatchScene {
 
       const scoutable = !isSelf && p.alive && state.phase === "PLANNING";
 
-      const avg = new PIXI.Graphics();
-      avg.circle(cx, cy, av).fill({ color: C.panelBg, alpha: elim ? 0.4 : 1 });
-      // Current opponent uses the combat-header color (not gold — gold means
-      // economy here), self stays tier3, others the neutral chip border.
-      avg.circle(cx, cy, av).stroke({
-        width: i === currentOpp ? 2.5 : 1,
-        color: i === currentOpp ? C.textCombat : isSelf ? C.tier3 : C.chipBorder,
-        alpha: elim ? 0.4 : 1,
-      });
-      this.hudLayer.addChild(avg);
+      // Avatar portrait (rarity ring baked into the PNG). The current opponent /
+      // self emphasis is a subtle hairline accent UNDER the portrait, never a
+      // second ring stroke over it.
+      const accent =
+        i === currentOpp ? C.textCombat : isSelf ? C.tier3 : null;
+      const drewPortrait = this.drawSeatAvatar(cx, cy, av, i, { elim, accent });
 
-      // Seat number inside the disc; level label below the disc (legible at 8px,
-      // no longer stacked inside the 16px disc).
-      this.text(this.hudLayer, `${i + 1}`, cx, cy - 1, 10, elim ? C.textMuted : C.textPrimary, [0.5, 0.5]);
+      // Seat number: only a fallback label when the portrait isn't loaded (so the
+      // artwork is never covered). Level label below the disc stays either way.
+      if (!drewPortrait) {
+        this.text(this.hudLayer, `${i + 1}`, cx, cy - 1, 10, elim ? C.textMuted : C.textPrimary, [0.5, 0.5]);
+      }
       this.text(this.hudLayer, `L${p.level}`, cx, cy + av + 5, 8, elim ? C.textMuted : C.textMuted, [0.5, 0.5]);
 
       // HP bar below the avatar — baseline leaves room for the level label above.
@@ -1052,20 +1126,17 @@ export class MatchScene {
       const elim = !p.alive;
       const scoutable = !isSelf && p.alive && state.phase === "PLANNING";
 
-      const avg = new PIXI.Graphics();
-      avg.circle(discCx, cy, av).fill({ color: C.panelBg, alpha: elim ? 0.4 : 1 });
-      avg.circle(discCx, cy, av).stroke({
-        width: i === currentOpp ? 2.5 : 1.5,
-        color: i === currentOpp ? C.textCombat : isSelf ? C.tier3 : C.chipBorder,
-        alpha: elim ? 0.4 : 1,
-      });
-      this.hudLayer.addChild(avg);
-
-      // Helmet placeholder inside the disc (future: per-player character icon).
-      this.glyph(
-        this.hudLayer, "helmet", discCx, cy + 1, av * 1.35,
-        elim ? C.textMuted : isSelf ? C.tier3 : C.textPrimary
-      );
+      // Avatar portrait (rarity ring baked into the PNG). Current-opponent / self
+      // emphasis is a subtle hairline accent under the portrait, not a ring over it.
+      const accent = i === currentOpp ? C.textCombat : isSelf ? C.tier3 : null;
+      const drewPortrait = this.drawSeatAvatar(discCx, cy, av, i, { elim, accent });
+      if (!drewPortrait) {
+        // Fallback glyph inside the disc until the portrait loads.
+        this.glyph(
+          this.hudLayer, "helmet", discCx, cy + 1, av * 1.35,
+          elim ? C.textMuted : isSelf ? C.tier3 : C.textPrimary
+        );
+      }
 
       // Two-line text block, right-aligned: nickname (placeholder) on top, HP below.
       this.text(this.hudLayer, `Player ${i + 1}`, textRightX, cy - 6, 9, elim ? C.textMuted : C.textPrimary, [1, 0.5]);
@@ -4299,6 +4370,7 @@ export class MatchScene {
     this.unsub();
     this.unsubArt();
     this.unsubItemArt();
+    this.unsubAvatarArt();
     if (this.container.parent) this.container.parent.removeChild(this.container);
     this.container.destroy({ children: true });
   }

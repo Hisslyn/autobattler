@@ -14,6 +14,7 @@ import { Coachmarks } from "./coachmarks.js";
 import { HELP_PAGES } from "./content.js";
 import { injectStyles } from "./styles.js";
 import { el, button, clear } from "./dom.js";
+import { PLAYER_1_AVATAR_NUM, avatarUrl } from "../avatars.js";
 
 export type PlayMode = "local" | "online";
 
@@ -154,13 +155,32 @@ export class UiApp {
 
   // ── 2.1 Top utility bar ────────────────────────────────────────────────────
 
+  /**
+   * Player 1's identity-cluster portrait. Renders the registry avatar (a bundled
+   * PNG that already carries its rarity ring) as a cover background clipped by the
+   * existing circular `.mm-avatar-glyph` frame; falls back to the person glyph
+   * when the registry has no entry. Cosmetic only — no Pixi in the DOM layer.
+   */
+  private mmAvatarPortrait(): HTMLElement {
+    const frame = el("span", { class: "mm-avatar-glyph" });
+    const url = avatarUrl(PLAYER_1_AVATAR_NUM);
+    if (url) {
+      frame.style.backgroundImage = `url("${url}")`;
+      frame.style.backgroundSize = "cover";
+      frame.style.backgroundPosition = "center";
+    } else {
+      frame.appendChild(icon("person", 20)); // graceful fallback
+    }
+    return frame;
+  }
+
   private mmTopBar(): HTMLElement {
     const name = this.auth?.profile.name ?? "Guest";
     const rank = this.auth ? mmrToRank(this.auth.profile.mmr) : null;
 
     const identity = el("button", { class: "mm-identity", attrs: { type: "button", "aria-label": "Profile" } }, [
       el("span", { class: "mm-avatar-frame" }, [
-        el("span", { class: "mm-avatar-glyph" }, [icon("person", 20)]),
+        this.mmAvatarPortrait(),
         // slot:levelBadge — stub: no account-level system yet; static placeholder.
         el("span", { class: "mm-level-badge", text: "1" }),
       ]),

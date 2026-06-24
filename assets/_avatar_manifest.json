@@ -2,16 +2,16 @@
   "phase": "asset_inventory",
   "timestamp": "2026-06-24T00:00:00Z",
   "description": "Avatar asset set registry — cosmetic-only player profile portraits for the client UI and match opponent rail. 20 PNGs in 5 rarity tiers. Indexed by (num, name, rarity) tuple; Player 1 uses a designated default; AI players 2-8 each get a random distinct avatar assigned once at match start.",
-  "assetPath": "packages/client/assets/avatars/",
+  "assetPath": "packages/client/src/assets/avatars/",
   "pathDiscrepancy": {
-    "note": "PNGs physically live at packages/client/assets/avatars/ (not src/assets/avatars/ as initially requested). This is the correct location — Vite v5 asset resolution will glob relative to the project root via import.meta.glob.",
-    "resolvedPath": "/Users/azat/Desktop/autobattler/packages/client/assets/avatars"
+    "note": "PNGs physically live at packages/client/src/assets/avatars/ (not src/assets/avatars/ as initially requested). This is the correct location — Vite v5 asset resolution will glob relative to the project root via import.meta.glob.",
+    "resolvedPath": "/Users/azat/Desktop/autobattler/packages/client/src/assets/avatars"
   },
   "globStrategy": {
     "type": "eager-glob",
-    "pattern": "../../../assets/avatars/*.png",
+    "pattern": "./assets/avatars/*.png",
     "importLocation": "packages/client/src/avatars.ts",
-    "rationale": "Client asset directory (assets/) is a sibling of src/. Mirrors the pattern already used by sprites.ts (which handles public/units/ via UNIT_ART_BASE = '/units') but for bundled assets instead of public-served files. Vite's import.meta.glob resolves relative to the importing file, so '../../../assets/avatars/*.png' from packages/client/src/ reaches packages/client/assets/avatars/. The glob returns a record<path,fn> of lazy-loaded modules; eager:true makes them import immediately. Parsed filenames feed the registry.",
+    "rationale": "Client asset directory (assets/) is a sibling of src/. Mirrors the pattern already used by sprites.ts (which handles public/units/ via UNIT_ART_BASE = '/units') but for bundled assets instead of public-served files. Vite's import.meta.glob resolves relative to the importing file, so './assets/avatars/*.png' from packages/client/src/ reaches packages/client/src/assets/avatars/. The glob returns a record<path,fn> of lazy-loaded modules; eager:true makes them import immediately. Parsed filenames feed the registry.",
     "alternativeNotConsidered": "Moving files to public/avatars/ was rejected because avatars are bundled cosmetic assets tied to profile selection (not arbitrary drop-in slots like unit/item art). Bundling keeps the set finite and versionable."
   },
   "filenameParseRule": {
