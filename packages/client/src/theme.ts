@@ -203,6 +203,17 @@ export const C = {
   torchFlameCore: 0xffe08a,  // inner flame core (bright yellow-white)
   torchGlow:      0xf0a830,  // soft radial glow behind a lit flame (low alpha)
 
+  // ─── Return-to-board medallion emblem (peek view, renderer-only) ─────────
+  // A light, slightly-desaturated (periwinkle-leaning) blue keystone/trapezoid
+  // glyph: one hue family across four values (highlight → mid → shade → rim) so
+  // it reads as a softly domed enamel chip lit from the upper-left, plus a thin
+  // inner-outline stroke. Drawn procedurally over the shop medallion during peek.
+  returnHi:    0xb8d4f4,  // lit upper-left bevel face (lightest)
+  returnMid:   0x86b4e6,  // dominant body fill (mid)
+  returnShade: 0x5e8fcf,  // shaded lower-right body face
+  returnRim:   0x3a5c96,  // thin outer silhouette rim (darkest, edges against the disc)
+  returnLine:  0xa6c8f0,  // inner concentric outline stroke (highlight-to-mid value)
+
   // Trait tracker
   traitActive:  0x3a6a3a,
   traitPending: 0x1e2830,

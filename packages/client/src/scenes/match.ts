@@ -627,8 +627,8 @@ export class MatchScene {
       if (peeked) {
         // Read-only peek: the board, trait strip, bench, and econ all show the
         // PEEKED player (mutations are blocked elsewhere via peekTargetId guards).
+        this.scoutLayer.removeChildren();
         this.renderPeekBoard(peeked);
-        this.renderPeekChrome(state, this.peekTargetId!);
         // Peeked trait strip (traits only — never the item-browse tab, which would
         // read the peeked player's PRIVATE inventory).
         if (this.isLandscape) {
@@ -1106,15 +1106,10 @@ export class MatchScene {
         const capturedId = i;
         hit.on("pointerdown", () => this.enterPeek(capturedId));
         this.hudLayer.addChild(hit);
-      } else if (isSelf && this.peekTargetId !== null && state.phase === "PLANNING") {
-        // While peeking, tapping your OWN avatar returns to your own board.
-        const hit = new PIXI.Graphics();
-        hit.rect(tileX, tileY, tileW, tileH).fill({ color: C.bgOverlay, alpha: 0.001 });
-        hit.eventMode = "static";
-        hit.cursor = "pointer";
-        hit.on("pointerdown", () => this.exitPeek());
-        this.hudLayer.addChild(hit);
       }
+      // Returning to my own board is done via the return-to-board medallion
+      // (renderReturnToBoardButton), not by tapping my own avatar; tapping a
+      // DIFFERENT player's avatar still switches the peek to that player.
     }
   }
 
@@ -1167,15 +1162,10 @@ export class MatchScene {
         const capturedId = i;
         hit.on("pointerdown", () => this.enterPeek(capturedId));
         this.hudLayer.addChild(hit);
-      } else if (isSelf && this.peekTargetId !== null && state.phase === "PLANNING") {
-        // While peeking, tapping your OWN avatar returns to your own board.
-        const hit = new PIXI.Graphics();
-        hit.rect(tileX, tileY, tileW, tileH).fill({ color: C.bgOverlay, alpha: 0.001 });
-        hit.eventMode = "static";
-        hit.cursor = "pointer";
-        hit.on("pointerdown", () => this.exitPeek());
-        this.hudLayer.addChild(hit);
       }
+      // Returning to my own board is the return-to-board medallion's job (see
+      // renderReturnToBoardButton); tapping a DIFFERENT player's avatar still
+      // switches the peek to that player.
     }
   }
 
@@ -3413,9 +3403,11 @@ export class MatchScene {
 
   /**
    * Peek another player: instead of a popup, swap the in-board view to show THEIR
-   * current board on the same hex grid (mirrored vertically so it reads as the
-   * opposing side), with a name banner + a back affordance. View-only — never
-   * touches my board or the sim; exiting restores my own board exactly.
+   * COMPLETE board (units + bench + candles + econ), vertically flipped in board
+   * space so it faces you — the same mirroring combat uses. The return-to-board
+   * medallion (replacing the shop medallion) is the way back; tapping a different
+   * player's avatar switches the peek. View-only — never touches my board, bench,
+   * econ, or the sim; exiting restores my own board exactly.
    */
   private enterPeek(playerId: number): void {
     const state = this.driver.getState();
@@ -3457,43 +3449,68 @@ export class MatchScene {
   }
 
   /**
-   * Renders the peeked player's board onto the main hex grid, mirrored vertically
-   * (reflected front-to-back across the board's horizontal centerline) so it reads
-   * as the opposing side. Read-only: long-press a token to inspect (no drag/drop).
+   * Renders the peeked player's COMPLETE board, vertically flipped in BOARD space
+   * (the same mirroring combat uses) and reprojected through the existing
+   * perspective so it reads as their board flipped to face you — right-side-up,
+   * never a screen flip.
+   *
+   * The full board trapezoid is drawn (both halves of hex tiles, down to the near
+   * edge), the peeked player's gold-meter candles flank it, and their units are
+   * reflected front-to-back across the board's horizontal centerline so their
+   * front row sits at the midline facing you (their back row recedes to the far
+   * edge). Read-only: long-press a token to inspect (no drag/drop). Never touches
+   * any board/bench/econ/sim — exiting peek restores my own board exactly.
    */
   private renderPeekBoard(target: PlayerState): void {
     this.boardLayer.removeChildren();
     this.drawBoardPanel(this.boardLayer);
+    // Their candles (gold meter) carried by their board-space anchors — left
+    // column lit from the PEEKED player's gold (graceful empty when gold is
+    // server-private online, exactly like the opponent column in combat).
+    this.drawArenaTorches(this.boardLayer, target, false);
     const offX = this.boardOffsetX;
-    const oppY = this.oppBoardOffsetY; // the peeked board occupies the top (enemy) half
+    const playerY = this.boardOffsetY; // near (your) half — empty board under their flip
+    const oppY = this.oppBoardOffsetY; // far half — their flipped board sits here
     const s = this.boardScale;
     const hexR = this.hexTileR;
     const tokR = this.boardTokenR;
     const fwd = (p: { x: number; y: number }): { x: number; y: number } => this.fwd(p);
 
-    // Top-zone tiles (the peeked board sits here, mirrored).
+    // Fill the ENTIRE board trapezoid (both halves) so the grid reaches the near
+    // edge — far half tinted as the (peeked) opposing side, near half neutral.
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
-        const bp = hexToPixel(q, r, offX, oppY, s);
-        const g = new PIXI.Graphics();
-        drawHex(g, bp.x, bp.y, hexR, C.enemyHex, 1, {}, fwd);
-        g.eventMode = "none";
-        this.boardLayer.addChild(g);
+        const fp = hexToPixel(q, r, offX, oppY, s);
+        const farG = new PIXI.Graphics();
+        drawHex(farG, fp.x, fp.y, hexR, C.enemyHex, 1, {}, fwd);
+        farG.eventMode = "none";
+        this.boardLayer.addChild(farG);
+
+        const np = hexToPixel(q, r, offX, playerY, s);
+        const nearG = new PIXI.Graphics();
+        drawHex(nearG, np.x, np.y, hexR, C.myHex, 1, {}, fwd);
+        nearG.eventMode = "none";
+        this.boardLayer.addChild(nearG);
       }
     }
     const grid = new PIXI.Graphics();
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
-        const bp = hexToPixel(q, r, offX, oppY, s);
-        addHexPath(grid, bp.x, bp.y, hexR, fwd);
+        const fp = hexToPixel(q, r, offX, oppY, s);
+        addHexPath(grid, fp.x, fp.y, hexR, fwd);
+        const np = hexToPixel(q, r, offX, playerY, s);
+        addHexPath(grid, np.x, np.y, hexR, fwd);
       }
     }
     grid.stroke({ width: 1, color: C.boardBorder, alpha: 0.4 });
     grid.eventMode = "none";
     this.boardLayer.addChild(grid);
 
-    // Peeked units: slot row pr (0=their back, 3=their front) reflects across the
-    // board's horizontal centerline → display enemy row = BOARD_ROWS-1-pr.
+    // Peeked units: their slot row pr (0=their back, 3=their front) reflects
+    // front-to-back across the board's horizontal centerline → display far-half
+    // row = BOARD_ROWS-1-pr (a TRUE board-space vertical flip, then reprojected
+    // through fwd() so the perspective stays right-side-up). Drawn back-to-front
+    // so nearer (larger, depth-scaled) tokens overlap farther ones.
     for (let idx = 0; idx < BOARD_SLOTS; idx++) {
       const unit = target.board[idx];
       if (!unit) continue;
@@ -3513,39 +3530,6 @@ export class MatchScene {
       drawUnit(uc, unit, sp.x, sp.y, Math.round(tokR * sc), false, true, true);
       this.boardLayer.addChild(uc);
     }
-  }
-
-  /**
-   * Peek chrome (name + HP banner) drawn into scoutLayer. Names the peeked board.
-   * No back button — returning is done by tapping your OWN avatar in the rail
-   * (and tapping a different avatar switches the peek to that player).
-   */
-  private renderPeekChrome(state: MatchState, playerId: number): void {
-    this.scoutLayer.removeChildren();
-    const target = state.players[playerId];
-    if (!target) return;
-    const { regions } = this.layout;
-
-    // Name + HP banner pinned just under the status row, centered over the board.
-    const board = regions.board;
-    const bannerW = Math.min(board.w, 220);
-    const bannerH = 26;
-    const bannerX = board.x + (board.w - bannerW) / 2;
-    const bannerY = Math.max(regions.statusRow.h + 2, board.y - bannerH - 2);
-
-    const banner = new PIXI.Graphics();
-    banner.roundRect(bannerX, bannerY, bannerW, bannerH, 6).fill({ color: C.bgScout, alpha: 0.96 });
-    banner.roundRect(bannerX, bannerY, bannerW, bannerH, 6).stroke({ width: 1, color: C.tier3, alpha: 0.85 });
-    banner.eventMode = "static"; // swallow taps over the banner
-    this.scoutLayer.addChild(banner);
-
-    const hp = Math.max(0, target.hp);
-    this.glyph(this.scoutLayer, "eye", bannerX + 14, bannerY + bannerH / 2, 8, C.tier3);
-    this.text(
-      this.scoutLayer,
-      `${this.seatName(state, playerId)}  ·  ${hp} HP  ·  tap your avatar to return`,
-      bannerX + 26, bannerY + bannerH / 2, 9, C.textBanner, [0, 0.5]
-    );
   }
 
   /**
@@ -3635,6 +3619,107 @@ export class MatchScene {
       this.glyph(this.shopLayer, "flame", sX, cy, 12, C.streakOrange);
       this.text(this.shopLayer, `${streak > 0 ? "+" : ""}${streak}`, sX + 12, cy, 12, C.streakOrange, [0, 0.5]);
     }
+
+    // Return-to-board button — occupies the EXACT shop medallion spot (it
+    // replaces the shop toggle during peek). This is now the ONLY way back.
+    this.renderReturnToBoardButton();
+  }
+
+  /**
+   * Return-to-board medallion, shown ONLY while peeking. Occupies the exact
+   * position/size/style of the shop/gold medallion (`shopToggleRect` +
+   * `drawMedallionBase`) — it stands in for that medallion during peek. Its
+   * central glyph is the light-blue keystone/trapezoid emblem; tapping it
+   * returns to my own board. Drawn into the (cleared) shopToggleLayer.
+   */
+  private renderReturnToBoardButton(): void {
+    const r = this.shopToggleRect();
+    const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    const bx = buyXpGeom(this.isLandscape ? this.buyXpRegionLandscape() : this.layout.regions.hud);
+    const R = bx.r;
+    const rimW = bx.rimW;
+
+    const g = this.drawMedallionBase(cx, cy, R, rimW, { fill: C.xpBtnDisc });
+    this.shopToggleLayer.addChild(g);
+    g.eventMode = "static";
+    g.cursor = "pointer";
+    g.hitArea = new PIXI.Rectangle(r.x, r.y, r.w, r.h);
+    this.pressFeedback(g, () => this.exitPeek(), { cx, cy });
+
+    // Central keystone emblem, centered on the medallion (occupies the middle
+    // ~46% of the disc, leaving comfortable dark padding to the rim).
+    this.drawReturnToBoardGlyph(this.shopToggleLayer, cx, cy, R * 0.92);
+  }
+
+  /**
+   * Light-blue keystone/trapezoid "return to board" emblem (see
+   * references/return-to-board.md): a symmetric trapezoid — narrower top, wider
+   * bottom — with softly rounded corners, a domed upper-left bevel (highlight →
+   * mid → shade in one blue hue family), a hairline darker outer rim, and a thin
+   * concentric inner outline of the SAME silhouette. Pixi v8 path API; colors
+   * from theme.ts (returnHi/Mid/Shade/Rim/Line). `size` = the glyph footprint.
+   */
+  private drawReturnToBoardGlyph(layer: PIXI.Container, cx: number, cy: number, size: number): void {
+    const g = new PIXI.Graphics();
+    g.eventMode = "none";
+
+    const halfH = size * 0.5;
+    const halfBot = size * 0.5;          // bottom edge = full width
+    const halfTop = halfBot * 0.62;      // top edge ≈ 62% of bottom (keystone taper)
+    const cr = size * 0.1;               // corner radius (~10% of width)
+    const yTop = cy - halfH;
+    const yBot = cy + halfH;
+
+    // Build a rounded trapezoid path from its four corners. The edges run
+    // top-right → bottom-right → bottom-left → top-left; corners are eased with
+    // quadratic arcs toward the next edge so all four read consistently rounded.
+    const roundedTrapezoid = (gr: PIXI.Graphics, ht: number, hb: number, yt: number, yb: number, rad: number): void => {
+      const tr = { x: cx + ht, y: yt }, br = { x: cx + hb, y: yb };
+      const bl = { x: cx - hb, y: yb }, tl = { x: cx - ht, y: yt };
+      // Unit direction along each edge, used to back off `rad` from each corner.
+      const lerp = (a: { x: number; y: number }, b: { x: number; y: number }, d: number): { x: number; y: number } => {
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const len = Math.hypot(dx, dy) || 1;
+        return { x: a.x + (dx / len) * d, y: a.y + (dy / len) * d };
+      };
+      gr.moveTo(lerp(tr, br, rad).x, lerp(tr, br, rad).y);
+      gr.lineTo(lerp(br, tr, rad).x, lerp(br, tr, rad).y);
+      gr.quadraticCurveTo(br.x, br.y, lerp(br, bl, rad).x, lerp(br, bl, rad).y);
+      gr.lineTo(lerp(bl, br, rad).x, lerp(bl, br, rad).y);
+      gr.quadraticCurveTo(bl.x, bl.y, lerp(bl, tl, rad).x, lerp(bl, tl, rad).y);
+      gr.lineTo(lerp(tl, bl, rad).x, lerp(tl, bl, rad).y);
+      gr.quadraticCurveTo(tl.x, tl.y, lerp(tl, tr, rad).x, lerp(tl, tr, rad).y);
+      gr.lineTo(lerp(tr, tl, rad).x, lerp(tr, tl, rad).y);
+      gr.quadraticCurveTo(tr.x, tr.y, lerp(tr, br, rad).x, lerp(tr, br, rad).y);
+      gr.closePath();
+    };
+
+    // Outer body: mid fill + thin darker rim against the dark disc.
+    roundedTrapezoid(g, halfTop, halfBot, yTop, yBot, cr);
+    g.fill({ color: C.returnMid });
+    roundedTrapezoid(g, halfTop, halfBot, yTop, yBot, cr);
+    g.stroke({ width: Math.max(1, size * 0.05), color: C.returnRim, alpha: 0.9, join: "round" });
+
+    // Upper-left bevel: a soft lighter highlight wedge biased to the upper-left,
+    // and a deeper shade wedge biased to the lower-right — approximates the domed
+    // enamel surface lit from the upper-left without a hard cel split.
+    g.poly([cx - halfTop, yTop, cx + halfTop * 0.2, yTop, cx - halfBot, yBot])
+      .fill({ color: C.returnHi, alpha: 0.5 });
+    g.poly([cx + halfTop, yTop, cx + halfBot, yBot, cx - halfBot * 0.2, yBot])
+      .fill({ color: C.returnShade, alpha: 0.45 });
+
+    // Inner concentric outline (stroke only — same silhouette, inset ~13% of the
+    // outer height), reads as an engraved contour line.
+    const inset = size * 0.13;
+    const innerHalfH = halfH - inset;
+    roundedTrapezoid(
+      g,
+      Math.max(0, halfTop - inset), Math.max(0, halfBot - inset),
+      cy - innerHalfH, cy + innerHalfH, Math.max(0.5, cr * 0.7)
+    );
+    g.stroke({ width: Math.max(1, size * 0.045), color: C.returnLine, alpha: 0.95, join: "round" });
+
+    layer.addChild(g);
   }
 
   // (The PvE creep board is previewed directly on the enemy half of the main
