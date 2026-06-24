@@ -1,0 +1,122 @@
+{
+  "phase": "asset_inventory",
+  "timestamp": "2026-06-24T00:00:00Z",
+  "description": "Avatar asset set registry — cosmetic-only player profile portraits for the client UI and match opponent rail. 20 PNGs in 5 rarity tiers. Indexed by (num, name, rarity) tuple; Player 1 uses a designated default; AI players 2-8 each get a random distinct avatar assigned once at match start.",
+  "assetPath": "packages/client/assets/avatars/",
+  "pathDiscrepancy": {
+    "note": "PNGs physically live at packages/client/assets/avatars/ (not src/assets/avatars/ as initially requested). This is the correct location — Vite v5 asset resolution will glob relative to the project root via import.meta.glob.",
+    "resolvedPath": "/Users/azat/Desktop/autobattler/packages/client/assets/avatars"
+  },
+  "globStrategy": {
+    "type": "eager-glob",
+    "pattern": "../../../assets/avatars/*.png",
+    "importLocation": "packages/client/src/avatars.ts",
+    "rationale": "Client asset directory (assets/) is a sibling of src/. Mirrors the pattern already used by sprites.ts (which handles public/units/ via UNIT_ART_BASE = '/units') but for bundled assets instead of public-served files. Vite's import.meta.glob resolves relative to the importing file, so '../../../assets/avatars/*.png' from packages/client/src/ reaches packages/client/assets/avatars/. The glob returns a record<path,fn> of lazy-loaded modules; eager:true makes them import immediately. Parsed filenames feed the registry.",
+    "alternativeNotConsidered": "Moving files to public/avatars/ was rejected because avatars are bundled cosmetic assets tied to profile selection (not arbitrary drop-in slots like unit/item art). Bundling keeps the set finite and versionable."
+  },
+  "filenameParseRule": {
+    "pattern": "^(\\d{2})_([A-Za-z]+)_(common|uncommon|rare|epic|legendary)\\.png$",
+    "groups": {
+      "num": "01–20, zero-padded (seat 0 = Player 1)",
+      "name": "Avatar display name (Whiskers, Biscuit, etc.)",
+      "rarity": "Cosmetic tier: common | uncommon | rare | epic | legendary"
+    },
+    "distribution": {
+      "common": 5,
+      "uncommon": 5,
+      "rare": 4,
+      "epic": 3,
+      "legendary": 3,
+      "total": 20
+    }
+  },
+  "inventory": [
+    { "num": 1, "name": "Whiskers", "rarity": "common", "filename": "01_Whiskers_common.png", "status": "exists" },
+    { "num": 2, "name": "Biscuit", "rarity": "common", "filename": "02_Biscuit_common.png", "status": "exists" },
+    { "num": 3, "name": "Squeak", "rarity": "common", "filename": "03_Squeak_common.png", "status": "exists" },
+    { "num": 4, "name": "Clover", "rarity": "common", "filename": "04_Clover_common.png", "status": "exists" },
+    { "num": 5, "name": "Truffle", "rarity": "common", "filename": "05_Truffle_common.png", "status": "exists" },
+    { "num": 6, "name": "Lily", "rarity": "uncommon", "filename": "06_Lily_uncommon.png", "status": "exists" },
+    { "num": 7, "name": "Wooly", "rarity": "uncommon", "filename": "07_Wooly_uncommon.png", "status": "exists" },
+    { "num": 8, "name": "Pim", "rarity": "uncommon", "filename": "08_Pim_uncommon.png", "status": "exists" },
+    { "num": 9, "name": "Pip", "rarity": "uncommon", "filename": "09_Pip_uncommon.png", "status": "exists" },
+    { "num": 10, "name": "Mochi", "rarity": "uncommon", "filename": "10_Mochi_uncommon.png", "status": "exists" },
+    { "num": 11, "name": "Ember", "rarity": "rare", "filename": "11_Ember_rare.png", "status": "exists" },
+    { "num": 12, "name": "Bandit", "rarity": "rare", "filename": "12_Bandit_rare.png", "status": "exists" },
+    { "num": 13, "name": "Tux", "rarity": "rare", "filename": "13_Tux_rare.png", "status": "exists" },
+    { "num": 14, "name": "Hoot", "rarity": "rare", "filename": "14_Hoot_rare.png", "status": "exists" },
+    { "num": 15, "name": "Fenrir", "rarity": "epic", "filename": "15_Fenrir_epic.png", "status": "exists" },
+    { "num": 16, "name": "Bruin", "rarity": "epic", "filename": "16_Bruin_epic.png", "status": "exists" },
+    { "num": 17, "name": "Bao", "rarity": "epic", "filename": "17_Bao_epic.png", "status": "exists" },
+    { "num": 18, "name": "Rajah", "rarity": "legendary", "filename": "18_Rajah_legendary.png", "status": "exists" },
+    { "num": 19, "name": "Leo", "rarity": "legendary", "filename": "19_Leo_legendary.png", "status": "exists" },
+    { "num": 20, "name": "Wyrm", "rarity": "legendary", "filename": "20_Wyrm_legendary.png", "status": "exists" }
+  ],
+  "totals": {
+    "exists": 20,
+    "missing": 0,
+    "total": 20
+  },
+  "player1DefaultDesign": {
+    "selectedAvatar": 1,
+    "avatarName": "Whiskers",
+    "rarity": "common",
+    "rationale": "Player 1 (the human) always shows the designated default. Recommendation: make this a module-level export constant PLAYER_1_AVATAR_NUM = 1, so any future player profile system can override it. PNGs include rarity-ring artwork; no secondary ring should be stacked on rendering."
+  },
+  "referenceChecks": {
+    "inMainMenu": {
+      "file": "packages/client/src/ui/app.ts",
+      "element": ".mm-avatar-frame",
+      "currentImpl": "placeholder person glyph (icon('person', 20))",
+      "nextAction": "replace with resolveAvatarTexture(PLAYER_1_AVATAR_NUM) or fallback to glyph if avatar system not yet initialized"
+    },
+    "inOpponentRail": {
+      "file": "packages/client/src/scenes/match.ts",
+      "element": "opponent rail avatar disc",
+      "currentImpl": "empty panelBg circle (8px radius) + text label",
+      "nextAction": "replace the panelBg disc with clipped avatar image from the registry; fallback to the current glyph if avatar not yet assigned/loaded"
+    }
+  },
+  "registryModuleSpec": {
+    "fileName": "avatars.ts",
+    "location": "packages/client/src/avatars.ts",
+    "exports": [
+      "PLAYER_1_AVATAR_NUM: number (editable constant, initialized to 1)",
+      "AvatarRarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' (type)",
+      "AvatarEntry: { num: 1–20, name: string, rarity: AvatarRarity, url: string } (type)",
+      "AVATARS: AvatarEntry[] (all 20, parsed from glob)",
+      "resolveAvatarTexture(num: number, lookup): T | null (pure resolver, mirrors sprites.ts pattern)",
+      "avatarPath(num: number, base?: string): string (url builder)",
+      "requestAvatarArt(num: number, base?: string): void (async loader + cache, mirrors requestUnitArt)"
+    ],
+    "pattern": "Mirrors sprites.ts exactly: pure resolution (path→texture|null) split from runtime loading (async cache + listener broadcast). PNGs live in assets/avatars/; glob parses filename; exports the list + resolve functions. No game logic — cosmetic only."
+  },
+  "renderingGuidelines": {
+    "mainMenu": {
+      "element": ".mm-avatar-frame",
+      "size": "circle, ~32px diameter (existing CSS)",
+      "content": "AvatarEntry texture or fallback glyph",
+      "ringRing": "NONE — PNGs include rarity ring artwork. Do not stack a second ring.",
+      "note": "Player 1 profile identity cluster"
+    },
+    "opponentRail": {
+      "element": "opponent rail tile (match.ts renderOpponentRail)",
+      "size": "circle, 8px radius (16px diameter)",
+      "content": "AvatarEntry texture corresponding to assigned avatar number or fallback glyph",
+      "ringRing": "NONE — PNGs already have rarity ring. Current ring styling (chipBorder / textCombat for current opponent) must NOT be stacked on top; instead, the PNG becomes the visual and the stroke is removed.",
+      "assignmentStrategy": "At match start (when MatchState is created, before planning begins), assign each AI player 2–8 a random distinct avatar from the pool excluding Player 1's selection. Store assignment in a client-side match-scoped map: seatNum → avatarNum. On every opponent-rail render, look up the stored assignment.",
+      "note": "AI players persist same avatar across all rounds of a single match; human player always shows PLAYER_1_AVATAR_NUM"
+    }
+  },
+  "nextActions": {
+    "coder": [
+      "1. Create avatars.ts module at packages/client/src/avatars.ts with the glob + parse + pure resolver (mirrors sprites.ts).",
+      "2. Export PLAYER_1_AVATAR_NUM = 1 as an editable constant at the top of avatars.ts.",
+      "3. In packages/client/src/scenes/match.ts renderOpponentRail(): store MatchState seed in a client-local Map seatNum → avatarNum (generated once at match init via a helper in avatars.ts or passed in). When rendering each tile, call requestAvatarArt(avatarNum) and resolveAvatarTexture(avatarNum, runtimeLookup); fallback to the existing glyph if resolved to null.",
+      "4. In packages/client/src/ui/app.ts (main-menu identity cluster, .mm-avatar-frame): replace the person glyph with requestAvatarArt(PLAYER_1_AVATAR_NUM) + resolveAvatarTexture(PLAYER_1_AVATAR_NUM, ...). Fallback to glyph if not yet loaded.",
+      "5. DO NOT add a second ring/stroke on top of the avatar disc. PNGs include rarity artwork; keep the frame minimal (transparent background inside the circle).",
+      "6. Test: verify PNGs load correctly, avatars persist across rounds in a match, Player 1 avatar matches the main-menu identity and the opponent-rail seat-1 tile."
+    ]
+  },
+  "completeness": "ALL 20 AVATARS PRESENT ON DISK. No missing assets. Ready for registry implementation."
+}
