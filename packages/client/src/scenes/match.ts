@@ -221,6 +221,17 @@ export class MatchScene {
   private app: PIXI.Application;
   private driver: IDriver;
   // Layer containers — created + z-bound in buildSceneLayers() (constructor).
+  /**
+   * Single parent for the entire board ASSEMBLY (board ground + hex grid + both
+   * benches + the candle gold-meters). Parenting them under one node lets the
+   * whole assembly later be transformed (flipped/moved/scaled) as one unit. Today
+   * it carries an IDENTITY transform, so it's a purely structural reparent — every
+   * child still draws at its existing design-space position. If a transform is
+   * ever applied here, pointer hit-tests route their global coords through
+   * `boardGroup.toLocal(...)` (see `boardSlotAt`/`benchSlotAt`) so drag-to-hex /
+   * bench-slot placement stays correct in the group's local space.
+   */
+  private boardGroup!: PIXI.Container;
   private boardLayer!: PIXI.Container;
   private benchLayer!: PIXI.Container;
   private shopLayer!: PIXI.Container;
@@ -394,6 +405,12 @@ export class MatchScene {
     // Stacking is by zIndex, not insertion order.
     this.container.sortableChildren = true;
 
+    // The board assembly group: board ground + hex grid + both benches + the
+    // candle gold-meters all live under this one node so it can later be
+    // transformed (flip/move/scale) as a single unit. Sortable so its children
+    // keep their own L*_* z-stack (board ground under bench tokens).
+    this.boardGroup = new PIXI.Container();
+    this.boardGroup.sortableChildren = true;
     this.boardLayer = new PIXI.Container();
     this.benchLayer = new PIXI.Container();
     this.planningFxLayer = new PIXI.Container();
@@ -416,6 +433,11 @@ export class MatchScene {
     this.skipLayer = new PIXI.Container();
 
     // zIndex IS the layer constant (1:1) — the enforced z-stack.
+    // The board group sits at the board-environment level so the whole assembly
+    // (ground + grid + benches + candles) stacks below the planning FX / HUD /
+    // overlays. Within the group, the board ground (L0) draws under the bench
+    // tokens (L2) — the children keep their own constants.
+    this.boardGroup.zIndex = L0_BOARD_ENV;
     this.boardLayer.zIndex = L0_BOARD_ENV;
     this.benchLayer.zIndex = L2_UNITS;
     this.planningFxLayer.zIndex = L2_UNITS;
@@ -443,8 +465,12 @@ export class MatchScene {
 
     // Added back-to-front; addChild order is only the stable tie-break within a
     // shared layer (see the method doc).
-    this.container.addChild(this.boardLayer);
-    this.container.addChild(this.benchLayer);
+    // Board ground + grid + both benches are children of the single board group
+    // (their own zIndex orders board-under-bench inside it); the group is added
+    // to the scene at the board-environment level.
+    this.boardGroup.addChild(this.boardLayer);
+    this.boardGroup.addChild(this.benchLayer);
+    this.container.addChild(this.boardGroup);
     this.container.addChild(this.planningFxLayer);
     this.container.addChild(this.watermarkLayer);
     this.container.addChild(this.frameLayer);
@@ -464,6 +490,17 @@ export class MatchScene {
     // ascending by zIndex (back-to-front).
     this.container.addChild(this.shopBackdropLayer);
     this.container.addChild(this.shopPanelLayer);
+  }
+
+  /**
+   * The single board-assembly group node (board ground + hex grid + both benches
+   * + candle gold-meters). Exposed so later code can apply ONE transform to
+   * flip/translate/scale the whole assembly as a unit. Carries an identity
+   * transform today; any transform set here must be matched by the `toLocal`
+   * pointer mapping already in place in `boardSlotAt`/`benchSlotAt`.
+   */
+  get boardAssembly(): PIXI.Container {
+    return this.boardGroup;
   }
 
   // ─── LAYOUT GEOMETRY (derived from this.layout) ──────────────────────────────
@@ -550,11 +587,24 @@ export class MatchScene {
     return this.proj.scaleAt(p);
   }
   /**
-   * Screen pointer → player-half board slot, routed through the inverse
-   * projection. Returns -1 when the pointer is off-board or off every player hex.
+   * Map a stage-global pointer point into the board group's LOCAL space. The
+   * board ground + grid + benches are all drawn in this space; routing every
+   * board-plane hit-test through it keeps drag-to-hex / bench-slot placement
+   * correct even if `boardGroup` is later given a flip/move/scale transform.
+   * Identity transform today → a no-op pass-through.
+   */
+  private toBoardLocal(px: number, py: number): { x: number; y: number } {
+    return this.boardGroup.toLocal({ x: px, y: py } as PIXI.PointData);
+  }
+
+  /**
+   * Screen pointer → player-half board slot, routed through the board group's
+   * local space then the inverse projection. Returns -1 when the pointer is
+   * off-board or off every player hex.
    */
   private boardSlotAt(px: number, py: number): number {
-    const bp = this.proj.inverse({ x: px, y: py });
+    const lp = this.toBoardLocal(px, py);
+    const bp = this.proj.inverse(lp);
     if (!bp) return -1;
     return hexFromPointer(bp.x, bp.y, this.boardOffsetX, this.boardOffsetY, this.boardScale);
   }
@@ -588,6 +638,49 @@ export class MatchScene {
     const band = this.benchBandRect();
     const slotW = band.w / 9;
     return { x: band.x + i * slotW, y: band.y, w: slotW, h: band.h };
+  }
+
+  // ─── TOP BENCH (the second-player bench) ─────────────────────────────────────
+  // A mirror of the bottom bench, butted against the board's BACK (far/top) edge
+  // and filling RIGHT-TO-LEFT (slot 0 = the rightmost cell). Built from the SAME
+  // geometry helpers as the bottom bench so it behaves identically when later
+  // populated. Our POV has no second-player bench state, so it renders EMPTY.
+
+  /**
+   * Board-space rect for the TOP bench band (landscape): a strip butted against
+   * the grid frame's BACK (top) edge, the same board-space height as the bottom
+   * bench band so the two mirror exactly across the board.
+   */
+  private topBenchBandRect(): { x: number; y: number; w: number; h: number } {
+    const f = this.gridFrame;
+    const bottomBand = this.benchBandRect();
+    // Same height as the bottom band; placed above the board's back edge.
+    return { x: f.x, y: f.y - bottomBand.h, w: f.w, h: bottomBand.h };
+  }
+
+  /** Portrait top-bench row geometry (mirror of the bottom row, above the board). */
+  private topBenchGeomPortrait(): { slotW: number; slotH: number; startCx: number; centerY: number } {
+    const { slotW, slotH, startCx } = this.benchGeom();
+    const board = this.layout.regions.board;
+    // Sit the row just above the board panel's top edge (same slot height as the
+    // bottom bench). Clamp so it never leaves the design space on short viewports.
+    const gap = 4;
+    const centerY = Math.max(slotH / 2, board.y - gap - slotH / 2);
+    return { slotW, slotH, startCx, centerY };
+  }
+
+  /** Pixel center of TOP bench slot `i` (right-to-left fill; orientation-aware). */
+  private topBenchSlotCenter(i: number): { x: number; y: number } {
+    const col = 8 - i; // right-to-left: slot 0 is the rightmost column
+    if (this.isLandscape) {
+      const band = this.topBenchBandRect();
+      const slotW = band.w / 9;
+      const cx = band.x + (col + 0.5) * slotW;
+      const cy = band.y + band.h / 2;
+      return this.fwd({ x: cx, y: cy });
+    }
+    const { slotW, startCx, centerY } = this.topBenchGeomPortrait();
+    return { x: startCx + col * slotW, y: centerY };
   }
 
   /** Resize the invisible drag-catcher to the current design space. */
@@ -638,6 +731,7 @@ export class MatchScene {
           this.renderTraitStrip(peeked);
         }
         this.renderPeekBench(peeked);
+        this.renderTopBench(); // empty second-player bench (same layout as own POV)
         this.renderPeekEcon(peeked);
       } else {
         this.scoutLayer.removeChildren();
@@ -645,6 +739,7 @@ export class MatchScene {
         if (this.isLandscape) this.renderRailTabs(me);
         else this.renderTraitStrip(me);
         this.renderBench(me);
+        this.renderTopBench(); // empty second-player bench (top edge of the board)
         this.renderShop(me);
         this.renderShopToggle(me);
         this.renderShopPanel(me);
@@ -1493,19 +1588,22 @@ export class MatchScene {
 
   /** Bench slot index under a pointer, or null (orientation-aware). */
   private benchSlotAt(px: number, py: number): number | null {
+    // Both benches live inside the board group, so hit-test in its local space
+    // (identity today → unchanged; correct if the group is ever transformed).
+    const lp = this.toBoardLocal(px, py);
     if (this.isLandscape) {
-      // Map the screen point back onto the board plane (raw inverse — the bench
-      // band lies BELOW the board rect) and resolve the column it falls in.
+      // Map the board-local point back onto the board plane (raw inverse — the
+      // bench band lies BELOW the board rect) and resolve the column it falls in.
       const band = this.benchBandRect();
-      const bp = this.proj.inverseRaw({ x: px, y: py });
+      const bp = this.proj.inverseRaw(lp);
       const marginY = band.h * 0.25; // forgiving band above/below the platform
       if (bp.x < band.x || bp.x > band.x + band.w) return null;
       if (bp.y < band.y - marginY || bp.y > band.y + band.h + marginY) return null;
       return Math.max(0, Math.min(8, Math.floor((bp.x - band.x) / (band.w / 9))));
     }
     const r = this.layout.regions.bench;
-    if (py < r.y - 7 || py > r.y + r.h + 7) return null; // forgiving vertical band
-    return benchSlotAtX(px, this.benchGeom());
+    if (lp.y < r.y - 7 || lp.y > r.y + r.h + 7) return null; // forgiving vertical band
+    return benchSlotAtX(lp.x, this.benchGeom());
   }
 
   private renderBench(me: PlayerState): void {
@@ -1671,6 +1769,71 @@ export class MatchScene {
         drawUnit(uc, unit, center.x, center.y, r, false, false, true);
         this.benchLayer.addChild(uc);
       }
+    }
+  }
+
+  /**
+   * The TOP (second-player) bench: a mirror of the bottom bench butted against
+   * the board's back/top edge, filling RIGHT-TO-LEFT (slot 0 = rightmost). Built
+   * from the SAME geometry helpers and slot/cell drawing as the bottom bench so
+   * it behaves identically when later populated. Our POV has no second-player
+   * bench state, so it renders EMPTY and non-interactive. Part of the board group.
+   */
+  private renderTopBench(): void {
+    if (this.isLandscape) {
+      // Tilted platform on the board plane, butted against the board's back edge.
+      const band = this.topBenchBandRect();
+      const fwd = (p: { x: number; y: number }): { x: number; y: number } => this.fwd(p);
+
+      // Platform base slab (mirrors renderTiltedBench's base).
+      const base = new PIXI.Graphics();
+      const b0 = fwd({ x: band.x, y: band.y });
+      const b1 = fwd({ x: band.x + band.w, y: band.y });
+      const b2 = fwd({ x: band.x + band.w, y: band.y + band.h });
+      const b3 = fwd({ x: band.x, y: band.y + band.h });
+      const baseQuad = [b0.x, b0.y, b1.x, b1.y, b2.x, b2.y, b3.x, b3.y];
+      base.poly(baseQuad).fill({ color: C.benchPlatform, alpha: 0.96 });
+      base.poly(baseQuad).stroke({ width: 1, color: C.boardBorder, alpha: 0.6 });
+      base.eventMode = "none";
+      this.benchLayer.addChild(base);
+
+      const slotW = band.w / 9;
+      const insetX = slotW * 0.06;
+      const insetY = band.h * 0.1;
+      // Draw cells in screen order (left→right columns); the right-to-left fill is
+      // a slot-INDEX convention, irrelevant to drawing empty cells.
+      for (let col = 0; col < 9; col++) {
+        const sx = band.x + col * slotW + insetX;
+        const sw = slotW - 2 * insetX;
+        const sy = band.y + insetY;
+        const sh = band.h - 2 * insetY;
+        const p0 = fwd({ x: sx, y: sy });
+        const p1 = fwd({ x: sx + sw, y: sy });
+        const p2 = fwd({ x: sx + sw, y: sy + sh });
+        const p3 = fwd({ x: sx, y: sy + sh });
+        const poly = [p0.x, p0.y, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y];
+        const g = new PIXI.Graphics();
+        g.poly(poly).fill({ color: C.benchEmpty, alpha: 0.55 });
+        g.poly(poly).stroke({ width: 1, color: C.benchEmptyRim, alpha: 0.6 });
+        g.eventMode = "none"; // no second-player state to interact with
+        this.benchLayer.addChild(g);
+      }
+      return;
+    }
+
+    // Portrait: a flat row above the board, mirroring the bottom bench's cells.
+    const { slotW, slotH } = this.topBenchGeomPortrait();
+    for (let col = 0; col < 9; col++) {
+      const { x: cx, y: cy } = this.topBenchSlotCenter(8 - col); // col→slot index inverse
+      const cellW = slotW, cellH = slotH;
+      const cellX = cx - cellW / 2, cellY = cy - cellH / 2;
+      const g = new PIXI.Graphics();
+      g.roundRect(cellX + 1, cellY, cellW - 2, cellH, 4)
+        .fill({ color: C.benchEmpty, alpha: 0.5 });
+      g.roundRect(cellX + 1, cellY, cellW - 2, cellH, 4)
+        .stroke({ width: 1, color: C.benchEmptyRim, alpha: 0.5 });
+      g.eventMode = "none"; // no second-player state to interact with
+      this.benchLayer.addChild(g);
     }
   }
 
@@ -3033,6 +3196,7 @@ export class MatchScene {
     const me = this.driver.getState().players[this.driver.seatIndex]!;
     this.renderBoard(me);
     this.renderBench(me);
+    this.renderTopBench();
     this.renderShop(me);       // LEFT sell button replaces the Buy XP cluster
     this.renderShopToggle(me); // RIGHT sell button replaces the money-sack toggle
   }
@@ -3050,6 +3214,7 @@ export class MatchScene {
     const me = this.driver.getState().players[this.driver.seatIndex]!;
     this.renderBoard(me);
     this.renderBench(me);
+    this.renderTopBench();
     this.renderShop(me);       // LEFT sell button replaces the Buy XP cluster
     this.renderShopToggle(me); // RIGHT sell button replaces the money-sack toggle
   }
@@ -3403,11 +3568,12 @@ export class MatchScene {
 
   /**
    * Peek another player: instead of a popup, swap the in-board view to show THEIR
-   * COMPLETE board (units + bench + candles + econ), vertically flipped in board
-   * space so it faces you — the same mirroring combat uses. The return-to-board
-   * medallion (replacing the shop medallion) is the way back; tapping a different
-   * player's avatar switches the peek. View-only — never touches my board, bench,
-   * econ, or the sim; exiting restores my own board exactly.
+   * state (units + bench + candles + econ) on a board with the SAME orientation,
+   * layout, and side as your own POV — NO flip, NO mirror (their units sit on the
+   * same near/bottom side as yours). The return-to-board medallion (replacing the
+   * shop medallion) is the way back; tapping a different player's avatar switches
+   * the peek. View-only — never touches my board, bench, econ, or the sim;
+   * exiting restores my own board exactly.
    */
   private enterPeek(playerId: number): void {
     const state = this.driver.getState();
@@ -3449,17 +3615,16 @@ export class MatchScene {
   }
 
   /**
-   * Renders the peeked player's COMPLETE board, vertically flipped in BOARD space
-   * (the same mirroring combat uses) and reprojected through the existing
-   * perspective so it reads as their board flipped to face you — right-side-up,
-   * never a screen flip.
+   * Renders the peeked player's board with the SAME orientation, layout, and side
+   * as your own POV — NO flip and NO mirror of any kind. The board reads exactly
+   * like your own (neutral/empty enemy zone on the far half, your near/bottom half
+   * holding the units), but the units shown are the PEEKED player's, placed on
+   * their actual slot positions on the near side just as your own would be.
    *
-   * The full board trapezoid is drawn (both halves of hex tiles, down to the near
-   * edge), the peeked player's gold-meter candles flank it, and their units are
-   * reflected front-to-back across the board's horizontal centerline so their
-   * front row sits at the midline facing you (their back row recedes to the far
-   * edge). Read-only: long-press a token to inspect (no drag/drop). Never touches
-   * any board/bench/econ/sim — exiting peek restores my own board exactly.
+   * Strictly view-only: long-press a token to inspect; no drag/drop, no selection,
+   * no command. Never touches any board/bench/econ/sim — exiting peek restores
+   * your own board exactly. Returning is via the bottom-right return-to-board
+   * medallion (see renderReturnToBoardButton).
    */
   private renderPeekBoard(target: PlayerState): void {
     this.boardLayer.removeChildren();
@@ -3469,15 +3634,15 @@ export class MatchScene {
     // server-private online, exactly like the opponent column in combat).
     this.drawArenaTorches(this.boardLayer, target, false);
     const offX = this.boardOffsetX;
-    const playerY = this.boardOffsetY; // near (your) half — empty board under their flip
-    const oppY = this.oppBoardOffsetY; // far half — their flipped board sits here
+    const playerY = this.boardOffsetY; // near (your/bottom) half — the units sit here
+    const oppY = this.oppBoardOffsetY; // far (top) half — empty neutral enemy zone
     const s = this.boardScale;
     const hexR = this.hexTileR;
     const tokR = this.boardTokenR;
     const fwd = (p: { x: number; y: number }): { x: number; y: number } => this.fwd(p);
 
-    // Fill the ENTIRE board trapezoid (both halves) so the grid reaches the near
-    // edge — far half tinted as the (peeked) opposing side, near half neutral.
+    // Enemy zone (top 4 rows) — same neutral tint/treatment as your own board's
+    // enemy half; empty, non-interactive.
     for (let r = 0; r < BOARD_ROWS; r++) {
       for (let q = 0; q < BOARD_COLS; q++) {
         const fp = hexToPixel(q, r, offX, oppY, s);
@@ -3485,7 +3650,11 @@ export class MatchScene {
         drawHex(farG, fp.x, fp.y, hexR, C.enemyHex, 1, {}, fwd);
         farG.eventMode = "none";
         this.boardLayer.addChild(farG);
-
+      }
+    }
+    // Player zone (bottom 4 rows) — same near-half tint as your own board.
+    for (let r = 0; r < BOARD_ROWS; r++) {
+      for (let q = 0; q < BOARD_COLS; q++) {
         const np = hexToPixel(q, r, offX, playerY, s);
         const nearG = new PIXI.Graphics();
         drawHex(nearG, np.x, np.y, hexR, C.myHex, 1, {}, fwd);
@@ -3506,18 +3675,15 @@ export class MatchScene {
     grid.eventMode = "none";
     this.boardLayer.addChild(grid);
 
-    // Peeked units: their slot row pr (0=their back, 3=their front) reflects
-    // front-to-back across the board's horizontal centerline → display far-half
-    // row = BOARD_ROWS-1-pr (a TRUE board-space vertical flip, then reprojected
-    // through fwd() so the perspective stays right-side-up). Drawn back-to-front
-    // so nearer (larger, depth-scaled) tokens overlap farther ones.
+    // Peeked units: placed on the near/bottom half at their ACTUAL slot position
+    // (same (q, r) mapping as your own board) — NO flip, NO mirror. Drawn
+    // back-to-front so nearer (larger, depth-scaled) tokens overlap farther ones.
     for (let idx = 0; idx < BOARD_SLOTS; idx++) {
       const unit = target.board[idx];
       if (!unit) continue;
       const q = idx % BOARD_COLS;
-      const pr = Math.floor(idx / BOARD_COLS);
-      const displayRow = BOARD_ROWS - 1 - pr; // vertical mirror across the centerline
-      const bp = hexToPixel(q, displayRow, offX, oppY, s);
+      const r = Math.floor(idx / BOARD_COLS);
+      const bp = hexToPixel(q, r, offX, playerY, s);
       const sp = this.fwd(bp);
       const sc = this.depthScaleAt(bp);
       const uc = new PIXI.Container();
