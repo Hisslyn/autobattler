@@ -108,6 +108,16 @@ export class LocalDriver implements IDriver {
       (this.state.players[i] as { name?: string }).name =
         i === HUMAN_PLAYER_ID ? (humanName ?? "You") : `Bot ${i + 1}`;
     }
+    // Practice/testing only (LocalDriver path): seed the human seat's inventory
+    // with ONE of every item id in the data — components, completed, radiant,
+    // artifacts, mythicals, and consumables. This is a presentation-side match-
+    // state seed for offline testing; the online/server path is unaffected.
+    // Enumerated from gameData.items (the authoritative item set, already
+    // including the eagerly-materialized radiant variants) and sorted by id so
+    // the granted inventory is identical for any given seed (no randomness).
+    this.state.players[HUMAN_PLAYER_ID]!.items.push(
+      ...gameData.items.map((it) => it.id).sort()
+    );
     this.emit({ type: "state", state: this.state });
   }
 

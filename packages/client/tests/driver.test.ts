@@ -530,6 +530,7 @@ describe("item drag EQUIP command path", () => {
     const driver = new LocalDriver(7);
     driver.startPlanning();
     const me = driver.getState().players[driver.seatIndex]!;
+    me.items.length = 0; // clear the practice-mode all-items seed for a known baseline
     const unit = benchUnit(9999);
     me.bench[me.bench.indexOf(null)] = unit;
     me.items.push(COMPONENT);
@@ -550,6 +551,7 @@ describe("item drag EQUIP command path", () => {
     const driver = new LocalDriver(7);
     driver.startPlanning();
     const me = driver.getState().players[driver.seatIndex]!;
+    me.items.length = 0; // clear the practice-mode all-items seed for a known baseline
     const unit = benchUnit(9998);
     me.bench[me.bench.indexOf(null)] = unit;
     me.items.push(COMPONENT);
