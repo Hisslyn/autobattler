@@ -2,6 +2,11 @@
 
 Readable map from source path to its documentation file. One line per documented source file.
 
+- docs/combat-testing.md — combat trace harness + the six scenario fixtures + trace format + the seven QA invariants guide
+- scripts/trace.ts -> docs/combat-testing.md — headless combat-trace CLI (the only I/O); runs a fixture via simulateCombat(..., { trace: true }) and prints/writes formatTrace
+- packages/sim/tests/fixtures/scenarios.ts -> docs/combat-testing.md — pure ordered SCENARIOS array (6 deterministic fixtures) built from real gameData defs + buildInstance helper
+- packages/sim/tests/fixtures/formatTrace.ts -> docs/combat-testing.md — pure deterministic one-line-per-tick trace formatter (header + per-unit rows + retarget lines), importable by harness + qa
+
 - packages/balance/src/cli.ts -> docs/packages/balance/src/cli.ts.md — balance CLI entry; the only I/O-permitted script outside the server; writes balance-report.md/.json
 - packages/balance/src/compositions.ts -> docs/packages/balance/src/compositions.ts.md — 24 budget-normalized archetype comps + buildBoard/activeTraits helpers for the sweep
 - packages/balance/src/index.ts -> docs/packages/balance/src/index.ts.md — public barrel re-exporting runner/sweep/report/compositions

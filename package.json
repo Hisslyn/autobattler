@@ -13,7 +13,8 @@
     "typecheck": "tsc --build",
     "dev": "npm run dev --workspace=packages/client",
     "server": "tsx packages/server/src/index.ts",
-    "balance": "tsx packages/balance/src/cli.ts"
+    "balance": "tsx packages/balance/src/cli.ts",
+    "trace": "tsx scripts/trace.ts"
   },
   "devDependencies": {
     "tsx": "^4.11.2",

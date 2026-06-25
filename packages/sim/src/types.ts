@@ -126,9 +126,75 @@ export type CombatEvent =
 
 export type CombatEventType = CombatEvent["type"];
 
+/**
+ * Why a unit's resolved target changed from one tick to the next.
+ * These are a CHARACTERIZATION of the current engine, which recomputes the
+ * nearest enemy fresh every tick (no target stickiness) — they describe what
+ * was observed, not a policy the engine enforces. See engine.ts trace block.
+ *
+ * - acquired_no_target          — had no target last tick, has one now.
+ * - switched_target_dead        — previous target is no longer alive.
+ * - switched_target_untargetable— previous target is alive but untargetable
+ *                                 (its untargetableUntil > current tick).
+ * - switched_target_out_of_range— previous target is alive+targetable but now
+ *                                 beyond this unit's range.
+ * - switched_forced             — RESERVED for an explicit forcing effect
+ *                                 (taunt). The current engine has none, so this
+ *                                 is never emitted; kept for spec completeness.
+ * - retarget_recomputed         — previous target was still alive, targetable,
+ *                                 and in range, but the nearest-recompute picked
+ *                                 a different enemy (nearer, or a tiebreak flip).
+ */
+export type RetargetReason =
+  | "acquired_no_target"
+  | "switched_target_dead"
+  | "switched_target_untargetable"
+  | "switched_target_out_of_range"
+  | "switched_forced"
+  | "retarget_recomputed";
+
+/** One unit's end-of-tick state for the trace (one row per alive unit per tick). */
+export interface TraceUnitRecord {
+  uid: number;
+  side: 0 | 1;
+  defId: string;
+  /** End-of-tick position. */
+  hex: HexCoord;
+  hp: number;
+  mana: number;
+  /** The target uid the engine actually used this tick (null if none / idle). */
+  targetUid: number | null;
+  /** Single label by precedence cast > attack > move > idle. */
+  action: "move" | "attack" | "cast" | "idle";
+  /** Post-mitigation, post-shield damage this unit inflicted on others this tick. */
+  damageDealt: number;
+}
+
+/** A single target change for one unit on one tick. */
+export interface TraceRetarget {
+  uid: number;
+  fromUid: number | null;
+  toUid: number | null;
+  reason: RetargetReason;
+}
+
+/** Per-tick trace frame: every currently-alive unit + any target changes. */
+export interface TraceTick {
+  tick: number;
+  units: TraceUnitRecord[];
+  retargets: TraceRetarget[];
+}
+
+/** The full opt-in combat trace (one frame per simulated tick). */
+export interface CombatTrace {
+  ticks: TraceTick[];
+}
+
 export interface CombatResult {
   winner: 0 | 1 | "draw";
   ticks: number;
   survivingUnits: UnitInstance[];
   events: CombatEvent[];
+  /** Populated only when simulateCombat is called with { trace: true }. */
+  trace?: CombatTrace;
 }
