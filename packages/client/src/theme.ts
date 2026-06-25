@@ -52,6 +52,7 @@ export const C = {
   // HP / mana
   hpBg:    0x182a18,  // visible bar track at small sizes
   hpFill:  0x2a7a3a,
+  hpSegment: 0x0b150b,  // dark divider tick delineating each 300-HP chunk on the HP bar
   manaBg:  0x1a2a4e,  // dim-blue mana track — reads as an (empty) mana bar even on the dark board (planning), not just when filled blue in combat
   manaFill: 0x2a4a88,
 

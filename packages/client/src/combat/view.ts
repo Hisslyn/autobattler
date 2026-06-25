@@ -183,7 +183,7 @@ export class CombatView {
     if (recMs) uc.y -= 3 * (recMs / RECOIL_MS);
     drawUnitToken(uc, u.defId, tier, u.star, 0, 0, {
       radius: r,
-      bars: { hpFrac: st.hp, manaFrac: st.mana, hpChipFrac: st.hpChip },
+      bars: { hpFrac: st.hp, manaFrac: st.mana, hpChipFrac: st.hpChip, maxHp: u.maxHp },
       piece: {}, // battlefield token: short "checkers piece" volume
     });
     this.unitLayer.addChild(uc);

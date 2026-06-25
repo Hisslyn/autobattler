@@ -181,6 +181,7 @@ function drawUnit(
     ? {
         hpFrac: unit.maxHp > 0 ? unit.hp / unit.maxHp : 0,
         manaFrac: unit.maxMana > 0 ? unit.mana / unit.maxMana : 0,
+        maxHp: unit.maxHp,
       }
     : undefined;
   // Equipped items rendered as tiny distinct icons — display only.
@@ -246,6 +247,12 @@ export class MatchScene {
   private scoutLayer!: PIXI.Container;
   /** Loot-orb reveal overlay (PvE resolution). */
   private lootLayer!: PIXI.Container;
+  /**
+   * Sell-feedback "+N" gold floater overlay — a standalone top-most layer so the
+   * floater is never occluded by the HUD and never wiped by an unrelated
+   * `removeChildren()` on the loot/toast layers.
+   */
+  private sellPopLayer!: PIXI.Container;
   /** Inspect / trait-detail panels (topmost, modal). */
   private inspectLayer!: PIXI.Container;
   /**
@@ -428,6 +435,8 @@ export class MatchScene {
     this.combatLayer.sortableChildren = true; // keeps its own internal z-stack
     this.lootLayer = new PIXI.Container();
     this.toastLayer = new PIXI.Container();
+    this.sellPopLayer = new PIXI.Container();
+    this.sellPopLayer.eventMode = "none"; // pure feedback overlay, never interactive
     this.scoutLayer = new PIXI.Container();
     this.inspectLayer = new PIXI.Container();
     this.skipLayer = new PIXI.Container();
@@ -456,6 +465,10 @@ export class MatchScene {
     this.combatLayer.zIndex = L5_HUD;
     this.lootLayer.zIndex = L5_HUD;
     this.toastLayer.zIndex = L8_TOAST;
+    // Sell-feedback floater: standalone top-most canvas overlay, above the HUD
+    // and the shop panel (871) but below the active drag sprite (999) so a drag
+    // is never intercepted. Decoupled from loot/toast layers (no removeChildren).
+    this.sellPopLayer.zIndex = 880; // magic-ok: sell "+N" gold floater overlay
     this.scoutLayer.zIndex = L6_INSPECT;
     this.inspectLayer.zIndex = L6_INSPECT;
     // Playtest Skip pill: a standalone top-most overlay, above all HUD/modal
@@ -490,6 +503,9 @@ export class MatchScene {
     // ascending by zIndex (back-to-front).
     this.container.addChild(this.shopBackdropLayer);
     this.container.addChild(this.shopPanelLayer);
+    // Sell "+N" floater overlay (zIndex 880) — added last so insertion order
+    // stays ascending by zIndex (back-to-front); top-most non-drag overlay.
+    this.container.addChild(this.sellPopLayer);
   }
 
   /**
@@ -921,13 +937,26 @@ export class MatchScene {
     // ── Zone A — stage marker (glyph + "X-Y") ────────────────────────────────
     const ax = barX + 8;
     this.glyph(this.hudLayer, "banner", ax + 6, cy, 13, C.textPrimary);
-    this.text(this.hudLayer, `${stage}-${roundInStage}`, ax + 16, cy, 12, C.textPrimary, [0, 0.5], "700");
+    const stageLabel = `${stage}-${roundInStage}`;
+    this.text(this.hudLayer, stageLabel, ax + 16, cy, 12, C.textPrimary, [0, 0.5], "700");
+    // Right edge of Zone A: end of the 12px-700-monospace label (~0.6em/char) + pad.
+    const zoneARight = ax + 16 + stageLabel.length * 12 * 0.6 + 6;
+
+    // ── Zone C boundary (clock glyph + seconds, right-aligned) ───────────────
+    // Pre-computed here so Zone B can be centered between A and C; the actual
+    // clock/seconds are drawn below in Zone C using the same clockCx.
+    const clockCx = barX + barW - 8 - 22; // right-aligned timer block (~22px wide)
+    const zoneCLeft = clockCx - 8; // clock glyph (11px) left edge − small pad
 
     // ── Zone B — round schedule strip ────────────────────────────────────────
+    // Center the strip's geometric midpoint at the center of the region between
+    // Zone A and Zone C. For evenly-spaced points that midpoint lands exactly on
+    // the middle round (odd roundsInStage) or between the two middle rounds
+    // (even), so the marker is centered for any round count.
     const pitch = 13;
     const stripW = (roundsInStage - 1) * pitch;
-    const stripStartX = barX + 56; // after Zone A (40px) + 8px pad + 6px gap ≈ 54
-    const stripBaseX = Math.round(stripStartX + (96 - stripW) / 2); // center within the ~96px Zone B
+    const zoneBCenter = (zoneARight + zoneCLeft) / 2;
+    const stripBaseX = Math.round(zoneBCenter - stripW / 2);
     const iconG = new PIXI.Graphics();
     iconG.eventMode = "none";
     for (let i = 0; i < roundsInStage; i++) {
@@ -955,12 +984,12 @@ export class MatchScene {
     this.hudLayer.addChild(iconG);
 
     // ── Zone C — clock glyph + remaining seconds ─────────────────────────────
+    // (clockCx computed above so Zone B could be centered between A and C.)
     this.planningTimerText = null;
     const timeLeft = this.driver.getPlanningTimeLeft();
     const planning = state.phase === "PLANNING" && timeLeft > 0;
     const secs = Math.max(0, Math.ceil(timeLeft / 1000));
     const urgent = secs <= 5;
-    const clockCx = barX + barW - 8 - 22; // right-aligned timer block (~22px wide)
     this.glyph(this.hudLayer, "clock", clockCx, cy, 11, C.textPrimary);
     if (planning) {
       this.planningTimerText = this.text(
@@ -3431,25 +3460,30 @@ export class MatchScene {
    */
   private spawnSellPop(refund: number): void {
     if (this.opts.settings.get().reducedMotion) return;
-    // Anchor over the gold/shop medallion (the money-sack toggle slot).
+    // Anchor over the gold/shop medallion (the money-sack toggle slot) in the
+    // bottom-right HUD — never over the sold unit. Rendered on the toast layer
+    // (L8_TOAST), the top-most always-visible overlay above the HUD chrome, so
+    // the floater is never occluded by the medallion or coupled to the loot
+    // subsystem (whose layer is wiped on every phase transition).
     const m = this.shopToggleRect();
     const x = m.x + m.w / 2;
-    const y = m.y + m.h / 2;
+    const y = m.y;
     const node = new PIXI.Container();
-    node.position.set(x, y - 18);
-    this.glyph(node, "coin", -8, 0, 9, C.accentGold);
-    this.text(node, `+${refund}`, 3, 0, 11, C.textGold, [0, 0.5]);
+    node.position.set(x, y - 6);
+    this.glyph(node, "coin", -9, 0, 10, C.accentGold);
+    this.text(node, `+${refund}`, 4, 0, 13, C.textGold, [0, 0.5], "700");
     node.eventMode = "none";
-    this.lootLayer.addChild(node);
+    this.sellPopLayer.addChild(node);
     let age = 0;
-    const ttl = 620;
+    const ttl = 720;
+    const holdMs = 140; // hold full alpha briefly so the pop is clearly seen
     const fn = (ticker: PIXI.Ticker): void => {
       age += ticker.deltaMS;
-      node.y -= ticker.deltaMS * 0.04; // float upward off the medallion
-      node.alpha = Math.max(0, 1 - age / ttl);
+      node.y -= ticker.deltaMS * 0.05; // float upward off the medallion
+      node.alpha = age <= holdMs ? 1 : Math.max(0, 1 - (age - holdMs) / (ttl - holdMs));
       if (age >= ttl) {
         this.app.ticker.remove(fn);
-        this.lootLayer.removeChild(node);
+        if (node.parent) this.sellPopLayer.removeChild(node);
         node.destroy({ children: true });
       }
     };

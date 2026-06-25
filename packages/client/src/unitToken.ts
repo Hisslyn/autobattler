@@ -12,6 +12,10 @@ import { drawItemIcon } from "./itemIconDraw.js";
 
 const RING_W = 2.5;
 
+// HP-bar segment size: one divider tick per this many HP, so each chunk reads
+// as a segment (e.g. a 900-maxHp unit shows three segments).
+const HP_SEGMENT = 300;
+
 // "Checkers piece" volume (board/bench/combat only — never the flat shop/inspect
 // tokens). The top face is a circle foreshortened to ~this fraction of its height
 // so it reads as lying on the tilted board plane; the side wall is extruded down
@@ -36,8 +40,10 @@ export interface UnitTokenOpts {
    * HP/mana fill fractions (0..1); omit for bench tokens (no bars).
    * `hpChipFrac` (≥ hpFrac) draws a trailing white damage-chip from the live
    * fill up to the lagging value, animated by the combat view.
+   * `maxHp` (absolute, display-only) places segment divider ticks every 300 HP
+   * along the bar so each 300-HP chunk reads as one segment.
    */
-  bars?: { hpFrac: number; manaFrac: number; hpChipFrac?: number };
+  bars?: { hpFrac: number; manaFrac: number; hpChipFrac?: number; maxHp?: number };
   /**
    * Equipped items rendered as tiny icons along the disc base (board/bench
    * tokens). Each entry's `id` resolves its distinct emblem/composed icon (the
@@ -147,18 +153,36 @@ export function drawUnitToken(
     const w = r * 2;
     const hpFrac = Math.max(0, Math.min(1, opts.bars.hpFrac));
     const manaFrac = Math.max(0, Math.min(1, opts.bars.manaFrac));
+    const hpH = 5;          // thicker HP bar for legibility
     const hpY = y + r + 2;
-    const manaY = hpY + 4;
+    const manaY = hpY + hpH + 1;
     const bars = new PIXI.Graphics();
-    bars.rect(x - r, hpY, w, 3).fill({ color: C.hpBg });
+    bars.rect(x - r, hpY, w, hpH).fill({ color: C.hpBg });
     const chip = Math.max(hpFrac, Math.min(1, opts.bars.hpChipFrac ?? hpFrac));
     if (chip > hpFrac) {
-      bars.rect(x - r + Math.round(w * hpFrac), hpY, Math.round(w * (chip - hpFrac)), 3).fill({ color: C.fxDamageChip });
+      bars.rect(x - r + Math.round(w * hpFrac), hpY, Math.round(w * (chip - hpFrac)), hpH).fill({ color: C.fxDamageChip });
     }
-    bars.rect(x - r, hpY, Math.round(w * hpFrac), 3).fill({ color: hpFrac < 0.25 ? C.hpLow : C.hpGreen });
-    bars.rect(x - r, manaY, w, 2).fill({ color: C.manaBg });
-    bars.rect(x - r, manaY, Math.round(w * manaFrac), 2).fill({ color: C.manaBlue });
-    parent.addChild(bars);
+    bars.rect(x - r, hpY, Math.round(w * hpFrac), hpH).fill({ color: hpFrac < 0.25 ? C.hpLow : C.hpGreen });
+    // Segment divider ticks: one per 300-HP boundary so each chunk reads as a
+    // segment (900 maxHp → 3 segments, i.e. ticks at 300 and 600).
+    const maxHp = opts.bars.maxHp ?? 0;
+    if (maxHp > HP_SEGMENT) {
+      const segTicks = new PIXI.Graphics();
+      for (let hp = HP_SEGMENT; hp < maxHp; hp += HP_SEGMENT) {
+        const tx = x - r + Math.round(w * (hp / maxHp));
+        segTicks.rect(tx, hpY, 1, hpH);
+      }
+      segTicks.fill({ color: C.hpSegment, alpha: dim ? 0.5 : 0.9 });
+      parent.addChild(bars);
+      parent.addChild(segTicks);
+    } else {
+      parent.addChild(bars);
+    }
+    // Mana bar: always render the (empty) track, even at 0 max/value.
+    const mana = new PIXI.Graphics();
+    mana.rect(x - r, manaY, w, 2).fill({ color: C.manaBg });
+    if (manaFrac > 0) mana.rect(x - r, manaY, Math.round(w * manaFrac), 2).fill({ color: C.manaBlue });
+    parent.addChild(mana);
   }
 
   // Equipped items: tiny distinct icons along the bottom-right arc of the disc
