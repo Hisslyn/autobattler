@@ -78,15 +78,14 @@ a 2-count breakpoint).
 2. **ranged_vs_melee** — 1 ranged (archer, range 3) vs 1 melee (footman). The
    melee unit must close the gap before it can attack; the archer fires across.
    Exercises movement/pathing toward a target and ranged attack at range.
-3. **retarget_1v2** — 1 ranged (stormlord) vs 2 melee (footman, brawler). The
-   engine recomputes the nearest enemy fresh every tick (no target stickiness),
-   so the lone unit's resolved target FLIPS between the two LIVE enemies as they
-   advance (`retarget_recomputed`), then switches off the first once it dies
-   (`switched_target_dead`). This is the fixture whose trace exhibits a
-   live-target `retarget_recomputed` — verify with the harness.
+3. **retarget_1v2** — 1 ranged (stormlord) vs 2 melee (footman, brawler). With
+   sticky targeting the lone unit acquires one of the two advancing enemies at
+   combat start (`acquired_no_target`) and holds it until it dies
+   (`switched_target_dead`). No `retarget_recomputed` is emitted.
 4. **tiebreak_equidistant** — two enemies (footman uid 1001, brawler uid 1002)
    exactly equidistant from a single attacker (archer). Exercises the
-   nearest/lowest-uid tiebreak: uid 1001 is chosen over uid 1002.
+   nearest/lowest-uid tiebreak: uid 1001 is chosen over uid 1002 and held
+   until it dies.
 5. **blocked_path** — a melee attacker (squire) whose only enemy (a footman
    boxed into corner (0,0)) is walled in by the attacker's own allies (three
    rogues filling every approach hex). A* finds no path within range, so the
@@ -123,28 +122,35 @@ Per-unit fields (one row per alive unit, end-of-tick state):
 - `act` — single label by precedence **cast > attack > move > idle** (a unit
   that both moves and attacks in one tick is labelled `attack`; `cast` if it
   cast; `move` if it only moved; else `idle`).
-- `tgt` — the resolved target uid the engine actually used this tick (`-` if
-  none): for `magic_damage`/`burn` casts and for move/attack, the `findTarget`
-  result it acted on; for self-target `shield`/`buff` casts, the caster itself;
-  idle-with-no-enemies → none.
+- `tgt` — the unit's PERSISTENT sticky target uid this tick (`-` if none): the
+  enemy it is holding/chasing/attacking/nuking. A self-target `shield`/`buff`
+  cast does NOT change it — the row keeps showing the retained enemy. Only an
+  idle-with-no-enemies unit shows `-`.
 - `dmg` — post-mitigation, post-shield damage this unit inflicted on others this
   tick (sum of its attack damage + cast damage). Overtime true-damage is
   environmental and is NOT attributed to any unit.
 
-Retarget reason codes (a CHARACTERIZATION of the current stateless targeting —
-the engine recomputes nearest-enemy every tick, so `retarget_recomputed` off a
-still-valid target is EXPECTED, not a bug):
-- `acquired_no_target` — had no resolved target last tick, has one now.
+Retarget reason codes — targeting is now STICKY (`engine.ts`'s `resolveTarget`):
+a unit RETAINS its acquired target while it stays alive + targetable + reachable,
+CHASES it out of range, and only re-acquires on death / untargetability /
+provable unreachability. The engine emits ONLY:
+- `acquired_no_target` — first acquire (the unit held no current target).
 - `switched_target_dead` — previous target is no longer alive.
 - `switched_target_untargetable` — previous target is alive but untargetable
   (its `untargetableUntil` > current tick).
-- `switched_target_out_of_range` — previous target is alive + targetable but now
-  beyond this unit's range.
+- `switched_target_unreachable` — previous target is alive + targetable but has
+  no A* path toward a hex within range, AND a reachable alternative enemy exists
+  (the only distance-related switch; covers a blocked path). If there is NO
+  reachable alternative, the unit KEEPS its held target and idles — no retarget.
 - `switched_forced` — RESERVED for an explicit forcing effect (taunt). The
   current engine has none, so this is never emitted; kept for spec completeness.
-- `retarget_recomputed` — previous target was still alive, targetable, and in
-  range, but the nearest-recompute picked a different enemy (nearer, or a
-  tiebreak flip).
+
+The following two are RESERVED-AS-FORBIDDEN (kept in the union for back-compat
+but NEVER emitted post-stickiness; invariant (b) asserts they never occur):
+- `switched_target_out_of_range` — no longer emitted: a held target going out of
+  range now triggers a CHASE, not a switch.
+- `retarget_recomputed` — no longer emitted: a nearer enemy or a uid-tiebreak
+  flip is no longer a reason to abandon a still-valid held target.
 
 ## Invariants the QA suite asserts
 
@@ -168,22 +174,8 @@ post-mitigation damage applied to it.
 (g) **Determinism** — the same scenario + seed yields an identical trace across
 two runs; no float/Date/Math.random in the path.
 
-Currently failing invariants (empirically determined by running
-`packages/sim/tests/combatInvariants.test.ts`; wrapped in `it.fails(...)` so
-the suite stays green and alerts if the bug is ever fixed):
-
-- **(b) Target stickiness** — FAILS. `findTarget` recomputes the nearest
-  enemy from scratch every tick with no concept of "current target," so a
-  unit abandons a still-valid (alive, targetable, in-range) target the
-  instant a different enemy becomes nearer or the uid tiebreak flips
-  (`retarget_recomputed`), and an analogous drop can fire while the old
-  target was itself still alive+targetable (`switched_target_out_of_range`).
-  Confirmed empirically across multiple scenarios (not just `retarget_1v2` —
-  e.g. `melee_1v1` also flips between an enemy and itself as a self-cast
-  shield interrupts the action loop). See `engine.ts`'s per-tick
-  `findTarget(unit, enemies)` calls (movement + magic_damage/burn cast
-  dispatch) — no prior-target argument is ever consulted.
-
-All other invariants — (a) range, (c) damage conservation, (d) no hex
-collisions, (e) attack cadence, (f) termination, (g) determinism — currently
-PASS over all six scenarios.
+All seven invariants (a)–(g) now PASS over all six scenarios. Invariant (b) was
+fixed by the sticky-targeting implementation in `engine.ts` (`resolveTarget`):
+the forbidden reasons `retarget_recomputed` and `switched_target_out_of_range`
+are never emitted, confirmed across melee_1v1, retarget_1v2, tiebreak_equidistant,
+and all other scenarios. No invariants are currently wrapped in `it.fails`.

@@ -376,7 +376,7 @@ tick 60
   uid=   3 side=0 rogue          hex=(0,1)   hp=  480 mana=  20 act=idle   tgt=1001 dmg=    0
   uid=   4 side=0 rogue          hex=(1,1)   hp=  480 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(0,0)   hp=  644 mana=  38 act=attack tgt=2    dmg=   42
-  retarget uid=1001 1 -> 2 reason=switched_target_out_of_range
+  retarget uid=1001 1 -> 2 reason=switched_target_unreachable
 tick 61
   uid=   1 side=0 squire         hex=(6,7)   hp=  720 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=   2 side=0 rogue          hex=(1,0)   hp=  438 mana=  27 act=idle   tgt=1001 dmg=    0
@@ -1132,15 +1132,13 @@ tick 186
   uid=   2 side=0 rogue          hex=(1,0)   hp=  354 mana=  60 act=attack tgt=1001 dmg=   46
   uid=   3 side=0 rogue          hex=(0,1)   hp=  480 mana=  60 act=attack tgt=1001 dmg=   46
   uid=   4 side=0 rogue          hex=(1,1)   hp=  480 mana=   0 act=idle   tgt=1001 dmg=    0
-  uid=1001 side=1 footman        hex=(0,0)   hp=  162 mana=   0 act=cast   tgt=1001 dmg=    0
-  retarget uid=1001 2 -> 1001 reason=retarget_recomputed
+  uid=1001 side=1 footman        hex=(0,0)   hp=  162 mana=   0 act=cast   tgt=2    dmg=    0
 tick 187
   uid=   1 side=0 squire         hex=(6,7)   hp=  720 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=   2 side=0 rogue          hex=(1,0)   hp=  354 mana=  60 act=idle   tgt=1001 dmg=    0
   uid=   3 side=0 rogue          hex=(0,1)   hp=  480 mana=  60 act=idle   tgt=1001 dmg=    0
   uid=   4 side=0 rogue          hex=(1,1)   hp=  480 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(0,0)   hp=  162 mana=   0 act=idle   tgt=2    dmg=    0
-  retarget uid=1001 1001 -> 2 reason=retarget_recomputed
 tick 188
   uid=   1 side=0 squire         hex=(6,7)   hp=  720 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=   2 side=0 rogue          hex=(1,0)   hp=  354 mana=  60 act=idle   tgt=1001 dmg=    0
@@ -1878,4 +1876,3 @@ tick 310
   uid=   2 side=0 rogue          hex=(1,0)   hp=  270 mana=  60 act=attack tgt=1001 dmg=   46
   uid=   3 side=0 rogue          hex=(0,1)   hp=  480 mana=  60 act=attack tgt=1001 dmg=   68
   uid=   4 side=0 rogue          hex=(1,1)   hp=  480 mana=   0 act=idle   tgt=-    dmg=    0
-  retarget uid=   4 1001 -> - reason=switched_target_dead

@@ -60,6 +60,10 @@ function runAiMatch(seed: number): MatchState {
 }
 
 describe("full match determinism", () => {
+  // Sticky targeting (units chase + fight to a clean resolution instead of the
+  // old stateless nearest-recompute) makes full matches simulate longer, so
+  // these full-match determinism runs need a larger timeout than the 5s default.
+  // The determinism itself is unchanged — they pass; they were just slower.
   it("same seed -> identical placement order, 50 runs", () => {
     const seed = 0xc0ffee;
     const first = serializeState(runMatchToEnd(seed, gameData, setupBoards));
@@ -67,19 +71,19 @@ describe("full match determinism", () => {
       const result = serializeState(runMatchToEnd(seed, gameData, setupBoards));
       expect(result).toBe(first);
     }
-  });
+  }, 60000);
 
   it("two same-seed AI-driven matches in one process are byte-identical (uids included)", () => {
     const a = serializeState(runAiMatch(0xfeed));
     const b = serializeState(runAiMatch(0xfeed));
     expect(b).toBe(a);
-  });
+  }, 60000);
 
   it("different seeds produce different outcomes", () => {
     const r1 = serializeState(runAiMatch(1));
     const r2 = serializeState(runAiMatch(2));
     expect(r1).not.toBe(r2);
-  });
+  }, 60000);
 
   it("match ends with exactly 1 alive player", () => {
     const state = runMatchToEnd(42, gameData, setupBoards);

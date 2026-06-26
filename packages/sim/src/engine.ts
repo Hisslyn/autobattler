@@ -1,6 +1,7 @@
 import { mulberry32 } from "./prng.js";
 import { fmul, SCALE, TICK_HZ, secondsToTicks } from "./fixed.js";
 import { hexDistance, hexAstar, COLS } from "./hex.js";
+import type { HexCoord } from "./hex.js";
 import type {
   BoardState,
   CombatEvent,
@@ -53,6 +54,40 @@ function findTarget(unit: UnitInstance, enemies: UnitInstance[]): UnitInstance |
     }
   }
   return best;
+}
+
+/**
+ * Nearest enemy the unit can actually engage: an enemy is REACHABLE if it is
+ * already in range OR an A* path toward it exists (around the `occupied` set).
+ * Picks the nearest by hex distance, ties broken by lowest uid (fully
+ * deterministic). Returns the target plus the A* path toward it (empty array if
+ * already in range), or undefined if NO enemy is reachable.
+ */
+function nearestReachable(
+  unit: UnitInstance,
+  enemies: UnitInstance[],
+  occupied: Set<number>
+): { target: UnitInstance; path: HexCoord[] } | undefined {
+  let best: { target: UnitInstance; path: HexCoord[]; dist: number } | undefined;
+  for (const e of enemies) {
+    const dist = hexDistance(unit.pos, e.pos);
+    let path: HexCoord[];
+    if (dist <= unit.range) {
+      path = [];
+    } else {
+      path = hexAstar(unit.pos, e.pos, occupied);
+      if (path.length === 0) continue; // unreachable
+    }
+    if (
+      best === undefined ||
+      dist < best.dist ||
+      (dist === best.dist && e.uid < best.target.uid)
+    ) {
+      best = { target: e, path, dist };
+    }
+  }
+  if (!best) return undefined;
+  return { target: best.target, path: best.path };
 }
 
 function cloneUnit(u: UnitInstance): UnitInstance {
@@ -207,15 +242,16 @@ export function simulateCombat(
   // When tracing is off, `traceEnabled` is false and none of the trace-only
   // branches below run, allocate, or read anything — the default path is
   // byte-identical. The trace never consumes the PRNG, never changes iteration
-  // order, and never mutates any unit field; it only OBSERVES already-computed
-  // values. We do NOT add fields to UnitInstance and do NOT change cloning.
+  // order, and never mutates any unit field beyond the targeting logic that runs
+  // in BOTH modes; it only OBSERVES already-computed values. The retarget reason
+  // is the engine's ACTUAL decision (from resolveTarget), not a post-hoc guess.
   const traceEnabled = options?.trace === true;
   const traceTicks: TraceTick[] = [];
-  // Previous tick's resolved target per uid (for retarget-reason inference).
-  // A uid absent from the map means "no prior observation" (treated as null).
-  const prevTargets = new Map<number, number | null>();
   // Per-unit observations for the CURRENT tick (rebuilt each tick).
   let tickObs: Map<number, TickObservation> = new Map();
+  // Retargets the engine actually decided THIS tick (rebuilt each tick); these
+  // are recorded inline in the action loop from resolveTarget's returned reason.
+  let tickRetargets: TraceTick["retargets"] = [];
   const obsFor = (uid: number): TickObservation => {
     let o = tickObs.get(uid);
     if (!o) {
@@ -293,6 +329,78 @@ export function simulateCombat(
     );
   }
 
+  /**
+   * STICKY targeting. Resolves the unit's target ONCE per tick, reusing the
+   * persistent `unit.targetUid`:
+   *  - Holds a still-valid (alive + targetable) current target: if in range,
+   *    keep it (no path needed); if out of range but a path toward it exists,
+   *    keep it and CHASE (return that path); if unreachable, switch to the
+   *    nearest reachable alternative — or, if none, KEEP it and idle (no thrash).
+   *  - No valid current target (none held / dead / untargetable): acquire the
+   *    nearest reachable enemy (lowest-uid tiebreak); if none reachable, fall
+   *    back to the nearest overall so the unit still has a target to face.
+   * Returns `{target, reason, path}` — `reason` is the RetargetReason when the
+   * resolved target CHANGED this tick (incl. first acquire), else null; `path`
+   * is the A* result toward the target (empty if already in range or
+   * unreachable), threaded into the movement step so a chase costs one A* per
+   * tick. `enemies` is assumed non-empty (caller checks). Runs in BOTH trace modes.
+   */
+  function resolveTarget(
+    unit: UnitInstance,
+    enemies: UnitInstance[],
+    occupied: Set<number>
+  ): { target: UnitInstance; reason: RetargetReason | null; path: HexCoord[] } {
+    const current =
+      unit.targetUid !== undefined
+        ? enemies.find((e) => e.uid === unit.targetUid)
+        : undefined;
+
+    // Case A: holding a still-valid (alive + targetable) target.
+    if (current) {
+      if (hexDistance(unit.pos, current.pos) <= unit.range) {
+        return { target: current, reason: null, path: [] };
+      }
+      const path = hexAstar(unit.pos, current.pos, occupied);
+      if (path.length > 0) {
+        // Reachable but out of range → chase, retain the target.
+        return { target: current, reason: null, path };
+      }
+      // Unreachable: try a reachable alternative enemy.
+      const alt = nearestReachable(unit, enemies, occupied);
+      if (alt && alt.target.uid !== current.uid) {
+        return { target: alt.target, reason: "switched_target_unreachable", path: alt.path };
+      }
+      // No reachable alternative → keep the held target and idle (no thrash).
+      return { target: current, reason: null, path: [] };
+    }
+
+    // Case B: no valid current target → (re-)acquire.
+    // Determine WHY we are acquiring, from the prior targetUid (if any).
+    let reason: RetargetReason;
+    if (unit.targetUid === undefined) {
+      reason = "acquired_no_target";
+    } else if (allUnits.some((u) => u.uid === unit.targetUid && u.hp > 0)) {
+      // Prior target is still alive somewhere but not a valid enemy in `enemies`
+      // → it's untargetable (stealth window).
+      reason = "switched_target_untargetable";
+    } else {
+      reason = "switched_target_dead";
+    }
+
+    const alt = nearestReachable(unit, enemies, occupied);
+    if (alt) {
+      return { target: alt.target, reason, path: alt.path };
+    }
+    // Nothing reachable: fall back to the nearest overall (enemies non-empty) so
+    // the unit still has a target to face. No path (it can't get there now).
+    const nearest = findTarget(unit, enemies)!;
+    const path =
+      hexDistance(unit.pos, nearest.pos) <= unit.range
+        ? []
+        : hexAstar(unit.pos, nearest.pos, occupied);
+    return { target: nearest, reason, path };
+  }
+
   while (tick < hardCap) {
     const aliveCheck = getAlive();
     if (aliveCheck.filter((u) => u.team === 0).length === 0 ||
@@ -354,14 +462,39 @@ export function simulateCombat(
 
       // Mana / ability cast
       const enemies = getEnemies(unit);
-      if (enemies.length === 0) continue;
+      if (enemies.length === 0) {
+        // No targetable enemy this tick — drop any held target so a fresh
+        // acquire (acquired_no_target) fires when one reappears.
+        delete unit.targetUid;
+        continue;
+      }
+
+      // Resolve the unit's STICKY target ONCE per tick, reusing the persistent
+      // `unit.targetUid`. `occupied` (every OTHER alive unit's hex) is computed
+      // once and reused for both resolveTarget's A* and the movement step (so a
+      // chasing unit pays at most one A* per tick). The returned `path` is the
+      // A* result toward the resolved target (empty if already in range or
+      // unreachable) — threaded straight into movement.
+      const occupied = new Set<number>();
+      for (const u of getAlive()) {
+        if (u.uid !== unit.uid) occupied.add(hexKey(u.pos.q, u.pos.r));
+      }
+      const fromUid = unit.targetUid ?? null;
+      const { target, reason, path } = resolveTarget(unit, enemies, occupied);
+      unit.targetUid = target.uid;
+      if (traceEnabled) {
+        obsFor(unit.uid).targetUid = target.uid;
+        if (reason !== null) {
+          tickRetargets.push({ uid: unit.uid, fromUid, toUid: target.uid, reason });
+        }
+      }
 
       const castKind = unit.ability?.effect.kind ?? "magic_damage";
       if (unit.mana >= unit.maxMana && castKind !== "stealth") {
         const eff = unit.ability?.effect;
         if (castKind === "magic_damage" || castKind === "burn") {
-          const target = findTarget(unit, enemies);
-          if (target) {
+          // Single-target nukes hit the unit's CURRENT sticky target.
+          {
             const dmg = mitigate(unit.abilityDamage, target.mr, mitigationBase);
             damageThroughShield(target, dmg);
             if (traceEnabled) {
@@ -388,12 +521,14 @@ export function simulateCombat(
           continue;
         }
         if (castKind === "shield" && eff?.kind === "shield") {
+          // Self-cast: does NOT change the unit's sticky enemy target.
           unit.shield = (unit.shield ?? 0) + eff.amount;
           refreshStatus(unit, "shield", eff.duration);
           if (traceEnabled) {
             const o = obsFor(unit.uid);
             o.cast = true;
-            o.targetUid = unit.uid; // self-target shield
+            // Self-target cast; the unit's persistent enemy target is retained,
+            // so the trace row keeps showing the held enemy (set above).
           }
           events.push({ tick, type: "cast", uid: unit.uid, targetUid: unit.uid, dmg: 0 });
           if (unit.mana !== 0) {
@@ -403,12 +538,13 @@ export function simulateCombat(
           continue;
         }
         if (castKind === "buff" && eff?.kind === "buff") {
+          // Self-cast: does NOT change the unit's sticky enemy target.
           addStat(unit, eff.stat, eff.value);
           unit.statusEffects.push({ type: "buff", stat: eff.stat, value: eff.value, duration: eff.duration });
           if (traceEnabled) {
             const o = obsFor(unit.uid);
             o.cast = true;
-            o.targetUid = unit.uid; // self-target buff
+            // Self-target cast; the unit's persistent enemy target is retained.
           }
           events.push({ tick, type: "cast", uid: unit.uid, targetUid: unit.uid, dmg: 0 });
           if (unit.mana !== 0) {
@@ -419,30 +555,16 @@ export function simulateCombat(
         }
       }
 
-      // Movement
-      const target = findTarget(unit, enemies);
-      if (!target) continue;
-      // Resolved target for move/attack — recorded even if the unit ends up
-      // idle (out of range with no path, or still on attack cooldown), since it
-      // is the enemy the engine selected this tick (drives retarget detection).
-      if (traceEnabled) obsFor(unit.uid).targetUid = target.uid;
-
+      // Movement: chase the resolved target using the path resolveTarget already
+      // computed (no second A* this tick). `path` is empty when already in range
+      // or when the held target is unreachable with no reachable alternative.
       const dist = hexDistance(unit.pos, target.pos);
-      if (dist > unit.range) {
-        const occupied = new Set<number>();
-        for (const u of getAlive()) {
-          if (u.uid !== unit.uid) {
-            occupied.add(hexKey(u.pos.q, u.pos.r));
-          }
-        }
-        const path = hexAstar(unit.pos, target.pos, occupied);
-        if (path.length > 0) {
-          const next = path[0]!;
-          const from = { ...unit.pos };
-          unit.pos = next;
-          if (traceEnabled) obsFor(unit.uid).moved = true;
-          events.push({ tick, type: "move", uid: unit.uid, from, to: { ...next } });
-        }
+      if (dist > unit.range && path.length > 0) {
+        const next = path[0]!;
+        const from = { ...unit.pos };
+        unit.pos = next;
+        if (traceEnabled) obsFor(unit.uid).moved = true;
+        events.push({ tick, type: "move", uid: unit.uid, from, to: { ...next } });
       }
 
       // Attack
@@ -484,20 +606,21 @@ export function simulateCombat(
     }
 
     // --- Assemble this tick's trace frame (trace mode only) ----------------
-    // Pure observation of already-computed state; no PRNG, no mutation of any
-    // unit, no effect on iteration order. Units are processed in the engine's
-    // existing uid-ascending order so retarget records are deterministic.
+    // Pure observation of already-computed state; no PRNG, no extra mutation, no
+    // effect on iteration order. Units are emitted in the engine's existing
+    // uid-ascending order. The retarget records are the engine's AUTHORITATIVE
+    // decisions (collected inline in the action loop from resolveTarget's reason),
+    // not a post-hoc inference.
     if (traceEnabled) {
       const aliveEnd = getAlive().slice().sort((a, b) => a.uid - b.uid);
-      const aliveById = new Map<number, UnitInstance>();
-      for (const u of aliveEnd) aliveById.set(u.uid, u);
 
       const units: TraceUnitRecord[] = [];
-      const retargets: TraceTick["retargets"] = [];
 
       for (const u of aliveEnd) {
         const o = tickObs.get(u.uid);
-        const targetUid = o ? o.targetUid : null;
+        // The trace row's target is the unit's PERSISTENT sticky target, so a
+        // self-cast (shield/buff) tick shows the retained enemy, not self.
+        const targetUid = u.targetUid ?? null;
         // Action label by precedence cast > attack > move > idle.
         const action: TraceUnitRecord["action"] = o
           ? o.cast
@@ -520,48 +643,17 @@ export function simulateCombat(
           action,
           damageDealt: o ? o.damageDealt : 0,
         });
-
-        // Retarget inference: compare this tick's resolved target to last tick's.
-        // Reasons are inferred from OBSERVABLE end-of-tick state at the switch.
-        const prev = prevTargets.has(u.uid) ? prevTargets.get(u.uid)! : null;
-        if (targetUid !== prev) {
-          let reason: RetargetReason;
-          if (prev === null) {
-            // Had no resolved target last tick, has one now (or still none).
-            reason = "acquired_no_target";
-          } else if (targetUid === null) {
-            // Lost a target entirely. The only way the engine drops to null is
-            // its previous target no longer being a valid enemy — characterize
-            // it the same way as a mid-list switch off a now-invalid target.
-            const prevUnit = aliveById.get(prev);
-            if (!prevUnit) reason = "switched_target_dead";
-            else if (prevUnit.untargetableUntil !== undefined && tick < prevUnit.untargetableUntil)
-              reason = "switched_target_untargetable";
-            else reason = "switched_target_out_of_range";
-          } else {
-            // Switched to a different non-null target. Inspect the old target.
-            const prevUnit = aliveById.get(prev);
-            if (!prevUnit) {
-              reason = "switched_target_dead";
-            } else if (prevUnit.untargetableUntil !== undefined && tick < prevUnit.untargetableUntil) {
-              reason = "switched_target_untargetable";
-            } else if (hexDistance(u.pos, prevUnit.pos) > u.range) {
-              reason = "switched_target_out_of_range";
-            } else {
-              // Previous target still alive, targetable, and in range, but the
-              // nearest-recompute picked a different enemy (nearer / tiebreak
-              // flip). This characterizes the engine's stateless targeting; it
-              // is EXPECTED to happen and is not a bug.
-              reason = "retarget_recomputed";
-            }
-          }
-          retargets.push({ uid: u.uid, fromUid: prev, toUid: targetUid, reason });
-        }
-        prevTargets.set(u.uid, targetUid);
       }
+
+      // Only keep retargets for units that are still alive at end-of-tick (a
+      // unit that acquired then died this tick isn't in the frame); the engine
+      // appended them in action-loop (uid-ascending) order already.
+      const aliveUids = new Set(aliveEnd.map((u) => u.uid));
+      const retargets = tickRetargets.filter((rt) => aliveUids.has(rt.uid));
 
       traceTicks.push({ tick, units, retargets });
       tickObs = new Map();
+      tickRetargets = [];
     }
 
     tick++;

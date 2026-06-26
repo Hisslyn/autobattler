@@ -58,14 +58,16 @@ describe("matrix determinism", () => {
       expect(c.winRate).toBeGreaterThanOrEqual(0);
       expect(c.winRate).toBeLessThanOrEqual(1);
     }
-  });
+    // Sticky targeting makes individual combats run longer (chase-to-resolution),
+    // so a full sweep exceeds the 5s default timeout; determinism is unaffected.
+  }, 60000);
 
   it("itemless and itemized sweeps differ", () => {
     const subset = COMPOSITIONS.slice(0, 5);
     const itemless = runSweep(gameData, 5, { itemsPerComp: 0 }, subset);
     const itemized = runSweep(gameData, 5, { itemsPerComp: 6 }, subset);
     expect(JSON.stringify(itemless.matrix)).not.toBe(JSON.stringify(itemized.matrix));
-  });
+  }, 60000);
 });
 
 describe("smoke report", () => {

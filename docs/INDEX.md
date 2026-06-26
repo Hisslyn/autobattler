@@ -3,6 +3,7 @@
 Readable map from source path to its documentation file. One line per documented source file.
 
 - docs/combat-testing.md — combat trace harness + the six scenario fixtures + trace format + the seven QA invariants guide
+- packages/data/src/items.json -> docs/items.md — complete item catalog: 9 components, 36 completed (recipes+stats+passives), 6 artifacts (pairPassive), 3 mythicals, 3 consumables, 36 radiant variants (derived)
 - scripts/trace.ts -> docs/combat-testing.md — headless combat-trace CLI (the only I/O); runs a fixture via simulateCombat(..., { trace: true }) and prints/writes formatTrace
 - packages/sim/tests/fixtures/scenarios.ts -> docs/combat-testing.md — pure ordered SCENARIOS array (6 deterministic fixtures) built from real gameData defs + buildInstance helper
 - packages/sim/tests/fixtures/formatTrace.ts -> docs/combat-testing.md — pure deterministic one-line-per-tick trace formatter (header + per-unit rows + retarget lines), importable by harness + qa

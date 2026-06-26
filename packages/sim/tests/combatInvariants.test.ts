@@ -104,37 +104,57 @@ describe("invariant (a): no unit attacks a target outside its range", () => {
 // `retarget_recomputed` or `switched_target_out_of_range` is, BY THE TRACE'S
 // OWN DEFINITION (engine.ts / RetargetReason doc), a switch off a target that
 // was still alive + targetable (and, for `retarget_recomputed`, still in
-// range) — i.e. a violation of this spec. The current engine recomputes
-// nearest-enemy every tick with no target stickiness, so this is EXPECTED to
-// fail today (confirmed empirically: retarget_1v2 tick 2 emits uid 1
-// `1002 -> 1001 reason=retarget_recomputed` while uid 1002 is still alive, in
-// range, and targetable).
+// range) — i.e. a violation of this spec.
+//
+// FIXED: engine.ts now implements sticky targeting (resolveTarget). A unit
+// retains its acquired target while it stays alive + targetable + reachable,
+// chases it out of range, and only re-acquires on death / untargetability /
+// provable unreachability. The forbidden reasons retarget_recomputed and
+// switched_target_out_of_range are RESERVED-AS-FORBIDDEN and never emitted.
+// This invariant now asserts normally (no it.fails) across all six scenarios,
+// including melee_1v1, retarget_1v2, and tiebreak_equidistant (two-equidistant
+// case: lower-uid target held until it dies).
 describe("invariant (b): no target switch off a still-valid (alive+targetable+in-range) target", () => {
-  it.fails(
+  it(
     "no retarget across any scenario has reason retarget_recomputed or switched_target_out_of_range",
     () => {
-      // BUG: engine.ts's findTarget recomputes nearest-enemy from scratch every
-      // tick with zero target stickiness — a unit abandons a still-valid
-      // in-range target the instant a different enemy becomes nearer (or the
-      // uid tiebreak flips), producing retarget_recomputed; an analogous
-      // out-of-range recompute can also fire while the old target was itself
-      // still alive+targetable. See engine.ts's per-tick `findTarget(unit, enemies)`
-      // call (movement + magic_damage/burn cast dispatch) — no prior-target
-      // argument is ever consulted.
+      // The allowed retarget reason set (per engine.ts + types.ts):
+      //   acquired_no_target, switched_target_dead, switched_target_untargetable,
+      //   switched_target_unreachable, switched_forced
+      // The forbidden set (RESERVED-AS-FORBIDDEN, never emitted post-stickiness):
+      //   retarget_recomputed, switched_target_out_of_range
+      const forbidden = new Set(["retarget_recomputed", "switched_target_out_of_range"]);
+      const allowed = new Set([
+        "acquired_no_target",
+        "switched_target_dead",
+        "switched_target_untargetable",
+        "switched_target_unreachable",
+        "switched_forced",
+      ]);
+
       const offenders: string[] = [];
+      const illegalReasons: string[] = [];
       for (const { scenario, result } of TRACED) {
         const trace = result.trace!;
         for (const tick of trace.ticks) {
           for (const rt of tick.retargets) {
-            if (rt.reason === "retarget_recomputed" || rt.reason === "switched_target_out_of_range") {
+            // Assert forbidden reasons never appear.
+            if (forbidden.has(rt.reason)) {
               offenders.push(
                 `${scenario.name} tick ${tick.tick}: uid ${rt.uid} ${rt.fromUid} -> ${rt.toUid} reason=${rt.reason}`
+              );
+            }
+            // Assert every emitted reason is in the allowed set.
+            if (!allowed.has(rt.reason)) {
+              illegalReasons.push(
+                `${scenario.name} tick ${tick.tick}: uid ${rt.uid} unknown reason=${rt.reason}`
               );
             }
           }
         }
       }
-      expect(offenders, offenders.join("\n")).toHaveLength(0);
+      expect(offenders, `Forbidden retarget reasons found:\n${offenders.join("\n")}`).toHaveLength(0);
+      expect(illegalReasons, `Unknown retarget reasons found:\n${illegalReasons.join("\n")}`).toHaveLength(0);
     }
   );
 });

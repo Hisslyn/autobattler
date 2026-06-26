@@ -783,12 +783,10 @@ tick 257
   uid=1001 side=1 footman        hex=(3,3)   hp=  428 mana= 120 act=attack tgt=1    dmg=   44
 tick 258
   uid=   1 side=0 archer         hex=(3,2)   hp=  186 mana=  34 act=idle   tgt=1001 dmg=    0
-  uid=1001 side=1 footman        hex=(3,3)   hp=  428 mana=   0 act=cast   tgt=1001 dmg=    0
-  retarget uid=1001 1 -> 1001 reason=retarget_recomputed
+  uid=1001 side=1 footman        hex=(3,3)   hp=  428 mana=   0 act=cast   tgt=1    dmg=    0
 tick 259
   uid=   1 side=0 archer         hex=(3,2)   hp=  186 mana=  34 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(3,3)   hp=  428 mana=   0 act=idle   tgt=1    dmg=    0
-  retarget uid=1001 1001 -> 1 reason=retarget_recomputed
 tick 260
   uid=   1 side=0 archer         hex=(3,2)   hp=  186 mana=  34 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(3,3)   hp=  428 mana=   0 act=idle   tgt=1    dmg=    0

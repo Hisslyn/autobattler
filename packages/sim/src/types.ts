@@ -73,6 +73,14 @@ export interface UnitInstance {
   statusEffects: StatusEffect[];
   items: string[];
   ability?: AbilityDef;
+  /**
+   * Sticky current-target uid (transient live-combat field, like attackCooldown).
+   * Persisted across ticks so targeting is sticky: the unit retains this enemy
+   * while it stays alive + targetable + reachable, and only re-acquires when it
+   * dies / becomes untargetable / is unreachable. Boards start with it undefined;
+   * `cloneUnit`'s `{...u}` spread copies it, so it survives the start-of-combat clone.
+   */
+  targetUid?: number;
   /** Remaining absorb pool from shields (ability cast or item passive). */
   shield?: number;
   /** Untargetable while combat tick < this value (start-of-combat stealth). */
@@ -128,27 +136,40 @@ export type CombatEventType = CombatEvent["type"];
 
 /**
  * Why a unit's resolved target changed from one tick to the next.
- * These are a CHARACTERIZATION of the current engine, which recomputes the
- * nearest enemy fresh every tick (no target stickiness) — they describe what
- * was observed, not a policy the engine enforces. See engine.ts trace block.
+ * Targeting is now STICKY/persistent (see engine.ts `resolveTarget`): a unit
+ * RETAINS its current target while it stays alive + targetable + reachable, and
+ * only re-acquires on death / untargetability / provable unreachability. The
+ * engine emits ONLY these reasons:
  *
- * - acquired_no_target          — had no target last tick, has one now.
+ * - acquired_no_target          — first acquire (had no current target).
  * - switched_target_dead        — previous target is no longer alive.
  * - switched_target_untargetable— previous target is alive but untargetable
  *                                 (its untargetableUntil > current tick).
- * - switched_target_out_of_range— previous target is alive+targetable but now
- *                                 beyond this unit's range.
+ * - switched_target_unreachable — previous target is alive + targetable but
+ *                                 has no A* path toward a hex within range, AND
+ *                                 a reachable alternative enemy exists (the only
+ *                                 distance-related switch; covers a blocked path).
+ *                                 If there is NO reachable alternative the unit
+ *                                 KEEPS its held target and idles (no retarget).
  * - switched_forced             — RESERVED for an explicit forcing effect
  *                                 (taunt). The current engine has none, so this
  *                                 is never emitted; kept for spec completeness.
- * - retarget_recomputed         — previous target was still alive, targetable,
- *                                 and in range, but the nearest-recompute picked
- *                                 a different enemy (nearer, or a tiebreak flip).
+ *
+ * The following two are RESERVED-as-FORBIDDEN: kept in the union for spec
+ * completeness / back-compat but NEVER emitted post-stickiness (the QA invariant
+ * (b) test asserts they never occur). A nearer enemy or a uid-tiebreak flip is
+ * NOT a reason to switch any more.
+ *
+ * - switched_target_out_of_range— (no longer emitted) a held target merely going
+ *                                 out of range now triggers a CHASE, not a switch.
+ * - retarget_recomputed         — (no longer emitted) the stateless
+ *                                 nearest-recompute switch no longer exists.
  */
 export type RetargetReason =
   | "acquired_no_target"
   | "switched_target_dead"
   | "switched_target_untargetable"
+  | "switched_target_unreachable"
   | "switched_target_out_of_range"
   | "switched_forced"
   | "retarget_recomputed";

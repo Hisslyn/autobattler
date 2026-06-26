@@ -57,7 +57,8 @@ Env vars (server): `PORT` (default 3001), `DATABASE_URL` (postgres; unset → in
   - Fixed timestep at the canonical `TICK_HZ` (30 ticks/s of game time, the single constant in `sim/src/fixed.ts`); one tick = 1/30 s, never wall-clock/Date/FPS. All durations are authored in SECONDS in `packages/data` (fixed-point) and converted to integer ticks via `secondsToTicks`. Overtime starts at `secondsToTicks(gameplay.overtimeStartSeconds)` (60s → 1800 ticks), then ramps true damage; hard cap at `secondsToTicks(economy.overtimeHardCapSeconds)` (90s → 2700 ticks)
   - Per-tick order: status effects (burn DoT + buff/shield expiry) → mana/cast → movement → attacks → death cleanup
   - PvE mobs reuse `UnitInstance`/the engine unchanged (no new behaviors beyond the supported set): a player board (side 0) fights a mob board (side 1). Mob defIds are absent from `data.units`, so `applyTraits` never counts them — mobs never contribute to (or receive) player trait bonuses
-  - Targeting: nearest enemy, tiebreak lowest uid; start-of-combat-stealth units are untargetable until their stealth tick elapses
+  - Targeting (sticky): a unit acquires the nearest enemy (tie-break lowest uid) ONLY when it holds no valid target — its current target is dead, untargetable, or provably unreachable (no path to any hex in range). It retains that target even when another enemy becomes nearer; a melee unit whose held target is out of range paths toward it rather than reselecting. Each target change emits a reason code. Start-of-combat-stealth units are untargetable until their stealth tick elapses.
+  (Reflects the target-stickiness fix — if the pending prompt hasn't been run yet, the live code still recomputes nearest each tick.)
   - Abilities at full mana (`UnitInstance.ability.effect`): `magic_damage` (single-target), `burn` (magic dmg + DoT), `shield` (self absorb), `buff` (self stat buff, reverted on expiry); `stealth` resolves at combat start, not on cast. Item passives reuse the same primitives: on-hit `burn`, start-of-combat `shield`. Damage routes through any shield before HP.
   - Emits ordered CombatEvent log that fully describes combat without re-running game logic: init (per-unit snapshot post star/item/trait), move (from/to), attack (dmg, crit), cast, mana/hp (absolute values, emitted only on change, hp clamped at 0), death, overtime_start, end (winnerSide, survivingUids)
   - survivingUnits in CombatResult carries tier+star for damage calculation
@@ -66,7 +67,7 @@ Env vars (server): `PORT` (default 3001), `DATABASE_URL` (postgres; unset → in
 
 - 50 units across tiers 1-5 (13/13/12/8/4). Each has one `origin` + 1-2 `classes` (flattened into `traits`), role-derived stats, and an `ability {name, manaCost=mana, effect}` from the engine-supported set
 - 22 traits: 12 origins + 10 classes, each tagged `kind`; breakpoints at 2/4/6 (or 2/4, or 2) derived so every top breakpoint is reachable by unit count; `knight` keeps its armor curve (+200/+500/+800)
-- 45 items: 9 stat-only components (incl. iron_sword/chain_vest/mana_crystal) + 36 completed items, one per distinct unordered component pair (`recipe: [a,b]`); a completed item is a stat bundle + at most one passive (`burn` on-hit or `shield` start-of-combat). Rules equip any item id directly; recipe combination is data-only (see design-notes.md)
+- Items: 9 stat-only components combine (one per distinct unordered component pair, `recipe: [a,b]`) into 36 completed items — a completed item is a stat bundle + at most one passive (`burn` on-hit or `shield` start-of-combat). Plus 6 artifacts and 3 mythicals (loot-only, no recipe; artifacts may carry a `pairPassive` active only when both of a named pair are on the same unit), and 3 consumables (no tier, occupy no unit slot, applied via `USE_CONSUMABLE`). Radiant items are NOT a separate tier — they're upgraded completed items synthesized at load (`radiant_<base>`, stats scaled, passive copied) via the `radiant_enhancer` consumable; 36 of them, mirroring the completed set. Rules equip any item id directly; recipe combination is data-only (see design-notes.md). Total in items.json = 57; at runtime gameData.items = 93 (the 36 radiants added).
 - economy.json: pool counts by tier, shop odds by level (tiers 4-5 nonzero from mid levels), xp thresholds, streak table, income constants, `pveBaseGold` (5, flat gold every alive player gets on a PvE round), damage constants, MMR constants (mmrStart 1000, mmrK 40, mmrEloDivisor 400)
 - mobs.json: PvE creep defs (`{id,name,tier,isMob,stats,traits:[],optional ability}` — abilities limited to the engine-supported set) + per-PvE-round stage layouts (`stages[].units` = `{mobId, slot, star}` placed on the enemy half, scaled by which mobs + star). Loader exports `MobsData` on `gameData.mobs`; mobs are never pooled
 - loot.json: rarity tables (common/uncommon/rare/legendary), each a weighted list of `{kind:"gold",amount}` / `{kind:"component",id}` / `{kind:"item",id}` entries, plus `roundDrops` (per PvE round → list of `{rarity,count}` orbs). Loader exports `LootData` on `gameData.loot`. Loot is never pooled and is seeded-deterministic
@@ -160,10 +161,41 @@ Env vars (server): `PORT` (default 3001), `DATABASE_URL` (postgres; unset → in
 
 ## Agent routing policy
 
-For any non-trivial task, delegate to the most specific matching subagent rather than implementing directly:
-- UI visual work (icons, color, chrome, theme) -> ui-designer
-- UX/interaction/layout/ergonomics -> ux-designer
-- audio/Web Audio -> audio-engineer
-- [map your other niche agents to their domains]
-Use the generalist coder ONLY when no niche agent matches the task, or when a niche agent has attempted it and cannot complete it (then hand off to coder with the specialist's findings).
-Always prefer specialist > generalist. State which agent is handling a task before starting.
+For any non-trivial task, delegate to the most specific matching subagent rather than implementing directly. Always prefer specialist > generalist; state which agent is handling a task before starting. Use the generalist only when no specialist fits, or when a specialist has tried and cannot finish.
+
+Clusters (agents in ~/.claude/agents/):
+- core: orchestrator, state-scribe, recap, agent-manager
+- build (any coding task): coder, ui-designer (icons/color/chrome/theme), ux-designer (interaction/layout/ergonomics), code-reviewer, prompt-engineer
+- qa (testing/security): qa, security-auditor, dependency-auditor
+- infra (deploy/git/monitoring): devops, git-manager, monitor
+- product (specs/docs/research): product-manager, analyst, content-writer
+- game (game content/balance): game-designer, balance-tester, narrative-writer, asset-coordinator
+- data (data pipelines): data-cleaner, data-analyst, visualizer, report-writer
+- marketing (campaigns/copy/SEO): campaign-strategist, ad-copywriter, seo-agent, email-sequencer
+- business (pricing/risk decisions): biz-analyst, competitor-intel, financial-modeler, risk-assessor
+- knowledge (vault/notes/meetings): knowledge-curator, research-synthesizer, meeting-noter
+
+
+## Documentation system (docs/)
+
+The `documentarian` agent maintains repo documentation so any agent can understand a file without re-investigating:
+- `docs/_manifest.json` — per-file status/content-hash/doc-path/totals; the docs are generated one file at a time and the manifest makes the run resumable across sessions.
+- `docs/INDEX.md` — readable source→doc map; the entry point an agent reads first.
+- mirrored per-file docs under `docs/` — path/purpose, responsibility, exports, key behavior, invariants, depends-on/used-by.
+- topical docs: `docs/items.md` (full item catalog), `docs/combat-testing.md` (combat harness).
+Agents consult the relevant doc before touching a file. Documentation-only; never edits source.
+
+## packages/sim — combat trace harness & testing
+
+The sim emits a full structured per-tick TRACE (each unit's hex, hp, mana, current target, action, damage this tick) plus a reason code on every target acquisition/change (acquired_no_target / switched_target_dead / switched_target_untargetable / switched_target_unreachable / switched_forced). The sim itself does no I/O; a separate headless dev harness (I/O allowed) runs a scenario+seed and prints the trace line-per-tick. Deterministic scenario fixtures: melee_1v1, ranged-vs-melee, retarget_1v2, two-equidistant (tie-break), blocked-path (unreachable target), mana-breakpoint. A golden trace snapshot is committed per scenario. Invariant assertions encode correct combat as the spec: (a) no attack out of range, (b) target stickiness, (c) damage conservation, (d) no two units share a hex, (e) attack interval matches attack speed, (f) bounded termination, (g) determinism (same seed → identical trace). Documented in `docs/combat-testing.md`. Harness: `scripts/trace.ts` (entry point, I/O permitted); fixtures: `packages/sim/tests/fixtures/scenarios.ts` (SCENARIOS array); formatter: `packages/sim/tests/fixtures/formatTrace.ts` (pure per-tick trace line renderer).
+
+## packages/client — match board (2.5D perspective) & recent UI
+
+- **Perspective board (2.5D, renderer-only)**: the match board is forward-projected to perspective — the hex ground warps to a trapezoid; units render as flat on-plane "checker" tokens with extruded thickness; HP/mana bars stay billboarded upright; every board-space→screen position goes through the forward projection and every pointer hit-test through its inverse; perspective tilt is a single tunable `theme.ts` constant (0 = flat). Sim/rules untouched. Landscape is now the primary match orientation (the portrait layout system below remains as fallback). Math/homography: `packages/client/src/boardProjection.ts`; rendering: `packages/client/src/scenes/match.ts`.
+- **Board group object**: the whole assembly — ground, hex grid, both benches, candle gold-meters — is parented under one container so it can be flipped/translated/scaled as a unit; inverse hit-testing accounts for the group transform. `packages/client/src/scenes/match.ts`.
+- **Two benches**: bottom bench = 9 FIXED positional slots with free arrangement — buying fills the lowest-index empty slot, but dragging moves a unit to the exact targeted slot (empty = move, occupied = swap) and never auto-compacts, so gaps persist anywhere. Top bench mirrors it filling right-to-left; currently empty scaffolding (no second-player bench state in solo view), same bench component. Both belong to the board group. Geometry/hit-test: `packages/client/src/benchLayout.ts`; rendering: `packages/client/src/scenes/match.ts`.
+- **Candle gold-meters**: 5 tealight candles per side flanking the board (player front-left edge, opponent back-right, receding with perspective), lit count = floor(side gold / 10) capped at 5; player fills bottom-up, opponent top-down; opponent flames are combat-gated. Part of the board group. Formula: `packages/client/src/torchMeter.ts`; rendering: `packages/client/src/scenes/match.ts`.
+- **Avatars**: 20 PNGs in `packages/client/src/assets/avatars/` named `<num>_<name>_<rarity>.png`, loaded via `import.meta.glob` into a small registry (num/name/rarity parsed). Player 1 uses one designated constant; AI seats 2–8 get a random distinct avatar chosen once per match (cosmetic, not sim state). Rendered in the main-menu identity cluster, the in-match player rail, and the peek view. `packages/client/src/avatars.ts`.
+- **Peek / scout (in-board)**: tapping an opponent's rail avatar swaps the board IN PLACE (no popup) to show that player's board + bench + econ, view-only; currently same-orientation base state (the vertical/horizontal flip is deferred until the layout is finalized). Return via the bottom-right return-to-board medallion (replaces the gold medallion while peeking; central glyph per `references/return-to-board.md`). Never mutates any board, bench, econ, or the sim. `packages/client/src/scenes/match.ts` (scout overlay rendering).
+- **Main menu (DOM meta screen)**: built in `packages/client/src/ui/app.ts` — top utility bar (identity cluster + currency + utility icon row), left vertical primary-nav, center-right hero/background key-art slots (swappable placeholders), bottom-left battle-pass promo banner slot, bottom-right primary PLAY + mode-selector chip; themed entirely via `packages/client/src/theme.ts`.
+

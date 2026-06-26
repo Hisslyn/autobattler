@@ -996,17 +996,13 @@ tick 328
   uid=1001 side=1 footman        hex=(3,4)   hp=  603 mana= 119 act=idle   tgt=1    dmg=    0
 tick 329
   uid=   1 side=0 paladin        hex=(3,3)   hp=  546 mana= 120 act=attack tgt=1001 dmg=   49
-  uid=1001 side=1 footman        hex=(3,4)   hp=  554 mana=   0 act=cast   tgt=1001 dmg=    0
-  retarget uid=1001 1 -> 1001 reason=retarget_recomputed
+  uid=1001 side=1 footman        hex=(3,4)   hp=  554 mana=   0 act=cast   tgt=1    dmg=    0
 tick 330
-  uid=   1 side=0 paladin        hex=(3,3)   hp=  546 mana=   0 act=cast   tgt=1    dmg=    0
+  uid=   1 side=0 paladin        hex=(3,3)   hp=  546 mana=   0 act=cast   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(3,4)   hp=  554 mana=   0 act=idle   tgt=1    dmg=    0
-  retarget uid=   1 1001 -> 1 reason=retarget_recomputed
-  retarget uid=1001 1001 -> 1 reason=retarget_recomputed
 tick 331
   uid=   1 side=0 paladin        hex=(3,3)   hp=  546 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(3,4)   hp=  554 mana=   0 act=idle   tgt=1    dmg=    0
-  retarget uid=   1 1 -> 1001 reason=retarget_recomputed
 tick 332
   uid=   1 side=0 paladin        hex=(3,3)   hp=  546 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(3,4)   hp=  554 mana=   0 act=idle   tgt=1    dmg=    0
@@ -2131,17 +2127,13 @@ tick 705
   uid=1001 side=1 footman        hex=(3,4)   hp=  324 mana= 119 act=idle   tgt=1    dmg=    0
 tick 706
   uid=   1 side=0 paladin        hex=(3,3)   hp=  376 mana= 120 act=attack tgt=1001 dmg=   33
-  uid=1001 side=1 footman        hex=(3,4)   hp=  291 mana=   0 act=cast   tgt=1001 dmg=    0
-  retarget uid=1001 1 -> 1001 reason=retarget_recomputed
+  uid=1001 side=1 footman        hex=(3,4)   hp=  291 mana=   0 act=cast   tgt=1    dmg=    0
 tick 707
-  uid=   1 side=0 paladin        hex=(3,3)   hp=  376 mana=   0 act=cast   tgt=1    dmg=    0
+  uid=   1 side=0 paladin        hex=(3,3)   hp=  376 mana=   0 act=cast   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(3,4)   hp=  291 mana=   0 act=idle   tgt=1    dmg=    0
-  retarget uid=   1 1001 -> 1 reason=retarget_recomputed
-  retarget uid=1001 1001 -> 1 reason=retarget_recomputed
 tick 708
   uid=   1 side=0 paladin        hex=(3,3)   hp=  376 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(3,4)   hp=  291 mana=   0 act=idle   tgt=1    dmg=    0
-  retarget uid=   1 1 -> 1001 reason=retarget_recomputed
 tick 709
   uid=   1 side=0 paladin        hex=(3,3)   hp=  376 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(3,4)   hp=  291 mana=   0 act=idle   tgt=1    dmg=    0
@@ -3238,15 +3230,11 @@ tick 1073
   uid=   1 side=0 paladin        hex=(3,3)   hp=  172 mana= 120 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(3,4)   hp=   77 mana= 120 act=attack tgt=1    dmg=   34
 tick 1074
-  uid=   1 side=0 paladin        hex=(3,3)   hp=  172 mana=   0 act=cast   tgt=1    dmg=    0
-  uid=1001 side=1 footman        hex=(3,4)   hp=   77 mana=   0 act=cast   tgt=1001 dmg=    0
-  retarget uid=   1 1001 -> 1 reason=retarget_recomputed
-  retarget uid=1001 1 -> 1001 reason=retarget_recomputed
+  uid=   1 side=0 paladin        hex=(3,3)   hp=  172 mana=   0 act=cast   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(3,4)   hp=   77 mana=   0 act=cast   tgt=1    dmg=    0
 tick 1075
   uid=   1 side=0 paladin        hex=(3,3)   hp=  172 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(3,4)   hp=   77 mana=   0 act=idle   tgt=1    dmg=    0
-  retarget uid=   1 1 -> 1001 reason=retarget_recomputed
-  retarget uid=1001 1001 -> 1 reason=retarget_recomputed
 tick 1076
   uid=   1 side=0 paladin        hex=(3,3)   hp=  172 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(3,4)   hp=   77 mana=   0 act=idle   tgt=1    dmg=    0

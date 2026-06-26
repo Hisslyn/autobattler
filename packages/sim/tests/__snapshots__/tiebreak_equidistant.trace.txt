@@ -623,4 +623,3 @@ tick 152
 tick 153
   uid=1001 side=1 footman        hex=(2,3)   hp=  587 mana=  82 act=attack tgt=1    dmg=   44
   uid=1002 side=1 brawler        hex=(4,3)   hp=  720 mana=  40 act=idle   tgt=-    dmg=    0
-  retarget uid=1002 1 -> - reason=switched_target_dead

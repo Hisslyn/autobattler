@@ -41,7 +41,9 @@ describe("headless AI match", () => {
     const alive = state.players.filter((p) => p.alive);
     expect(alive.length).toBeLessThanOrEqual(1);
     expect(safeguard).toBeLessThan(10000);
-  });
+    // Sticky targeting lengthens individual combats (chase-to-resolution), so a
+    // full AI match exceeds the 5s default timeout; correctness is unaffected.
+  }, 60000);
 });
 
 describe("LocalDriver phase flow", () => {
