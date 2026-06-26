@@ -76,7 +76,7 @@
   },
   {
     "id": "iron_sword__chain_vest",
-    "name": "Iron Sword + Chain Vest",
+    "name": "Vanguard's Edge",
     "stats": {
       "ad": 100,
       "armor": 200
@@ -88,7 +88,7 @@
   },
   {
     "id": "iron_sword__mana_crystal",
-    "name": "Iron Sword + Mana Crystal",
+    "name": "Runic Saber",
     "stats": {
       "ad": 100,
       "mana": 30,
@@ -101,7 +101,7 @@
   },
   {
     "id": "iron_sword__recurve_bow",
-    "name": "Iron Sword + Recurve Bow",
+    "name": "Stormfang",
     "stats": {
       "ad": 100,
       "as": 150
@@ -113,7 +113,7 @@
   },
   {
     "id": "iron_sword__negatron_cloak",
-    "name": "Iron Sword + Negatron Cloak",
+    "name": "Spellbreaker",
     "stats": {
       "ad": 100,
       "mr": 150
@@ -125,7 +125,7 @@
   },
   {
     "id": "iron_sword__giants_belt",
-    "name": "Iron Sword + Giant's Belt",
+    "name": "Titan's Cleaver",
     "stats": {
       "ad": 100,
       "hp": 400
@@ -137,7 +137,7 @@
   },
   {
     "id": "iron_sword__sorcerer_rod",
-    "name": "Iron Sword + Sorcerer Rod",
+    "name": "Ember Edge",
     "stats": {
       "ad": 100,
       "abilityDamage": 100
@@ -154,7 +154,7 @@
   },
   {
     "id": "iron_sword__sparring_gloves",
-    "name": "Iron Sword + Sparring Gloves",
+    "name": "Duelist's Fang",
     "stats": {
       "ad": 140,
       "as": 80
@@ -166,7 +166,7 @@
   },
   {
     "id": "iron_sword__tear_flask",
-    "name": "Iron Sword + Tear Flask",
+    "name": "Sanguine Blade",
     "stats": {
       "ad": 100,
       "mana": 20,
@@ -179,7 +179,7 @@
   },
   {
     "id": "chain_vest__mana_crystal",
-    "name": "Chain Vest + Mana Crystal",
+    "name": "Arcane Aegis",
     "stats": {
       "armor": 200,
       "mana": 30,
@@ -192,7 +192,7 @@
   },
   {
     "id": "chain_vest__recurve_bow",
-    "name": "Chain Vest + Recurve Bow",
+    "name": "Bulwark Striker",
     "stats": {
       "armor": 200,
       "as": 150
@@ -204,7 +204,7 @@
   },
   {
     "id": "chain_vest__negatron_cloak",
-    "name": "Chain Vest + Negatron Cloak",
+    "name": "Adamant Aegis",
     "stats": {
       "armor": 200,
       "mr": 150
@@ -216,7 +216,7 @@
   },
   {
     "id": "chain_vest__giants_belt",
-    "name": "Chain Vest + Giant's Belt",
+    "name": "Ironwall Bastion",
     "stats": {
       "armor": 200,
       "hp": 400
@@ -233,7 +233,7 @@
   },
   {
     "id": "chain_vest__sorcerer_rod",
-    "name": "Chain Vest + Sorcerer Rod",
+    "name": "Warden's Sigil",
     "stats": {
       "armor": 200,
       "abilityDamage": 100
@@ -245,7 +245,7 @@
   },
   {
     "id": "chain_vest__sparring_gloves",
-    "name": "Chain Vest + Sparring Gloves",
+    "name": "Gladiator's Guard",
     "stats": {
       "armor": 200,
       "ad": 40,
@@ -258,7 +258,7 @@
   },
   {
     "id": "chain_vest__tear_flask",
-    "name": "Chain Vest + Tear Flask",
+    "name": "Stalwart Wellspring",
     "stats": {
       "armor": 200,
       "mana": 20,
@@ -271,7 +271,7 @@
   },
   {
     "id": "mana_crystal__recurve_bow",
-    "name": "Mana Crystal + Recurve Bow",
+    "name": "Arcane Tempo",
     "stats": {
       "mana": 30,
       "abilityDamage": 50,
@@ -284,7 +284,7 @@
   },
   {
     "id": "mana_crystal__negatron_cloak",
-    "name": "Mana Crystal + Negatron Cloak",
+    "name": "Spellweaver's Veil",
     "stats": {
       "mana": 30,
       "abilityDamage": 50,
@@ -297,7 +297,7 @@
   },
   {
     "id": "mana_crystal__giants_belt",
-    "name": "Mana Crystal + Giant's Belt",
+    "name": "Runeheart",
     "stats": {
       "mana": 30,
       "abilityDamage": 50,
@@ -310,7 +310,7 @@
   },
   {
     "id": "mana_crystal__sorcerer_rod",
-    "name": "Mana Crystal + Sorcerer Rod",
+    "name": "Arcane Conduit",
     "stats": {
       "mana": 30,
       "abilityDamage": 150
@@ -322,7 +322,7 @@
   },
   {
     "id": "mana_crystal__sparring_gloves",
-    "name": "Mana Crystal + Sparring Gloves",
+    "name": "Battlemage's Grip",
     "stats": {
       "mana": 30,
       "abilityDamage": 50,
@@ -336,7 +336,7 @@
   },
   {
     "id": "mana_crystal__tear_flask",
-    "name": "Mana Crystal + Tear Flask",
+    "name": "Tidecaller's Font",
     "stats": {
       "mana": 50,
       "abilityDamage": 50,
@@ -349,7 +349,7 @@
   },
   {
     "id": "recurve_bow__negatron_cloak",
-    "name": "Recurve Bow + Negatron Cloak",
+    "name": "Galewarden",
     "stats": {
       "as": 150,
       "mr": 150
@@ -361,7 +361,7 @@
   },
   {
     "id": "recurve_bow__giants_belt",
-    "name": "Recurve Bow + Giant's Belt",
+    "name": "Tireless Vigor",
     "stats": {
       "as": 150,
       "hp": 400
@@ -373,7 +373,7 @@
   },
   {
     "id": "recurve_bow__sorcerer_rod",
-    "name": "Recurve Bow + Sorcerer Rod",
+    "name": "Mystic Volley",
     "stats": {
       "as": 150,
       "abilityDamage": 100
@@ -385,7 +385,7 @@
   },
   {
     "id": "recurve_bow__sparring_gloves",
-    "name": "Recurve Bow + Sparring Gloves",
+    "name": "Frenzy Talons",
     "stats": {
       "as": 230,
       "ad": 40
@@ -397,7 +397,7 @@
   },
   {
     "id": "recurve_bow__tear_flask",
-    "name": "Recurve Bow + Tear Flask",
+    "name": "Quickdraw Reservoir",
     "stats": {
       "as": 150,
       "mana": 20,
@@ -410,7 +410,7 @@
   },
   {
     "id": "negatron_cloak__giants_belt",
-    "name": "Negatron Cloak + Giant's Belt",
+    "name": "Spellguard Bulwark",
     "stats": {
       "mr": 150,
       "hp": 400
@@ -422,7 +422,7 @@
   },
   {
     "id": "negatron_cloak__sorcerer_rod",
-    "name": "Negatron Cloak + Sorcerer Rod",
+    "name": "Witchfire Veil",
     "stats": {
       "mr": 150,
       "abilityDamage": 100
@@ -439,7 +439,7 @@
   },
   {
     "id": "negatron_cloak__sparring_gloves",
-    "name": "Negatron Cloak + Sparring Gloves",
+    "name": "Phantom Wraps",
     "stats": {
       "mr": 150,
       "ad": 40,
@@ -452,7 +452,7 @@
   },
   {
     "id": "negatron_cloak__tear_flask",
-    "name": "Negatron Cloak + Tear Flask",
+    "name": "Hexward Reservoir",
     "stats": {
       "mr": 150,
       "mana": 20,
@@ -465,7 +465,7 @@
   },
   {
     "id": "giants_belt__sorcerer_rod",
-    "name": "Giant's Belt + Sorcerer Rod",
+    "name": "Colossus Sigil",
     "stats": {
       "hp": 400,
       "abilityDamage": 100
@@ -477,7 +477,7 @@
   },
   {
     "id": "giants_belt__sparring_gloves",
-    "name": "Giant's Belt + Sparring Gloves",
+    "name": "Juggernaut's Grip",
     "stats": {
       "hp": 400,
       "ad": 40,
@@ -490,7 +490,7 @@
   },
   {
     "id": "giants_belt__tear_flask",
-    "name": "Giant's Belt + Tear Flask",
+    "name": "Leviathan's Heart",
     "stats": {
       "hp": 600,
       "mana": 20
@@ -502,7 +502,7 @@
   },
   {
     "id": "sorcerer_rod__sparring_gloves",
-    "name": "Sorcerer Rod + Sparring Gloves",
+    "name": "Spellfury Wraps",
     "stats": {
       "abilityDamage": 100,
       "ad": 40,
@@ -515,7 +515,7 @@
   },
   {
     "id": "sorcerer_rod__tear_flask",
-    "name": "Sorcerer Rod + Tear Flask",
+    "name": "Oracle's Font",
     "stats": {
       "abilityDamage": 100,
       "mana": 20,
@@ -528,7 +528,7 @@
   },
   {
     "id": "sparring_gloves__tear_flask",
-    "name": "Sparring Gloves + Tear Flask",
+    "name": "Relentless Wraps",
     "stats": {
       "ad": 40,
       "as": 80,

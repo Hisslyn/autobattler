@@ -244,6 +244,8 @@ export class MatchScene {
   private activeRailTab: "traits" | "items" = "traits";
   /** Landscape trait-rail page when the list overflows (view-only UI state). */
   private traitRailPage = 0;
+  /** Landscape item-browse (tab 2) grid page when items overflow (view-only). */
+  private itemBrowsePage = 0;
   private scoutLayer!: PIXI.Container;
   /** Loot-orb reveal overlay (PvE resolution). */
   private lootLayer!: PIXI.Container;
@@ -2080,22 +2082,84 @@ export class MatchScene {
   }
 
   /**
-   * Pixel center (x, y) of inventory row `i` in the landscape tab-2 browse list,
-   * or null when the browse isn't the active source. Mirrors renderItemBrowse's
-   * row layout.
+   * Pure geometry for the landscape tab-2 item-browse GRID (two columns). One
+   * source of truth shared by render + hit-test + drag-drop so they always
+   * agree. `cols` columns of `cell`-sized chips stride down `traitRail`; when the
+   * inventory overflows one page the BOTTOM row is reserved for the prev/next
+   * pager controls, leaving `rowsPerPage` rows of chips (`perPage` cells).
+   */
+  private itemGridGeom(): {
+    rail: { x: number; y: number; w: number; h: number };
+    cols: number;
+    cell: number;
+    colStep: number;
+    rowStep: number;
+    rowsAll: number;
+    colCenters: number[];
+    pagerY: number;
+  } {
+    const rail = this.layout.regions.traitRail;
+    const cols = 2;
+    const cell = ITEM_SLOT;
+    const rowStep = cell + 4;
+    // Spread the columns evenly across the rail width.
+    const colStep = rail.w / cols;
+    const colCenters: number[] = [];
+    for (let c = 0; c < cols; c++) colCenters.push(rail.x + colStep * (c + 0.5));
+    const rowsAll = Math.max(1, Math.floor((rail.h + 4) / rowStep));
+    // Pager controls (when shown) sit in the row below the last chip row.
+    const pagerY = rail.y + cell / 2 + (rowsAll - 1) * rowStep;
+    return { rail, cols, cell, colStep, rowStep, rowsAll, colCenters, pagerY };
+  }
+
+  /**
+   * Page math for the item-browse grid given an inventory size. When everything
+   * fits on one page there are no pager controls and every row holds chips;
+   * otherwise the bottom row is reserved for prev/next, so `perPage` cells show
+   * per page. Clamps `itemBrowsePage` into range and returns the visible window.
+   */
+  private itemBrowsePaging(count: number): {
+    perPage: number;
+    paged: boolean;
+    page: number;
+    lastPage: number;
+    start: number;
+    end: number;
+  } {
+    const { cols, rowsAll } = this.itemGridGeom();
+    const fullCells = cols * rowsAll;
+    const paged = count > fullCells;
+    const perPage = paged ? cols * Math.max(1, rowsAll - 1) : fullCells;
+    const lastPage = Math.max(0, Math.ceil(count / perPage) - 1);
+    const page = Math.max(0, Math.min(this.itemBrowsePage, lastPage));
+    this.itemBrowsePage = page;
+    const start = page * perPage;
+    const end = Math.min(count, start + perPage);
+    return { perPage, paged, page, lastPage, start, end };
+  }
+
+  /**
+   * Pixel center (x, y) of inventory index `i` in the landscape tab-2 grid on the
+   * CURRENT page, or null when the browse isn't the active source or `i` isn't on
+   * the visible page. Mirrors renderItemBrowse's grid layout.
    */
   private itemBrowseRowCenter(i: number): { x: number; y: number } | null {
     if (!this.isLandscape || this.activeRailTab !== "items") return null;
-    const rail = this.layout.regions.traitRail;
-    const rowH = ITEM_SLOT + 4;
-    const half = ITEM_SLOT / 2;
-    return { x: rail.x + half, y: rail.y + half + i * rowH };
+    const { cols, cell, rowStep, colCenters, rail } = this.itemGridGeom();
+    const inv = inventoryModel(this.driver.getState().players[this.driver.seatIndex]?.items ?? [], gameData);
+    const { start, end } = this.itemBrowsePaging(inv.length);
+    if (i < start || i >= end) return null;
+    const local = i - start;
+    const col = local % cols;
+    const row = Math.floor(local / cols);
+    return { x: colCenters[col]!, y: rail.y + cell / 2 + row * rowStep };
   }
 
-  /** Inventory row under a pixel in the tab-2 browse list, or null. */
+  /** Inventory index under a pixel in the tab-2 grid (current page), or null. */
   private itemSlotAtBrowse(px: number, py: number, count: number): number | null {
     if (!this.isLandscape || this.activeRailTab !== "items") return null;
-    for (let i = 0; i < count; i++) {
+    const { start, end } = this.itemBrowsePaging(count);
+    for (let i = start; i < end; i++) {
       const c = this.itemBrowseRowCenter(i);
       if (!c) continue;
       if (
@@ -2934,6 +2998,7 @@ export class MatchScene {
         if (this.activeRailTab === tab) return;
         this.activeRailTab = tab;
         this.traitRailPage = 0;
+        this.itemBrowsePage = 0;
         this.renderRailTabs(me);
       });
       this.traitLayer.addChild(g);
@@ -3127,10 +3192,12 @@ export class MatchScene {
   }
 
   /**
-   * Item browse (landscape tab 2): vertical list of the player's inventory in
-   * `traitRail`. Chips are draggable for EQUIP/COMBINE exactly like the main
-   * item bar (same `startDragItem`/`onItemDragEnd` path) and tap → item-info
-   * modal. Assumes traitLayer is already cleared.
+   * Item browse (landscape tab 2): a TWO-COLUMN GRID of the player's inventory
+   * icons in `traitRail` (icons only — no name labels). Chips are draggable for
+   * EQUIP/COMBINE exactly like before (same `startDragItem`/`onItemDragEnd`
+   * path) and tap → item-info modal. When the inventory overflows one page the
+   * bottom row carries prev/next pager controls; `itemBrowsePage` is the current
+   * page (view-only, no game logic). Assumes traitLayer is already cleared.
    */
   private renderItemBrowse(me: PlayerState): void {
     const inv = inventoryModel(me.items, gameData);
@@ -3139,22 +3206,49 @@ export class MatchScene {
       this.text(this.traitLayer, "No items", rail.x, rail.y + 9, 9, C.textDimmed, [0, 0.5]);
       return;
     }
-    const rowH = ITEM_SLOT + 4;
-    const half = ITEM_SLOT / 2;
-    let rowY = rail.y;
-    for (const entry of inv) {
+    const { paged, page, lastPage, start, end } = this.itemBrowsePaging(inv.length);
+    for (let i = start; i < end; i++) {
+      const entry = inv[i]!;
       if (this.dragItem?.index === entry.index) continue; // hide the source while dragging
-      if (rowY + ITEM_SLOT > rail.y + rail.h) break; // clip to the rail
-      const cx = rail.x + half;
-      const cy = rowY + half;
+      const c = this.itemBrowseRowCenter(i);
+      if (!c) continue;
       const id = entry.id;
-      this.drawItemChip(this.traitLayer, entry, cx, cy, ITEM_SLOT, () => this.openItemDetail(id), (e) => this.startDragItem(entry, e));
-      // Name label beside the icon (mirrors the trait chips' label; the row
-      // extends rightward over the board's left margin like the trait stack).
-      const m = itemModel(id, gameData);
-      if (m) this.text(this.traitLayer, m.name, cx + half + 4, cy, 8, C.textPrimary, [0, 0.5]);
-      rowY += rowH;
+      this.drawItemChip(this.traitLayer, entry, c.x, c.y, ITEM_SLOT, () => this.openItemDetail(id), (e) => this.startDragItem(entry, e));
     }
+    if (paged) {
+      const { colCenters, pagerY } = this.itemGridGeom();
+      this.drawItemPager(this.traitLayer, "prev", colCenters[0]!, pagerY, page > 0);
+      this.drawItemPager(this.traitLayer, "next", colCenters[1]!, pagerY, page < lastPage);
+    }
+  }
+
+  /**
+   * One item-browse pager control (prev/next chevron) centered at (cx, cy).
+   * Disabled (no tap, dimmed) on the first page's prev / last page's next.
+   * View-only: tapping only advances `itemBrowsePage` and re-renders.
+   */
+  private drawItemPager(
+    layer: PIXI.Container, dir: "prev" | "next", cx: number, cy: number, enabled: boolean
+  ): void {
+    const half = ITEM_SLOT / 2;
+    const g = new PIXI.Graphics();
+    g.roundRect(cx - half, cy - half, ITEM_SLOT, ITEM_SLOT, 6).fill({ color: C.surfaceFloat, alpha: enabled ? 0.95 : 0.5 });
+    g.roundRect(cx - half, cy - half, ITEM_SLOT, ITEM_SLOT, 6).stroke({ width: 1, color: C.chipBorder, alpha: enabled ? 0.9 : 0.5 });
+    g.alpha = enabled ? 1 : 0.4;
+    if (enabled) {
+      g.eventMode = "static";
+      g.cursor = "pointer";
+      g.hitArea = new PIXI.Rectangle(cx - half, cy - half, ITEM_SLOT, ITEM_SLOT);
+      g.on("pointertap", () => {
+        this.itemBrowsePage += dir === "next" ? 1 : -1;
+        const me = this.driver.getState().players[this.driver.seatIndex];
+        if (me) this.renderRailTabs(me);
+      });
+    } else {
+      g.eventMode = "none";
+    }
+    layer.addChild(g);
+    this.text(layer, dir === "next" ? "›" : "‹", cx, cy, 16, C.textMuted, [0.5, 0.5], "700");
   }
 
   /** Width of a trait chip for the given chip model (shared by strip + scout). */
@@ -4035,6 +4129,7 @@ export class MatchScene {
     this.clearPeek();
     this.closeInspect();
     this.traitRailPage = 0;
+    this.itemBrowsePage = 0;
     const state = this.driver.getState();
     void this.opts.audio.setMusicState(phaseToMusicState("PLANNING"));
     // Round-start cue + income coins (income lands entering planning).
