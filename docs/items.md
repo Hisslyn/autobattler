@@ -62,14 +62,14 @@ Each is the unordered combination of exactly two components. Recipe is stored as
 
 | id | Name | Recipe | Stats | Passive |
 |----|------|--------|-------|---------|
-| `iron_sword__chain_vest` | Iron Sword + Chain Vest | `iron_sword` + `chain_vest` | `ad: 100`, `armor: 200` | — |
-| `iron_sword__mana_crystal` | Iron Sword + Mana Crystal | `iron_sword` + `mana_crystal` | `ad: 100`, `mana: 30`, `abilityDamage: 50` | — |
-| `iron_sword__recurve_bow` | Iron Sword + Recurve Bow | `iron_sword` + `recurve_bow` | `ad: 100`, `as: 150` | — |
-| `iron_sword__negatron_cloak` | Iron Sword + Negatron Cloak | `iron_sword` + `negatron_cloak` | `ad: 100`, `mr: 150` | — |
-| `iron_sword__giants_belt` | Iron Sword + Giant's Belt | `iron_sword` + `giants_belt` | `ad: 100`, `hp: 400` | — |
-| `iron_sword__sorcerer_rod` | Iron Sword + Sorcerer Rod | `iron_sword` + `sorcerer_rod` | `ad: 100`, `abilityDamage: 100` | burn on-hit: `value: 30`, `duration: 40` |
-| `iron_sword__sparring_gloves` | Iron Sword + Sparring Gloves | `iron_sword` + `sparring_gloves` | `ad: 140`, `as: 80` | — |
-| `iron_sword__tear_flask` | Iron Sword + Tear Flask | `iron_sword` + `tear_flask` | `ad: 100`, `mana: 20`, `hp: 200` | — |
+| `iron_sword__chain_vest` | Vanguard's Edge | `iron_sword` + `chain_vest` | `ad: 100`, `armor: 200` | — |
+| `iron_sword__mana_crystal` | Runic Saber | `iron_sword` + `mana_crystal` | `ad: 100`, `mana: 30`, `abilityDamage: 50` | — |
+| `iron_sword__recurve_bow` | Stormfang | `iron_sword` + `recurve_bow` | `ad: 100`, `as: 150` | — |
+| `iron_sword__negatron_cloak` | Spellbreaker | `iron_sword` + `negatron_cloak` | `ad: 100`, `mr: 150` | — |
+| `iron_sword__giants_belt` | Titan's Cleaver | `iron_sword` + `giants_belt` | `ad: 100`, `hp: 400` | — |
+| `iron_sword__sorcerer_rod` | Ember Edge | `iron_sword` + `sorcerer_rod` | `ad: 100`, `abilityDamage: 100` | burn on-hit: `value: 30`, `duration: 40` |
+| `iron_sword__sparring_gloves` | Duelist's Fang | `iron_sword` + `sparring_gloves` | `ad: 140`, `as: 80` | — |
+| `iron_sword__tear_flask` | Sanguine Blade | `iron_sword` + `tear_flask` | `ad: 100`, `mana: 20`, `hp: 200` | — |
 
 Note: `iron_sword` combines with all 8 other components = 8 entries, but `iron_sword + iron_sword` doesn't exist (no self-combine). Actual count for iron_sword as first: 8 (the last entry above rounds out the set — all 8 non-self pairings are listed).
 
@@ -77,64 +77,64 @@ Note: `iron_sword` combines with all 8 other components = 8 entries, but `iron_s
 
 | id | Name | Recipe | Stats | Passive |
 |----|------|--------|-------|---------|
-| `chain_vest__mana_crystal` | Chain Vest + Mana Crystal | `chain_vest` + `mana_crystal` | `armor: 200`, `mana: 30`, `abilityDamage: 50` | — |
-| `chain_vest__recurve_bow` | Chain Vest + Recurve Bow | `chain_vest` + `recurve_bow` | `armor: 200`, `as: 150` | — |
-| `chain_vest__negatron_cloak` | Chain Vest + Negatron Cloak | `chain_vest` + `negatron_cloak` | `armor: 200`, `mr: 150` | — |
-| `chain_vest__giants_belt` | Chain Vest + Giant's Belt | `chain_vest` + `giants_belt` | `armor: 200`, `hp: 400` | shield start-of-combat: `value: 350`, `duration: 100` |
-| `chain_vest__sorcerer_rod` | Chain Vest + Sorcerer Rod | `chain_vest` + `sorcerer_rod` | `armor: 200`, `abilityDamage: 100` | — |
-| `chain_vest__sparring_gloves` | Chain Vest + Sparring Gloves | `chain_vest` + `sparring_gloves` | `armor: 200`, `ad: 40`, `as: 80` | — |
-| `chain_vest__tear_flask` | Chain Vest + Tear Flask | `chain_vest` + `tear_flask` | `armor: 200`, `mana: 20`, `hp: 200` | — |
+| `chain_vest__mana_crystal` | Arcane Aegis | `chain_vest` + `mana_crystal` | `armor: 200`, `mana: 30`, `abilityDamage: 50` | — |
+| `chain_vest__recurve_bow` | Bulwark Striker | `chain_vest` + `recurve_bow` | `armor: 200`, `as: 150` | — |
+| `chain_vest__negatron_cloak` | Adamant Aegis | `chain_vest` + `negatron_cloak` | `armor: 200`, `mr: 150` | — |
+| `chain_vest__giants_belt` | Ironwall Bastion | `chain_vest` + `giants_belt` | `armor: 200`, `hp: 400` | shield start-of-combat: `value: 350`, `duration: 100` |
+| `chain_vest__sorcerer_rod` | Warden's Sigil | `chain_vest` + `sorcerer_rod` | `armor: 200`, `abilityDamage: 100` | — |
+| `chain_vest__sparring_gloves` | Gladiator's Guard | `chain_vest` + `sparring_gloves` | `armor: 200`, `ad: 40`, `as: 80` | — |
+| `chain_vest__tear_flask` | Stalwart Wellspring | `chain_vest` + `tear_flask` | `armor: 200`, `mana: 20`, `hp: 200` | — |
 
 ### mana_crystal combinations (6)
 
 | id | Name | Recipe | Stats | Passive |
 |----|------|--------|-------|---------|
-| `mana_crystal__recurve_bow` | Mana Crystal + Recurve Bow | `mana_crystal` + `recurve_bow` | `mana: 30`, `abilityDamage: 50`, `as: 150` | — |
-| `mana_crystal__negatron_cloak` | Mana Crystal + Negatron Cloak | `mana_crystal` + `negatron_cloak` | `mana: 30`, `abilityDamage: 50`, `mr: 150` | — |
-| `mana_crystal__giants_belt` | Mana Crystal + Giant's Belt | `mana_crystal` + `giants_belt` | `mana: 30`, `abilityDamage: 50`, `hp: 400` | — |
-| `mana_crystal__sorcerer_rod` | Mana Crystal + Sorcerer Rod | `mana_crystal` + `sorcerer_rod` | `mana: 30`, `abilityDamage: 150` | — |
-| `mana_crystal__sparring_gloves` | Mana Crystal + Sparring Gloves | `mana_crystal` + `sparring_gloves` | `mana: 30`, `abilityDamage: 50`, `ad: 40`, `as: 80` | — |
-| `mana_crystal__tear_flask` | Mana Crystal + Tear Flask | `mana_crystal` + `tear_flask` | `mana: 50`, `abilityDamage: 50`, `hp: 200` | — |
+| `mana_crystal__recurve_bow` | Arcane Tempo | `mana_crystal` + `recurve_bow` | `mana: 30`, `abilityDamage: 50`, `as: 150` | — |
+| `mana_crystal__negatron_cloak` | Spellweaver's Veil | `mana_crystal` + `negatron_cloak` | `mana: 30`, `abilityDamage: 50`, `mr: 150` | — |
+| `mana_crystal__giants_belt` | Runeheart | `mana_crystal` + `giants_belt` | `mana: 30`, `abilityDamage: 50`, `hp: 400` | — |
+| `mana_crystal__sorcerer_rod` | Arcane Conduit | `mana_crystal` + `sorcerer_rod` | `mana: 30`, `abilityDamage: 150` | — |
+| `mana_crystal__sparring_gloves` | Battlemage's Grip | `mana_crystal` + `sparring_gloves` | `mana: 30`, `abilityDamage: 50`, `ad: 40`, `as: 80` | — |
+| `mana_crystal__tear_flask` | Tidecaller's Font | `mana_crystal` + `tear_flask` | `mana: 50`, `abilityDamage: 50`, `hp: 200` | — |
 
 ### recurve_bow combinations (5)
 
 | id | Name | Recipe | Stats | Passive |
 |----|------|--------|-------|---------|
-| `recurve_bow__negatron_cloak` | Recurve Bow + Negatron Cloak | `recurve_bow` + `negatron_cloak` | `as: 150`, `mr: 150` | — |
-| `recurve_bow__giants_belt` | Recurve Bow + Giant's Belt | `recurve_bow` + `giants_belt` | `as: 150`, `hp: 400` | — |
-| `recurve_bow__sorcerer_rod` | Recurve Bow + Sorcerer Rod | `recurve_bow` + `sorcerer_rod` | `as: 150`, `abilityDamage: 100` | — |
-| `recurve_bow__sparring_gloves` | Recurve Bow + Sparring Gloves | `recurve_bow` + `sparring_gloves` | `as: 230`, `ad: 40` | — |
-| `recurve_bow__tear_flask` | Recurve Bow + Tear Flask | `recurve_bow` + `tear_flask` | `as: 150`, `mana: 20`, `hp: 200` | — |
+| `recurve_bow__negatron_cloak` | Galewarden | `recurve_bow` + `negatron_cloak` | `as: 150`, `mr: 150` | — |
+| `recurve_bow__giants_belt` | Tireless Vigor | `recurve_bow` + `giants_belt` | `as: 150`, `hp: 400` | — |
+| `recurve_bow__sorcerer_rod` | Mystic Volley | `recurve_bow` + `sorcerer_rod` | `as: 150`, `abilityDamage: 100` | — |
+| `recurve_bow__sparring_gloves` | Frenzy Talons | `recurve_bow` + `sparring_gloves` | `as: 230`, `ad: 40` | — |
+| `recurve_bow__tear_flask` | Quickdraw Reservoir | `recurve_bow` + `tear_flask` | `as: 150`, `mana: 20`, `hp: 200` | — |
 
 ### negatron_cloak combinations (4)
 
 | id | Name | Recipe | Stats | Passive |
 |----|------|--------|-------|---------|
-| `negatron_cloak__giants_belt` | Negatron Cloak + Giant's Belt | `negatron_cloak` + `giants_belt` | `mr: 150`, `hp: 400` | — |
-| `negatron_cloak__sorcerer_rod` | Negatron Cloak + Sorcerer Rod | `negatron_cloak` + `sorcerer_rod` | `mr: 150`, `abilityDamage: 100` | burn on-hit: `value: 25`, `duration: 60` |
-| `negatron_cloak__sparring_gloves` | Negatron Cloak + Sparring Gloves | `negatron_cloak` + `sparring_gloves` | `mr: 150`, `ad: 40`, `as: 80` | — |
-| `negatron_cloak__tear_flask` | Negatron Cloak + Tear Flask | `negatron_cloak` + `tear_flask` | `mr: 150`, `mana: 20`, `hp: 200` | — |
+| `negatron_cloak__giants_belt` | Spellguard Bulwark | `negatron_cloak` + `giants_belt` | `mr: 150`, `hp: 400` | — |
+| `negatron_cloak__sorcerer_rod` | Witchfire Veil | `negatron_cloak` + `sorcerer_rod` | `mr: 150`, `abilityDamage: 100` | burn on-hit: `value: 25`, `duration: 60` |
+| `negatron_cloak__sparring_gloves` | Phantom Wraps | `negatron_cloak` + `sparring_gloves` | `mr: 150`, `ad: 40`, `as: 80` | — |
+| `negatron_cloak__tear_flask` | Hexward Reservoir | `negatron_cloak` + `tear_flask` | `mr: 150`, `mana: 20`, `hp: 200` | — |
 
 ### giants_belt combinations (3)
 
 | id | Name | Recipe | Stats | Passive |
 |----|------|--------|-------|---------|
-| `giants_belt__sorcerer_rod` | Giant's Belt + Sorcerer Rod | `giants_belt` + `sorcerer_rod` | `hp: 400`, `abilityDamage: 100` | — |
-| `giants_belt__sparring_gloves` | Giant's Belt + Sparring Gloves | `giants_belt` + `sparring_gloves` | `hp: 400`, `ad: 40`, `as: 80` | — |
-| `giants_belt__tear_flask` | Giant's Belt + Tear Flask | `giants_belt` + `tear_flask` | `hp: 600`, `mana: 20` | — |
+| `giants_belt__sorcerer_rod` | Colossus Sigil | `giants_belt` + `sorcerer_rod` | `hp: 400`, `abilityDamage: 100` | — |
+| `giants_belt__sparring_gloves` | Juggernaut's Grip | `giants_belt` + `sparring_gloves` | `hp: 400`, `ad: 40`, `as: 80` | — |
+| `giants_belt__tear_flask` | Leviathan's Heart | `giants_belt` + `tear_flask` | `hp: 600`, `mana: 20` | — |
 
 ### sorcerer_rod combinations (2)
 
 | id | Name | Recipe | Stats | Passive |
 |----|------|--------|-------|---------|
-| `sorcerer_rod__sparring_gloves` | Sorcerer Rod + Sparring Gloves | `sorcerer_rod` + `sparring_gloves` | `abilityDamage: 100`, `ad: 40`, `as: 80` | — |
-| `sorcerer_rod__tear_flask` | Sorcerer Rod + Tear Flask | `sorcerer_rod` + `tear_flask` | `abilityDamage: 100`, `mana: 20`, `hp: 200` | — |
+| `sorcerer_rod__sparring_gloves` | Spellfury Wraps | `sorcerer_rod` + `sparring_gloves` | `abilityDamage: 100`, `ad: 40`, `as: 80` | — |
+| `sorcerer_rod__tear_flask` | Oracle's Font | `sorcerer_rod` + `tear_flask` | `abilityDamage: 100`, `mana: 20`, `hp: 200` | — |
 
 ### sparring_gloves combinations (1)
 
 | id | Name | Recipe | Stats | Passive |
 |----|------|--------|-------|---------|
-| `sparring_gloves__tear_flask` | Sparring Gloves + Tear Flask | `sparring_gloves` + `tear_flask` | `ad: 40`, `as: 80`, `mana: 20`, `hp: 200` | — |
+| `sparring_gloves__tear_flask` | Relentless Wraps | `sparring_gloves` + `tear_flask` | `ad: 40`, `as: 80`, `mana: 20`, `hp: 200` | — |
 
 ---
 
@@ -157,7 +157,7 @@ Only 2 of the 36 completed items carry a passive:
 Radiant items are NOT stored in `items.json`. At startup, `loader.ts` calls `getOrCreateRadiantItem` for every `completed` item and pushes the result into `gameData.items`. They are never in JSON.
 
 - **Id pattern:** `radiant_<base_completed_id>` (e.g. `radiant_iron_sword__chain_vest`)
-- **Name pattern:** `"Radiant " + base.name` (e.g. `"Radiant Iron Sword + Chain Vest"`)
+- **Name pattern:** `"Radiant " + base.name` (e.g. `"Radiant Vanguard's Edge"`)
 - **Stats:** every base stat scaled by `radiantStatMultiplier` (stored value: `1750`, fixed-point scale 1000), each rounded: `Math.round(value * 1750 / 1000)`.
 - **Passive:** carried unchanged from the base item (same `value` and `duration` — not scaled).
 - **kind:** `"completed"` (they resolve as completed in the item-kind system).
