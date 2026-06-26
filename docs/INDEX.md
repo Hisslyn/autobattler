@@ -151,3 +151,4 @@ Readable map from source path to its documentation file. One line per documented
 - packages/sim/tests/prng.test.ts -> docs/packages/sim/tests/prng.test.ts.md — mulberry32 known-answer snapshot, same-seed/diverging-seed tests
 - packages/sim/tests/purity.test.ts -> docs/packages/sim/tests/purity.test.ts.md — static text scan of src/ forbidding Math.random/Date.now/parseFloat
 - vitest.config.ts -> SKIPPED (config) — single shared Vitest config: discovers packages/*/tests/**/*.test.ts only
+- docs/mechanics-audit.md — cross-package QA mechanics audit: coverage/GAP status for every core mechanic (economy, pool, XP, shop, items, loot, PvE, stats, MMR, combat invariants)
