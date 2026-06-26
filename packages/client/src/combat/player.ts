@@ -1,6 +1,9 @@
-// Playback clock + frame builder — no Pixi. Maps wall time to ticks
-// (ticksPerSec at 1x), folds events through the reducer, and emits
-// interpolated unit positions plus one-shot fx for the view layer.
+// Playback clock + frame builder — no Pixi. PLAYBACK is decoupled from the
+// SIMULATION: the sim advances in whole integer ticks (canonical TICK_HZ game
+// rate, see @autobattler/sim/src/fixed.ts), and this layer maps those sim ticks
+// onto real time via a time accumulator (timeMs → tickFloat) with interpolation.
+// The device refresh rate therefore affects only smoothness — never combat
+// outcome and never the measured duration (durationMs = endTick / TICK_HZ).
 //
 // The fx stream is the single source of combat presentation: every visual and
 // every combat sound is derived here from the CombatEvent log (positions from
@@ -11,19 +14,25 @@
 import type { CombatEvent, AbilityEffect } from "@autobattler/sim/src/types.js";
 import type { HexCoord } from "@autobattler/sim/src/hex.js";
 import { ROWS, hexDistance } from "@autobattler/sim/src/hex.js";
+import { TICK_HZ } from "@autobattler/sim/src/fixed.js";
 import type { GameData } from "@autobattler/data";
 import { applyEvent, emptyPlaybackState } from "./reducer.js";
 import type { PlaybackState } from "./reducer.js";
 
+// Re-export the canonical sim rate so the playback layer (and its callers) read
+// the SAME 30 Hz tick rate the engine simulates at, rather than hardcoding it.
+export { TICK_HZ };
+
 // 0.25 = quarter the 1x pace (the new experienced default); 1x keeps its prior meaning.
 export type PlaybackSpeed = 0.25 | 0.5 | 1 | 2;
 
-// Presentation-only playback time-scale applied at the scene call site (NOT
-// inside CombatPlayer, so determinism tests over advance(dtMs) are unchanged):
-// the wall-clock delta fed to advance() is multiplied by this. 1 = no extra
-// slowdown — playback runs at the user-selected speed. (This was temporarily set
-// to 0.2 to monitor fights, which made unit movement look frozen at the 0.25x
-// default. Sim/outcomes/tests are untouched.)
+// Playback-rate multiplier on how fast REAL time consumes sim ticks — the home
+// of the slow-mo dev knob (was the old 0.2x "monitor fights" slow-mo). Applied
+// to the wall-clock delta fed to advance() at the scene call site (NOT inside
+// CombatPlayer, so determinism tests over advance(dtMs) are unchanged). 1 = no
+// extra slowdown (playback runs at the user-selected speed); set to e.g. 0.2 to
+// quarter real-time pacing without touching the sim, outcomes, or measured
+// duration. Tunable in one place.
 export const PLAYBACK_TIME_SCALE = 1;
 
 /** Ability effect kind keyed into per-kind visuals/sounds. */
@@ -133,7 +142,10 @@ export class CombatPlayer {
 
   constructor(
     log: CombatEvent[],
-    ticksPerSec: number,
+    // The sim rate; defaults to the canonical TICK_HZ so playback consumes ticks
+    // at exactly the rate the engine produced them. One sim tick = 1/TICK_HZ s of
+    // game time; msPerTick maps that onto real wall-clock pacing only.
+    ticksPerSec: number = TICK_HZ,
     data: GameData,
     opts: { reducedMotion?: boolean } = {}
   ) {

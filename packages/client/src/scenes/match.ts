@@ -7,7 +7,7 @@ import type { UnitInstance, CombatEvent } from "@autobattler/sim/src/types.js";
 import type { HexCoord } from "@autobattler/sim/src/hex.js";
 import type { IDriver } from "../driver.js";
 import { PLANNING_TIMER_MS } from "../driver.js";
-import { CombatPlayer, toDisplayHex, PLAYBACK_TIME_SCALE } from "../combat/player.js";
+import { CombatPlayer, toDisplayHex, PLAYBACK_TIME_SCALE, TICK_HZ } from "../combat/player.js";
 import type { PlaybackSpeed } from "../combat/player.js";
 import { CombatView } from "../combat/view.js";
 import { C, tierColor, CHIP_TEXT_SIZE, CHIP_TEXT_FONT, BOARD_TILT, CANDLE_COLUMN_SCREEN_OFFSET, HAMBURGER_RAIL_GAP } from "../theme.js";
@@ -4217,7 +4217,7 @@ export class MatchScene {
     const entityScale = (hex: HexCoord): number => this.depthScaleAt(toBoard(hex));
 
     const reducedMotion = this.opts.settings.get().reducedMotion;
-    const player = new CombatPlayer(events, gameData.gameplay.ticksPerSec, gameData, { reducedMotion });
+    const player = new CombatPlayer(events, TICK_HZ, gameData, { reducedMotion });
     player.setSpeed(this.playbackSpeed);
     // Overtime banner sits near the top (far edge) of the board, in SCREEN space
     // (boardOffset* are board-source coords now — route them through fwd()).

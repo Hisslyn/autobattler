@@ -31,7 +31,7 @@
   "damageTierWeights": { "1": 1, "2": 2, "3": 3, "4": 4, "5": 5 },
   "overtimeBaseDamage": 50,
   "overtimeRampPerTick": 10,
-  "overtimeHardCapTicks": 1800,
+  "overtimeHardCapSeconds": 90000,
   "critChance": 150,
   "critMultiplier": 1500,
   "resolutionSeconds": 5,

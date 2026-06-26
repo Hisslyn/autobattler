@@ -54,7 +54,7 @@ Env vars (server): `PORT` (default 3001), `DATABASE_URL` (postgres; unset → in
   - Applies star multipliers (1.8x at 2-star, 3.24x at 3-star) at combat start
   - Applies trait breakpoint bonuses per team at combat start
   - Applies item stat bundles per unit at combat start
-  - Fixed timestep 20 ticks/s, max 1200 ticks then overtime (ramping true damage)
+  - Fixed timestep at the canonical `TICK_HZ` (30 ticks/s of game time, the single constant in `sim/src/fixed.ts`); one tick = 1/30 s, never wall-clock/Date/FPS. All durations are authored in SECONDS in `packages/data` (fixed-point) and converted to integer ticks via `secondsToTicks`. Overtime starts at `secondsToTicks(gameplay.overtimeStartSeconds)` (60s → 1800 ticks), then ramps true damage; hard cap at `secondsToTicks(economy.overtimeHardCapSeconds)` (90s → 2700 ticks)
   - Per-tick order: status effects (burn DoT + buff/shield expiry) → mana/cast → movement → attacks → death cleanup
   - PvE mobs reuse `UnitInstance`/the engine unchanged (no new behaviors beyond the supported set): a player board (side 0) fights a mob board (side 1). Mob defIds are absent from `data.units`, so `applyTraits` never counts them — mobs never contribute to (or receive) player trait bonuses
   - Targeting: nearest enemy, tiebreak lowest uid; start-of-combat-stealth units are untargetable until their stealth tick elapses

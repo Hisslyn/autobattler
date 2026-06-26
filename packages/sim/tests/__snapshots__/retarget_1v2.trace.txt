@@ -2,8 +2,8 @@
 # description: 1 ranged vs 2 melee: the stateless nearest-recompute flips the lone unit's resolved target between the two LIVE enemies as they advance (retarget_recomputed), then a switched_target_dead retarget once the first enemy is killed. The lone unit (stormlord) survives to demonstrate both.
 # seed: 3
 # winner: 0
-# ticks: 243
-# traceTicks: 243
+# ticks: 399
+# traceTicks: 399
 
 tick 0
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1152 mana=  17 act=attack tgt=1002 dmg=  106
@@ -106,782 +106,1358 @@ tick 23
   uid=1001 side=1 footman        hex=(2,4)   hp=  850 mana=  10 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
 tick 24
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  850 mana=  10 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 25
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  850 mana=  10 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 26
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  850 mana=  10 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 27
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  850 mana=  10 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 28
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  850 mana=  10 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 29
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  850 mana=  10 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 30
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  850 mana=  10 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 31
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  850 mana=  10 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 32
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  850 mana=  10 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 33
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  850 mana=  10 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 34
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  850 mana=  10 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 35
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  850 mana=  10 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 36
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  34 act=attack tgt=1001 dmg=   94
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
-tick 25
+tick 37
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  34 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
-tick 26
+tick 38
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  34 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
-tick 27
+tick 39
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  34 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
-tick 28
+tick 40
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  34 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
-tick 29
+tick 41
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  34 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 42
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1117 mana=  34 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  17 act=idle   tgt=1    dmg=    0
+tick 43
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1069 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=attack tgt=1    dmg=   48
-tick 30
+tick 44
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1069 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 31
+tick 45
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1069 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 32
+tick 46
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1069 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 33
+tick 47
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1069 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 34
+tick 48
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1069 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 35
+tick 49
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1069 mana=  41 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 50
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1069 mana=  41 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 51
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1069 mana=  41 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  17 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 52
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=attack tgt=1    dmg=   35
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 36
+tick 53
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 37
+tick 54
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 38
+tick 55
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 39
+tick 56
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 40
+tick 57
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 41
+tick 58
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 42
+tick 59
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 43
+tick 60
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 44
+tick 61
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 45
+tick 62
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 46
+tick 63
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 47
+tick 64
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 48
+tick 65
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 66
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 67
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 68
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 69
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 70
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 71
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  48 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  756 mana=  27 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 72
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=attack tgt=1001 dmg=   94
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 49
+tick 73
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 50
+tick 74
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 51
+tick 75
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 52
+tick 76
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 53
+tick 77
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 54
+tick 78
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 55
+tick 79
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 56
+tick 80
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 57
+tick 81
   uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
-tick 58
+tick 82
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 83
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 84
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 85
+  uid=   1 side=0 stormlord      hex=(3,3)   hp= 1034 mana=  58 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  27 act=idle   tgt=1    dmg=    0
+tick 86
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=attack tgt=1    dmg=   72
-tick 59
+tick 87
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 60
+tick 88
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 61
+tick 89
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 62
+tick 90
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 63
+tick 91
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 64
+tick 92
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 65
+tick 93
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 66
+tick 94
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 67
+tick 95
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 68
+tick 96
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 69
+tick 97
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 98
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 99
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 100
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 101
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 102
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  962 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  34 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 103
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=  72 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  44 act=attack tgt=1    dmg=   52
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 70
+tick 104
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=  72 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  44 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 71
+tick 105
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=  72 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  44 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 72
+tick 106
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=  72 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  44 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 107
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=  72 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  662 mana=  44 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 108
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=  80 act=attack tgt=1001 dmg=   94
   uid=1001 side=1 footman        hex=(2,4)   hp=  568 mana=  51 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 73
+tick 109
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=cast   tgt=1001 dmg=  242
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 74
+tick 110
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 75
+tick 111
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 76
+tick 112
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 77
+tick 113
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 78
+tick 114
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 79
+tick 115
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 80
+tick 116
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 81
+tick 117
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 82
+tick 118
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 83
+tick 119
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 84
+tick 120
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 85
+tick 121
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 86
+tick 122
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
-tick 87
+tick 123
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 124
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 125
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 126
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 127
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 128
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  910 mana=   0 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  37 act=idle   tgt=1    dmg=    0
+tick 129
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=attack tgt=1    dmg=   48
-tick 88
+tick 130
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 89
+tick 131
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 90
+tick 132
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 91
+tick 133
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 92
+tick 134
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 93
+tick 135
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 94
+tick 136
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 95
+tick 137
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 96
+tick 138
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 97
+tick 139
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 140
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 141
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 142
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 143
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 144
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=   7 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  326 mana=  58 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 145
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=  17 act=attack tgt=1001 dmg=   94
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  65 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 98
+tick 146
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=  17 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  65 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 99
+tick 147
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=  17 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  65 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 100
+tick 148
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=  17 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  65 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 101
+tick 149
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=  17 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  65 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 102
+tick 150
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=  17 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  65 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 103
+tick 151
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=  17 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  65 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 152
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=  17 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  65 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 153
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  862 mana=  17 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  65 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 154
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=attack tgt=1    dmg=   35
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 104
+tick 155
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 105
+tick 156
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 106
+tick 157
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 107
+tick 158
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 108
+tick 159
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 109
+tick 160
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 110
+tick 161
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 111
+tick 162
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 112
+tick 163
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 113
+tick 164
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 114
+tick 165
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 115
+tick 166
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
-tick 116
+tick 167
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 168
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 169
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 170
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 171
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  827 mana=  24 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  47 act=idle   tgt=1    dmg=    0
+tick 172
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  31 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=attack tgt=1    dmg=   48
-tick 117
+tick 173
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  31 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 118
+tick 174
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  31 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 119
+tick 175
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  31 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 120
+tick 176
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  31 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 121
+tick 177
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  31 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 178
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  31 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 179
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  31 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 180
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  31 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  232 mana=  75 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 181
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=attack tgt=1001 dmg=   94
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 122
+tick 182
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 123
+tick 183
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 124
+tick 184
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 125
+tick 185
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 126
+tick 186
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 127
+tick 187
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 128
+tick 188
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 129
+tick 189
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 130
+tick 190
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 131
+tick 191
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 132
+tick 192
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 133
+tick 193
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 134
+tick 194
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 135
+tick 195
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 136
+tick 196
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 137
+tick 197
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 198
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 199
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 200
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 201
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 202
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 203
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 204
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  779 mana=  41 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  82 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 205
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  744 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  92 act=attack tgt=1    dmg=   35
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 138
+tick 206
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  744 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  92 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 139
+tick 207
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  744 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  92 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 140
+tick 208
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  744 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  92 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 141
+tick 209
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  744 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  92 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 142
+tick 210
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  744 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  92 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 143
+tick 211
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  744 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  92 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 144
+tick 212
   uid=   1 side=0 stormlord      hex=(3,3)   hp=  744 mana=  48 act=idle   tgt=1001 dmg=    0
   uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  92 act=idle   tgt=1    dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
-tick 145
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=attack tgt=1001 dmg=  140
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=attack tgt=1    dmg=   48
-tick 146
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
+tick 213
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  744 mana=  48 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  92 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 214
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  744 mana=  48 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  92 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  57 act=idle   tgt=1    dmg=    0
+tick 215
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  55 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  92 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=attack tgt=1    dmg=   72
+tick 216
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  55 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=  138 mana=  92 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 217
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=attack tgt=1001 dmg=   94
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 218
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 219
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 220
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 221
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 222
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 223
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 224
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 225
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 226
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 227
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 228
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 229
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 230
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 231
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 232
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 233
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 234
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 235
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 236
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 237
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 238
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 239
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 240
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 241
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 242
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 243
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 244
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 245
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 246
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 247
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 248
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 249
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 250
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 251
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 252
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  65 act=idle   tgt=1001 dmg=    0
+  uid=1001 side=1 footman        hex=(2,4)   hp=   44 mana=  99 act=idle   tgt=1    dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 253
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  75 act=attack tgt=1001 dmg=   94
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
+tick 254
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  75 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
   retarget uid=   1 1001 -> 1002 reason=switched_target_dead
-tick 147
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
+tick 255
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  75 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 148
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
+tick 256
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  75 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 149
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
+tick 257
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  672 mana=  75 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 150
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 151
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 152
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 153
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 154
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 155
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 156
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 157
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 158
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 159
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 160
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 161
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 162
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 163
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 164
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 165
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 166
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 167
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 168
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  65 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  67 act=idle   tgt=1    dmg=    0
-tick 169
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  75 act=attack tgt=1002 dmg=  106
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  508 mana=  74 act=idle   tgt=1    dmg=    0
-tick 170
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  75 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  508 mana=  74 act=idle   tgt=1    dmg=    0
-tick 171
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  75 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  508 mana=  74 act=idle   tgt=1    dmg=    0
-tick 172
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  75 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  508 mana=  74 act=idle   tgt=1    dmg=    0
-tick 173
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  696 mana=  75 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  508 mana=  74 act=idle   tgt=1    dmg=    0
-tick 174
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=  80 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  508 mana=  84 act=attack tgt=1    dmg=   72
-tick 175
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=cast   tgt=1002 dmg=  274
+tick 258
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=  80 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  614 mana=  77 act=attack tgt=1    dmg=   72
+tick 259
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=cast   tgt=1002 dmg=  274
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 260
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 261
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 262
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 263
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 264
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 265
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 266
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 267
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 268
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 269
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 270
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 271
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 272
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 273
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 274
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 275
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 276
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 277
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 278
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 279
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 280
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 281
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 282
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 283
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 284
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 285
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 286
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 287
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 288
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 289
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=   0 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  340 mana=  84 act=idle   tgt=1    dmg=    0
+tick 290
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=  10 act=attack tgt=1002 dmg=  106
   uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 176
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
+tick 291
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=  10 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 177
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
+tick 292
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=  10 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 178
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
+tick 293
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=  10 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 179
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
+tick 294
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=  10 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 180
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
+tick 295
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=  10 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 181
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
+tick 296
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=  10 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 182
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
+tick 297
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=  10 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 183
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
+tick 298
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=  10 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 184
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
+tick 299
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=  10 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 185
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
+tick 300
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  600 mana=  10 act=idle   tgt=1002 dmg=    0
   uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 186
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 187
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 188
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 189
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 190
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 191
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 192
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 193
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=   0 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=  91 act=idle   tgt=1    dmg=    0
-tick 194
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=  10 act=attack tgt=1002 dmg=  106
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  98 act=idle   tgt=1    dmg=    0
-tick 195
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=  10 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  98 act=idle   tgt=1    dmg=    0
-tick 196
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=  10 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  98 act=idle   tgt=1    dmg=    0
-tick 197
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=  10 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  98 act=idle   tgt=1    dmg=    0
-tick 198
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=  10 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  98 act=idle   tgt=1    dmg=    0
-tick 199
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=  10 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  98 act=idle   tgt=1    dmg=    0
-tick 200
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=  10 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  98 act=idle   tgt=1    dmg=    0
-tick 201
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=  10 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  98 act=idle   tgt=1    dmg=    0
-tick 202
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  624 mana=  10 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  98 act=idle   tgt=1    dmg=    0
-tick 203
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana= 100 act=attack tgt=1    dmg=   48
-tick 204
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=cast   tgt=1002 dmg=    0
+tick 301
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana= 100 act=attack tgt=1    dmg=   48
+tick 302
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=cast   tgt=1002 dmg=    0
   retarget uid=1002 1 -> 1002 reason=retarget_recomputed
-tick 205
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=idle   tgt=1    dmg=    0
+tick 303
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
   retarget uid=1002 1002 -> 1 reason=retarget_recomputed
-tick 206
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=idle   tgt=1    dmg=    0
-tick 207
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=idle   tgt=1    dmg=    0
-tick 208
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=idle   tgt=1    dmg=    0
-tick 209
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=idle   tgt=1    dmg=    0
-tick 210
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=idle   tgt=1    dmg=    0
-tick 211
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=idle   tgt=1    dmg=    0
-tick 212
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=idle   tgt=1    dmg=    0
-tick 213
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=idle   tgt=1    dmg=    0
-tick 214
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=idle   tgt=1    dmg=    0
-tick 215
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=idle   tgt=1    dmg=    0
-tick 216
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=idle   tgt=1    dmg=    0
-tick 217
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  17 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   0 act=idle   tgt=1    dmg=    0
-tick 218
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=attack tgt=1002 dmg=  106
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 219
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 220
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 221
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 222
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 223
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 224
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 225
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 226
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 227
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 228
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 229
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 230
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 231
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 232
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  576 mana=  27 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=   7 act=idle   tgt=1    dmg=    0
-tick 233
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  500 mana=  34 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  17 act=attack tgt=1    dmg=   76
-tick 234
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  500 mana=  34 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  17 act=idle   tgt=1    dmg=    0
-tick 235
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  500 mana=  34 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  17 act=idle   tgt=1    dmg=    0
-tick 236
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  500 mana=  34 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  17 act=idle   tgt=1    dmg=    0
-tick 237
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  500 mana=  34 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  17 act=idle   tgt=1    dmg=    0
-tick 238
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  500 mana=  34 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  17 act=idle   tgt=1    dmg=    0
-tick 239
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  500 mana=  34 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  17 act=idle   tgt=1    dmg=    0
-tick 240
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  500 mana=  34 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  17 act=idle   tgt=1    dmg=    0
-tick 241
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  500 mana=  34 act=idle   tgt=1002 dmg=    0
-  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  17 act=idle   tgt=1    dmg=    0
-tick 242
-  uid=   1 side=0 stormlord      hex=(3,3)   hp=  500 mana=  44 act=attack tgt=1002 dmg=  106
+tick 304
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 305
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 306
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 307
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 308
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 309
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 310
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 311
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 312
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 313
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 314
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 315
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 316
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 317
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 318
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 319
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 320
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 321
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 322
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 323
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 324
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 325
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  17 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  234 mana=   0 act=idle   tgt=1    dmg=    0
+tick 326
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=attack tgt=1002 dmg=  106
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 327
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 328
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 329
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 330
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 331
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 332
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 333
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 334
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 335
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 336
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 337
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 338
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 339
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 340
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 341
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 342
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 343
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 344
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  552 mana=  27 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=   7 act=idle   tgt=1    dmg=    0
+tick 345
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=attack tgt=1    dmg=   76
+tick 346
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 347
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 348
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 349
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 350
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 351
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 352
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 353
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 354
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 355
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 356
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 357
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 358
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 359
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 360
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 361
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  34 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=  128 mana=  17 act=idle   tgt=1    dmg=    0
+tick 362
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=attack tgt=1002 dmg=  106
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 363
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 364
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 365
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 366
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 367
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 368
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 369
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 370
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 371
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 372
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 373
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 374
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 375
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 376
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 377
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 378
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 379
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 380
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 381
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 382
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 383
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 384
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 385
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 386
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 387
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  476 mana=  44 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  24 act=idle   tgt=1    dmg=    0
+tick 388
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  362 mana=  51 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  34 act=attack tgt=1    dmg=  114
+tick 389
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  362 mana=  51 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  34 act=idle   tgt=1    dmg=    0
+tick 390
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  362 mana=  51 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  34 act=idle   tgt=1    dmg=    0
+tick 391
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  362 mana=  51 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  34 act=idle   tgt=1    dmg=    0
+tick 392
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  362 mana=  51 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  34 act=idle   tgt=1    dmg=    0
+tick 393
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  362 mana=  51 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  34 act=idle   tgt=1    dmg=    0
+tick 394
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  362 mana=  51 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  34 act=idle   tgt=1    dmg=    0
+tick 395
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  362 mana=  51 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  34 act=idle   tgt=1    dmg=    0
+tick 396
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  362 mana=  51 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  34 act=idle   tgt=1    dmg=    0
+tick 397
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  362 mana=  51 act=idle   tgt=1002 dmg=    0
+  uid=1002 side=1 brawler        hex=(3,4)   hp=   22 mana=  34 act=idle   tgt=1    dmg=    0
+tick 398
+  uid=   1 side=0 stormlord      hex=(3,3)   hp=  362 mana=  61 act=attack tgt=1002 dmg=  158

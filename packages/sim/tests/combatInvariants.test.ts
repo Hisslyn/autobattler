@@ -11,7 +11,7 @@ import { describe, it, expect } from "vitest";
 import { simulateCombat } from "../src/engine.js";
 import { gameData } from "@autobattler/data";
 import { hexDistance } from "../src/hex.js";
-import { SCALE } from "../src/fixed.js";
+import { SCALE, TICK_HZ, secondsToTicks } from "../src/fixed.js";
 import { SCENARIOS, type Scenario } from "./fixtures/scenarios.js";
 import type {
   CombatResult,
@@ -234,7 +234,7 @@ describe("invariant (e): attack interval matches attack speed within rounding", 
     const { scenario, result } = TRACED.find((t) => t.scenario.name === "melee_1v1")!;
     const trace = result.trace!;
     const as = unitAs(scenario, 0, 1);
-    const expectedInterval = Math.trunc((gameData.gameplay.ticksPerSec * SCALE) / as) + 1;
+    const expectedInterval = Math.trunc((TICK_HZ * SCALE) / as) + 1;
 
     const attackTicks: number[] = [];
     for (const tick of trace.ticks) {
@@ -257,8 +257,10 @@ describe("invariant (e): attack interval matches attack speed within rounding", 
 // --- (f) Termination ---------------------------------------------------------
 describe("invariant (f): combat terminates within the bounded tick cap", () => {
   for (const { scenario, result } of TRACED) {
-    it(`${scenario.name}: result.ticks <= overtimeHardCapTicks`, () => {
-      expect(result.ticks).toBeLessThanOrEqual(gameData.economy.overtimeHardCapTicks);
+    it(`${scenario.name}: result.ticks <= overtime hard cap (ticks)`, () => {
+      expect(result.ticks).toBeLessThanOrEqual(
+        secondsToTicks(gameData.economy.overtimeHardCapSeconds)
+      );
     });
   }
 });

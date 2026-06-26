@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { simulateCombat } from "../src/engine.js";
 import { gameData } from "@autobattler/data";
 import type { BoardState } from "../src/types.js";
+import { secondsToTicks } from "../src/fixed.js";
 import { createHash } from "crypto";
 
 function makeBoard(team: 0 | 1): BoardState {
@@ -117,16 +118,20 @@ describe("overtime", () => {
 
     const overtimeEvents = result.events.filter((e) => e.type === "overtime_start");
     expect(overtimeEvents.length).toBe(1);
-    expect(overtimeEvents[0]!.tick).toBe(1200);
-    expect(result.ticks).toBeGreaterThan(1200);
-    expect(result.ticks).toBeLessThan(gameData.economy.overtimeHardCapTicks);
+    // 30 Hz: overtime starts at secondsToTicks(overtimeStartSeconds) = 1800
+    // ticks (60s), re-blessed from the prior 20 Hz value of 1200 ticks (60s).
+    const overtimeStartTick = secondsToTicks(gameData.gameplay.overtimeStartSeconds);
+    expect(overtimeStartTick).toBe(1800);
+    expect(overtimeEvents[0]!.tick).toBe(overtimeStartTick);
+    expect(result.ticks).toBeGreaterThan(overtimeStartTick);
+    expect(result.ticks).toBeLessThan(secondsToTicks(gameData.economy.overtimeHardCapSeconds));
     expect(result.winner).toBe(0);
   });
 
   it("hard cap decides by total remaining HP, never an endless draw", () => {
     // HP too large for the ramp to finish anyone off before 1800
     const result = simulateCombat(makeTankBoard(0, 10_000_000), makeTankBoard(1, 10_000_000), 5, gameData);
-    expect(result.ticks).toBe(gameData.economy.overtimeHardCapTicks);
+    expect(result.ticks).toBe(secondsToTicks(gameData.economy.overtimeHardCapSeconds));
     // Both sides alive at cap: team 0 (2 units) has higher total remaining HP
     expect(result.winner).toBe(0);
   });

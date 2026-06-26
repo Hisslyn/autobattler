@@ -8,6 +8,7 @@ import { applyCommand } from "@autobattler/rules/src/commands.js";
 import { applyAiCommands } from "@autobattler/rules/src/ai.js";
 import { getPairingFor, isPveRound, pveStageForRound, previewPveStage } from "@autobattler/rules/src/rounds.js";
 import { mulberry32 } from "@autobattler/sim/src/prng.js";
+import { TICK_HZ } from "@autobattler/sim/src/fixed.js";
 
 export type Outcome = "win" | "loss" | "draw";
 
@@ -278,7 +279,8 @@ export class LocalDriver implements IDriver {
     // whose log the scene plays back, so the cap must reflect that duration
     // (else capMs=0 would fire immediately and tear the mob board down on frame 1).
     const result = this.getMyCombatResult();
-    const oneXMs = result ? Math.ceil((result.ticks * 1000) / gameData.gameplay.ticksPerSec) : 0;
+    // 1x playback duration = tickCount / TICK_HZ seconds (the canonical sim rate).
+    const oneXMs = result ? Math.ceil((result.ticks * 1000) / TICK_HZ) : 0;
     const capMs = result
       ? Math.ceil(oneXMs / (SLOWEST_PLAYBACK_SPEED * PLAYBACK_TIME_SCALE)) + PLAYBACK_CAP_BUFFER_MS
       : 0;

@@ -1,5 +1,5 @@
 import { mulberry32 } from "./prng.js";
-import { fmul, SCALE } from "./fixed.js";
+import { fmul, SCALE, TICK_HZ, secondsToTicks } from "./fixed.js";
 import { hexDistance, hexAstar, COLS } from "./hex.js";
 import type {
   BoardState,
@@ -244,8 +244,12 @@ export function simulateCombat(
     applyStartOfCombat(unit, data);
   }
 
-  const { manaPerAttack, manaPerDamageTaken, mitigationBase, ticksPerSec, overtimeStartTick } = data.gameplay;
-  const hardCap = data.economy.overtimeHardCapTicks;
+  const { manaPerAttack, manaPerDamageTaken, mitigationBase } = data.gameplay;
+  // Durations are authored in SECONDS (fixed-point) in packages/data and
+  // converted to whole integer ticks here at the canonical TICK_HZ. The sim
+  // advances by whole ticks only and never reads wall-clock time/Date/FPS.
+  const overtimeStartTick = secondsToTicks(data.gameplay.overtimeStartSeconds);
+  const hardCap = secondsToTicks(data.economy.overtimeHardCapSeconds);
   let tick = 0;
   let overtime = false;
 
@@ -467,7 +471,10 @@ export function simulateCombat(
             if (unit.onHitBurn) applyBurn(target, unit.onHitBurn.value, unit.onHitBurn.duration);
           }
 
-          unit.attackCooldown = Math.trunc(ticksPerSec * SCALE / unit.as);
+          // Attack cooldown in ticks derived from attack speed (as, fixed-point
+          // attacks/sec): cooldown = TICK_HZ * SCALE / as. One attack per
+          // (TICK_HZ / (as/SCALE)) ticks → faster as = shorter cooldown.
+          unit.attackCooldown = Math.trunc(TICK_HZ * SCALE / unit.as);
         } else {
           unit.attackCooldown--;
         }

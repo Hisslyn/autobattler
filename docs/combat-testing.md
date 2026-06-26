@@ -1,5 +1,42 @@
 # Combat trace harness, scenarios & invariants
 
+## Simulation rate: 30 Hz fixed timestep (single canonical constant)
+
+The combat sim runs on a FIXED TIMESTEP of **30 Hz** — 30 ticks per second of
+GAME time. One tick is always `1/30` s of game time on every device, independent
+of wall clock, `Date`, or device FPS. Combat duration in seconds is therefore
+`tickCount / 30`, deterministic and identical across devices.
+
+- **The single constant**: `TICK_HZ = 30` lives in `packages/sim/src/fixed.ts`
+  (the one sim file permitted raw numeric literals, alongside `SCALE`). To change
+  the simulation rate, change ONLY this value — every per-second / duration
+  derivation routes through it.
+- **Durations are authored in SECONDS, converted to integer ticks** via the pure
+  fixed-point helper `secondsToTicks(secondsFixed)` (also in `fixed.ts`):
+  `ticks = fmul(secondsFixed, TICK_HZ) = trunc(secondsFixed * TICK_HZ / SCALE)`.
+  Seconds are stored fixed-point (scale 1000 — e.g. `60000` means 60.0 s). No
+  floats; the sim advances by whole integer ticks only and never reads
+  wall-clock time. e.g. `secondsToTicks(60000) === 1800` ticks at 30 Hz.
+- **What this converts** (formerly raw tick counts at the old 20 Hz):
+  - Attack cooldown from attack speed: `attackCooldown = trunc(TICK_HZ * SCALE / as)`.
+  - Overtime threshold: `data.gameplay.overtimeStartSeconds` (60000 = 60 s) →
+    `secondsToTicks(...) = 1800` ticks (was `overtimeStartTick: 1200` at 20 Hz).
+  - Overtime hard cap: `data.economy.overtimeHardCapSeconds` (90000 = 90 s) →
+    `secondsToTicks(...) = 2700` ticks (was `overtimeHardCapTicks: 1800` at 20 Hz).
+  - The data fields `ticksPerSec`, `overtimeStartTick`, and `overtimeHardCapTicks`
+    no longer exist — the rate is `TICK_HZ`, the thresholds are authored in seconds.
+- **Playback is decoupled from simulation** (client `combat/player.ts`): the
+  renderer consumes sim ticks and maps them onto real time via a time accumulator
+  (`timeMs → tickFloat`) with interpolation, reading the canonical `TICK_HZ`
+  rather than hardcoding. Device refresh rate affects only smoothness — never
+  outcome or measured duration (`durationMs = endTick / TICK_HZ`). The slow-mo
+  dev knob is `PLAYBACK_TIME_SCALE` (a playback-rate multiplier on how fast real
+  time consumes ticks, applied at the scene call site; `1` = no extra slowdown).
+
+> **Golden re-bless note**: because the tick rate changed (20 → 30 Hz) the
+> per-tick golden traces and any tick-count-pinned assertions shift. Re-blessing
+> the golden traces is the QA pass, not part of this migration.
+
 A behavior-neutral instrumentation + dev-tooling layer over the pure combat
 engine (`packages/sim`). It lets you produce a deterministic, human-readable
 per-tick TRACE of any fixed scenario, for debugging and for the QA invariant

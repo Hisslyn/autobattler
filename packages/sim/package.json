@@ -7,7 +7,8 @@
     ".": "./src/engine.ts",
     "./src/prng.js": "./src/prng.ts",
     "./src/types.js": "./src/types.ts",
-    "./src/hex.js": "./src/hex.ts"
+    "./src/hex.js": "./src/hex.ts",
+    "./src/fixed.js": "./src/fixed.ts"
   },
   "dependencies": {
     "@autobattler/data": "*"

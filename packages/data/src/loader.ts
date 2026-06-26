@@ -140,7 +140,10 @@ export interface EconomyData {
   damageTierWeights: Record<string, number>;
   overtimeBaseDamage: number;
   overtimeRampPerTick: number;
-  overtimeHardCapTicks: number;
+  /** Overtime hard cap authored in SECONDS (fixed-point, scale 1000). The
+   *  engine converts to integer ticks via secondsToTicks at the canonical
+   *  TICK_HZ (see packages/sim/src/fixed.ts). */
+  overtimeHardCapSeconds: number;
   critChance: number;
   critMultiplier: number;
   resolutionSeconds: number;
@@ -162,8 +165,11 @@ export interface GameplayData {
   manaPerAttack: number;
   manaPerDamageTaken: number;
   starMultipliers: Record<string, number>;
-  ticksPerSec: number;
-  overtimeStartTick: number;
+  /** Overtime start threshold authored in SECONDS (fixed-point, scale 1000).
+   *  The engine converts to integer ticks via secondsToTicks at the canonical
+   *  TICK_HZ (see packages/sim/src/fixed.ts). The simulation rate is NOT a data
+   *  field — it is the single TICK_HZ constant in fixed.ts. */
+  overtimeStartSeconds: number;
   mitigationBase: number;
   aiXpGoldThreshold: number;
   aiInterestReserve: number;
