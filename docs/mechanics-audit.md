@@ -20,7 +20,7 @@ Method: read every test file in `packages/rules/tests/`, `packages/sim/tests/`, 
 - Reroll shop odds by level: level 1 → tier 1 only → covered (`packages/rules/tests/shop.test.ts` › "level 1 shop only rolls tier-1 units")
 - Reroll shop odds by level: level 9 can produce tier 3+ → covered (`packages/rules/tests/shop.test.ts` › "level 9 shop can roll tier 3+ units")
 - Shop slot count matches economy.json → covered (`packages/rules/tests/shop.test.ts` › "shop has correct number of slots")
-- Exact shopOdds tier-probability weights per level → **GAP** — tests verify floor/ceiling tier availability but never pin the numeric weights in `economy.json`'s `shopOdds` table against measured roll frequencies; only a sanity bound is checked.
+- Exact shopOdds tier-probability weights per level → covered (`packages/rules/tests/shopOdds.test.ts` › "each row sums to 100", "level 1/5/9 row exact weights", and 20 boundary-mapping tests pinning tier selection at every cumulative-probability boundary for levels 1, 5, and 9; table-derived from economy.json shopOdds)
 
 ## packages/rules — pool
 
@@ -114,7 +114,7 @@ Method: read every test file in `packages/rules/tests/`, `packages/sim/tests/`, 
 - Sum is zero in equal lobby → covered (`packages/server/tests/mmr.test.ts` › same)
 - Winner gains, last place loses → covered (`packages/server/tests/mmr.test.ts` › "winner gains, last place loses in an equal lobby")
 - High-MMR player placing last loses more than low-MMR player → covered (`packages/server/tests/mmr.test.ts` › "higher-MMR player placing 8th loses more than lower-MMR player placing 8th")
-- Exact formula tested against live economy.json K/divisor/start values → **GAP** — `mmr.test.ts` pins known answers and reads K from `gameData.economy.mmrK`, but does not assert against the `mmrStart` and `mmrEloDivisor` constants; the expected formula is `E = 1/(1+10^((avg-self)/400))` using `mmrEloDivisor=400` and the test would pass even if divisor changed as long as it still ranked the same direction.
+- Exact formula tested against live economy.json K/divisor/start values → covered (`packages/server/tests/mmrDivisor.test.ts` › three hand-derived known-answer cases using a mixed-MMR lobby where divisor magnitude matters: 1400-MMR winner → +4, 600-MMR last-place → -4, 1200-MMR placement-4 → -8; plus explicit pins `mmrEloDivisor = 400`, `mmrStart = 1000`, `mmrK = 40`)
 
 ## packages/data/src/loader.ts — rank bands
 
@@ -171,8 +171,4 @@ Golden snapshot regression: covered (`packages/sim/tests/combatTrace.golden.test
 
 4. **pveBaseGold exact award isolation** — the PvE test asserts `player.gold >= pveBaseGold` but does not separate base gold from loot gold. If `pveBaseGold` were accidentally multiplied or applied twice, the test would still pass (gold would be higher, still `>= 5`).
 
-5. **shopOdds exact tier-probability weights** — tests only confirm tier floor (level 1 → tier 1 only) and tier ceiling (level 9 can produce tier 3+). The specific percentage odds in `economy.json`'s `shopOdds` table are never verified as probability distributions, so an incorrect weight for a middle tier would go undetected.
-
-6. **recipeResult never returns artifact/mythical ids** — confirmed structurally by the integrity test (artifacts/mythicals have no `recipe`), but no test passes their ids directly into `recipeResult` and asserts `null`. A future data error adding a spurious recipe field would not be caught until runtime.
-
-7. **Exact MMR Elo divisor** — `mmr.test.ts` reads K from `gameData.economy.mmrK` but does not pin `mmrEloDivisor=400` in the expectation formula. If the divisor changed, the known-answer assertions would still pass for the symmetric equal-lobby case (where expected = 0.5 regardless of divisor) and the directional tests only assert sign, not magnitude.
+5. **recipeResult never returns artifact/mythical ids** — confirmed structurally by the integrity test (artifacts/mythicals have no `recipe`), but no test passes their ids directly into `recipeResult` and asserts `null`. A future data error adding a spurious recipe field would not be caught until runtime.
