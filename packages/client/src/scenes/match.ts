@@ -245,6 +245,14 @@ export class MatchScene {
   private boardLayer!: PIXI.Container;
   private benchLayer!: PIXI.Container;
   /**
+   * FRONT candle layer for the real board group: the tealight gold-meters render
+   * here (ABOVE the bench) so candles overlap the bench tokens, while the bench
+   * stays a working drop target — this layer is non-interactive (`eventMode:"none"`
+   * graphics), and bench hit-testing is geometric (`benchSlotAt`), independent of
+   * Pixi z-order, so only the visual stacking changes.
+   */
+  private candleLayer!: PIXI.Container;
+  /**
    * SEPARATE board-assembly instance used for scouting/peek. Built by the SAME
    * board/bench builders (`renderBoard`/`renderBench`) so it's visually identical
    * by construction, but it owns its OWN layers + the peeked player's state and is
@@ -256,6 +264,8 @@ export class MatchScene {
   private peekGroup!: PIXI.Container;
   private peekBoardLayer!: PIXI.Container;
   private peekBenchLayer!: PIXI.Container;
+  /** FRONT candle layer for the peek group (mirrors `candleLayer`). */
+  private peekCandleLayer!: PIXI.Container;
   private shopLayer!: PIXI.Container;
   private hudLayer!: PIXI.Container;
   private toastLayer!: PIXI.Container;
@@ -454,6 +464,10 @@ export class MatchScene {
     this.boardGroup.sortableChildren = true;
     this.boardLayer = new PIXI.Container();
     this.benchLayer = new PIXI.Container();
+    // Candles render on a FRONT layer above the bench (see field doc); never
+    // interactive, so the bench remains a working geometric drop target.
+    this.candleLayer = new PIXI.Container();
+    this.candleLayer.eventMode = "none";
     // Separate peek board-assembly instance (same structure as boardGroup): its
     // own board + bench layers, built by the shared builders into the peeked
     // player's state, decoupled from the real board. Hidden until peeking.
@@ -462,6 +476,8 @@ export class MatchScene {
     this.peekGroup.visible = false;
     this.peekBoardLayer = new PIXI.Container();
     this.peekBenchLayer = new PIXI.Container();
+    this.peekCandleLayer = new PIXI.Container();
+    this.peekCandleLayer.eventMode = "none";
     this.planningFxLayer = new PIXI.Container();
     // L3_WATERMARK / L4_FRAME — reserved empty layers, styling deferred.
     this.watermarkLayer = new PIXI.Container();
@@ -491,12 +507,18 @@ export class MatchScene {
     this.boardGroup.zIndex = L0_BOARD_ENV;
     this.boardLayer.zIndex = L0_BOARD_ENV;
     this.benchLayer.zIndex = L2_UNITS;
+    // Candles sit a notch above the bench WITHIN the group so they draw in FRONT
+    // of (overlap) the bench tokens. The group as a whole still sits at
+    // L0_BOARD_ENV, so the entire assembly (incl. candles) stays below the
+    // scene-level planning FX / HUD / overlays.
+    this.candleLayer.zIndex = L2_UNITS + 1;
     // Peek group mirrors the real board group's internal z-stack; the group sits
     // one notch above boardGroup so when visible it overlays the (hidden) real
-    // board. Same board-under-bench ordering inside it.
+    // board. Same board-under-bench-under-candle ordering inside it.
     this.peekGroup.zIndex = L0_BOARD_ENV + 1;
     this.peekBoardLayer.zIndex = L0_BOARD_ENV;
     this.peekBenchLayer.zIndex = L2_UNITS;
+    this.peekCandleLayer.zIndex = L2_UNITS + 1;
     this.planningFxLayer.zIndex = L2_UNITS;
     this.watermarkLayer.zIndex = L3_WATERMARK;
     this.frameLayer.zIndex = L4_FRAME;
@@ -531,11 +553,13 @@ export class MatchScene {
     // to the scene at the board-environment level.
     this.boardGroup.addChild(this.boardLayer);
     this.boardGroup.addChild(this.benchLayer);
+    this.boardGroup.addChild(this.candleLayer);
     this.container.addChild(this.boardGroup);
     // Peek group: a sibling board assembly added right after the real one (its
     // higher zIndex puts it above when visible). Hidden by default.
     this.peekGroup.addChild(this.peekBoardLayer);
     this.peekGroup.addChild(this.peekBenchLayer);
+    this.peekGroup.addChild(this.peekCandleLayer);
     this.container.addChild(this.peekGroup);
     this.container.addChild(this.planningFxLayer);
     this.container.addChild(this.watermarkLayer);
@@ -809,7 +833,7 @@ export class MatchScene {
         // everything attached (units, placements, bench, candle gold-meters) goes
         // through `fwd`/`depthScaleAt` so it flips together, then projects upright.
         this.peekFlip = true;
-        this.renderBoard(peeked, this.peekBoardLayer, { readOnly: true });
+        this.renderBoard(peeked, this.peekBoardLayer, { readOnly: true, candleLayer: this.peekCandleLayer });
         this.renderBench(peeked, this.peekBenchLayer, { readOnly: true });
         this.renderTopBench(this.peekBenchLayer); // empty second-player scaffold
         this.peekFlip = false;
@@ -1435,13 +1459,20 @@ export class MatchScene {
 
     // Screen-space horizontal nudge applied AFTER projection so each column sits
     // a fixed half-candle gap outward from the board edge regardless of depth.
+    // `screenDx` is authored as a SCREEN-space outward nudge (left column −, right
+    // column +). The peek board's 180° flip lives in BOARD space (`fwd`), which
+    // projects to a horizontal screen mirror — so the same `screenDx` would land
+    // INWARD on the flipped board. Negate it while peeking so "outward" stays
+    // outward on screen, matching my own board's candle gap exactly.
+    const screenDxSign = this.peekFlip ? -1 : 1;
     const pushColumn = (
       boardX: number, flags: boolean[], back: number, front: number, dy: number, screenDx: number
     ): void => {
+      const sdx = screenDx * screenDxSign;
       for (let i = 0; i < TORCHES_PER_SIDE; i++) {
         const by = yAt(i, back, front) + dy;
         const base = this.fwd({ x: boardX, y: by });
-        pillars.push({ sx: base.x + screenDx, sy: base.y, scale: this.depthScaleAt({ x: boardX, y: by }), lit: flags[i]!, y: by });
+        pillars.push({ sx: base.x + sdx, sy: base.y, scale: this.depthScaleAt({ x: boardX, y: by }), lit: flags[i]!, y: by });
       }
     };
 
@@ -1527,11 +1558,20 @@ export class MatchScene {
    * long-press-to-inspect, and ignores my-board UI state (selection halos, drag
    * tints) since those are only meaningful for my own editable board.
    */
-  private renderBoard(me: PlayerState, boardLayer: PIXI.Container = this.boardLayer, opts: { readOnly?: boolean } = {}): void {
+  private renderBoard(
+    me: PlayerState,
+    boardLayer: PIXI.Container = this.boardLayer,
+    opts: { readOnly?: boolean; candleLayer?: PIXI.Container } = {},
+  ): void {
     const readOnly = opts.readOnly === true;
+    // Candles render on a FRONT layer (above the bench) — drawn into the group's
+    // dedicated candle layer, not the board ground layer. Defaults to the real
+    // board's candle layer; the peek path passes its own.
+    const candleLayer = opts.candleLayer ?? this.candleLayer;
     boardLayer.removeChildren();
+    candleLayer.removeChildren();
     this.drawBoardPanel(boardLayer);
-    this.drawArenaTorches(boardLayer, me, false);
+    this.drawArenaTorches(candleLayer, me, false);
     const offX = this.boardOffsetX;
     const playerY = this.boardOffsetY;
     const oppY = this.oppBoardOffsetY;
@@ -3889,6 +3929,7 @@ export class MatchScene {
     this.peekGroup.visible = false;
     this.peekBoardLayer.removeChildren();
     this.peekBenchLayer.removeChildren();
+    this.peekCandleLayer.removeChildren();
     this.boardGroup.visible = true;
     this.closeInspect();
     this.render(this.driver.getState());
@@ -3903,6 +3944,7 @@ export class MatchScene {
     this.peekGroup.visible = false;
     this.peekBoardLayer.removeChildren();
     this.peekBenchLayer.removeChildren();
+    this.peekCandleLayer.removeChildren();
     this.boardGroup.visible = true;
   }
 
@@ -4142,7 +4184,7 @@ export class MatchScene {
       this.renderCombat(state);
       return;
     }
-    const planning = [this.boardLayer, this.benchLayer, this.shopLayer, this.traitLayer, this.shopPanelLayer, this.shopToggleLayer];
+    const planning = [this.boardLayer, this.benchLayer, this.candleLayer, this.shopLayer, this.traitLayer, this.shopPanelLayer, this.shopToggleLayer];
     let t = 0;
     const fade = (ticker: PIXI.Ticker): void => {
       t += ticker.deltaMS;
@@ -4170,6 +4212,7 @@ export class MatchScene {
     // Hide planning UI
     this.boardLayer.removeChildren();
     this.benchLayer.removeChildren();
+    this.candleLayer.removeChildren(); // planning candles render here now (front layer)
     this.shopLayer.removeChildren();
     this.traitLayer.removeChildren();
     this.resetShopPanel();
