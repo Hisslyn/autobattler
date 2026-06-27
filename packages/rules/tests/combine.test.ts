@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gameData, recipeResult } from "@autobattler/data";
+import { gameData, recipeResult, itemKind } from "@autobattler/data";
 import { createMatch } from "../src/match.js";
 import { applyCommand } from "../src/commands.js";
 import { mulberry32 } from "@autobattler/sim/src/prng.js";
@@ -139,5 +139,73 @@ describe("UNEQUIP", () => {
     const res = applyCommand(state, 0, { type: "UNEQUIP", unitUid: 7005, itemId: "iron_sword" }, prng, gameData);
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toBe("ITEM_NOT_FOUND");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GAP 5: recipeResult never returns an artifact or mythical item id.
+// Artifact and mythical ids are identified from gameData (items.json) by their
+// `kind` field — never hardcoded. Passing one artifact id and one mythical id
+// (in both argument orders) to recipeResult must return null.
+// ---------------------------------------------------------------------------
+describe("recipeResult artifact/mythical rejection", () => {
+  // Derive artifact and mythical ids from gameData so a data rename is caught.
+  const artifacts = gameData.items.filter((i) => itemKind(i) === "artifact");
+  const mythicals = gameData.items.filter((i) => itemKind(i) === "mythical");
+  // Also pick one component for cross-kind tests.
+  const components = gameData.items.filter((i) => itemKind(i) === "component");
+
+  it("recipeResult returns null for every artifact id passed as either argument", () => {
+    expect(artifacts.length).toBeGreaterThan(0); // sanity: data must have artifacts
+    for (const artifact of artifacts) {
+      // artifact × artifact → null
+      const result = recipeResult(artifact.id, artifact.id, gameData.items);
+      expect(result).toBeNull();
+    }
+  });
+
+  it("recipeResult returns null for artifact × component in both orders", () => {
+    const artifact = artifacts[0]!;
+    const component = components[0]!;
+    expect(recipeResult(artifact.id, component.id, gameData.items)).toBeNull();
+    expect(recipeResult(component.id, artifact.id, gameData.items)).toBeNull();
+  });
+
+  it("recipeResult returns null for every mythical id passed as either argument", () => {
+    expect(mythicals.length).toBeGreaterThan(0); // sanity: data must have mythicals
+    for (const mythical of mythicals) {
+      // mythical × mythical → null
+      const result = recipeResult(mythical.id, mythical.id, gameData.items);
+      expect(result).toBeNull();
+    }
+  });
+
+  it("recipeResult returns null for mythical × component in both orders", () => {
+    const mythical = mythicals[0]!;
+    const component = components[0]!;
+    expect(recipeResult(mythical.id, component.id, gameData.items)).toBeNull();
+    expect(recipeResult(component.id, mythical.id, gameData.items)).toBeNull();
+  });
+
+  it("recipeResult returns null for artifact × mythical in both orders", () => {
+    const artifact = artifacts[0]!;
+    const mythical = mythicals[0]!;
+    expect(recipeResult(artifact.id, mythical.id, gameData.items)).toBeNull();
+    expect(recipeResult(mythical.id, artifact.id, gameData.items)).toBeNull();
+  });
+
+  it("exhaustive: no artifact id appears as the result of recipeResult over all component pairs", () => {
+    // The full recipe sweep must never produce an artifact or mythical id.
+    const artifactIds = new Set(artifacts.map((a) => a.id));
+    const mythicalIds = new Set(mythicals.map((m) => m.id));
+    for (let i = 0; i < components.length; i++) {
+      for (let j = i; j < components.length; j++) {
+        const result = recipeResult(components[i]!.id, components[j]!.id, gameData.items);
+        if (result !== null) {
+          expect(artifactIds.has(result)).toBe(false);
+          expect(mythicalIds.has(result)).toBe(false);
+        }
+      }
+    }
   });
 });

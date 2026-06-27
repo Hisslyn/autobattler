@@ -322,3 +322,140 @@ describe("command validation", () => {
     if (!result.ok) expect(result.error).toBe("ITEM_NOT_FOUND");
   });
 });
+
+// ---------------------------------------------------------------------------
+// GAP 2: SELL exact gold refund at the rules layer —
+//   formula: tier × copiesPerStar[star] × sellValueMultiplier
+//   All constants read from gameData (never hardcoded).
+// ---------------------------------------------------------------------------
+describe("SELL exact refund amount (rules layer)", () => {
+  const { copiesPerStar, sellValueMultiplier } = gameData.gameplay;
+
+  it("SELL 1-star unit: refund = tier × copiesPerStar[1] × sellValueMultiplier", () => {
+    // Use the first tier-1 unit so tier = 1.
+    const unitDef = gameData.units.find((u) => u.tier === 1)!;
+    const expectedRefund = unitDef.tier * copiesPerStar["1"]! * sellValueMultiplier;
+
+    const state = createMatch(1, gameData);
+    const prng = mulberry32(1);
+    const player = state.players[0]!;
+    const unit = makeUnit(8500, unitDef.id);
+    unit.star = 1;
+    player.bench = makeBench([unit]);
+    player.gold = 0;
+
+    const result = applyCommand(state, 0, { type: "SELL", unitUid: 8500 }, prng, gameData);
+    expect(result.ok).toBe(true);
+    expect(player.gold).toBe(expectedRefund);
+  });
+
+  it("SELL 2-star unit: refund = tier × copiesPerStar[2] × sellValueMultiplier", () => {
+    // Use the first tier-1 unit for a clear expected value.
+    const unitDef = gameData.units.find((u) => u.tier === 1)!;
+    const expectedRefund = unitDef.tier * copiesPerStar["2"]! * sellValueMultiplier;
+
+    const state = createMatch(1, gameData);
+    const prng = mulberry32(1);
+    const player = state.players[0]!;
+    const unit = makeUnit(8501, unitDef.id);
+    unit.star = 2;
+    player.bench = makeBench([unit]);
+    player.gold = 0;
+
+    const result = applyCommand(state, 0, { type: "SELL", unitUid: 8501 }, prng, gameData);
+    expect(result.ok).toBe(true);
+    // copiesPerStar[2] = 3, so this is 3× the 1-star refund.
+    expect(player.gold).toBe(expectedRefund);
+  });
+
+  it("SELL 3-star unit: refund = tier × copiesPerStar[3] × sellValueMultiplier", () => {
+    const unitDef = gameData.units.find((u) => u.tier === 1)!;
+    const expectedRefund = unitDef.tier * copiesPerStar["3"]! * sellValueMultiplier;
+
+    const state = createMatch(1, gameData);
+    const prng = mulberry32(1);
+    const player = state.players[0]!;
+    const unit = makeUnit(8502, unitDef.id);
+    unit.star = 3;
+    player.bench = makeBench([unit]);
+    player.gold = 0;
+
+    const result = applyCommand(state, 0, { type: "SELL", unitUid: 8502 }, prng, gameData);
+    expect(result.ok).toBe(true);
+    // copiesPerStar[3] = 9, so this is 9× the 1-star refund.
+    expect(player.gold).toBe(expectedRefund);
+  });
+
+  it("SELL higher-tier 1-star unit: refund scales by tier (tier read from gameData)", () => {
+    // Use the first tier-3 unit to verify the tier multiplier is not always 1.
+    const unitDef = gameData.units.find((u) => u.tier === 3)!;
+    const expectedRefund = unitDef.tier * copiesPerStar["1"]! * sellValueMultiplier;
+
+    const state = createMatch(1, gameData);
+    const prng = mulberry32(1);
+    const player = state.players[0]!;
+    const unit = makeUnit(8503, unitDef.id);
+    unit.star = 1;
+    player.bench = makeBench([unit]);
+    player.gold = 0;
+
+    const result = applyCommand(state, 0, { type: "SELL", unitUid: 8503 }, prng, gameData);
+    expect(result.ok).toBe(true);
+    expect(player.gold).toBe(expectedRefund);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GAP 3: BUY exact gold deduction —
+//   buying a tier-N unit must deduct exactly N gold (cost === tier).
+//   Tier read from gameData, never hardcoded.
+// ---------------------------------------------------------------------------
+describe("BUY exact gold deduction (rules layer)", () => {
+  it("BUY tier-1 unit: deducts exactly 1 gold", () => {
+    const unitDef = gameData.units.find((u) => u.tier === 1)!;
+
+    const state = createMatch(1, gameData);
+    const prng = mulberry32(1);
+    const player = state.players[0]!;
+    player.gold = 50;
+    player.bench = makeBench([]); // empty bench (room to buy)
+    player.shop[0] = { defId: unitDef.id, tier: unitDef.tier };
+
+    const goldBefore = player.gold;
+    const result = applyCommand(state, 0, { type: "BUY", shopSlotIndex: 0 }, prng, gameData);
+    expect(result.ok).toBe(true);
+    expect(player.gold).toBe(goldBefore - unitDef.tier);
+  });
+
+  it("BUY tier-3 unit: deducts exactly 3 gold", () => {
+    const unitDef = gameData.units.find((u) => u.tier === 3)!;
+
+    const state = createMatch(1, gameData);
+    const prng = mulberry32(1);
+    const player = state.players[0]!;
+    player.gold = 50;
+    player.bench = makeBench([]);
+    player.shop[0] = { defId: unitDef.id, tier: unitDef.tier };
+
+    const goldBefore = player.gold;
+    const result = applyCommand(state, 0, { type: "BUY", shopSlotIndex: 0 }, prng, gameData);
+    expect(result.ok).toBe(true);
+    expect(player.gold).toBe(goldBefore - unitDef.tier);
+  });
+
+  it("BUY tier-5 unit: deducts exactly 5 gold", () => {
+    const unitDef = gameData.units.find((u) => u.tier === 5)!;
+
+    const state = createMatch(1, gameData);
+    const prng = mulberry32(1);
+    const player = state.players[0]!;
+    player.gold = 50;
+    player.bench = makeBench([]);
+    player.shop[0] = { defId: unitDef.id, tier: unitDef.tier };
+
+    const goldBefore = player.gold;
+    const result = applyCommand(state, 0, { type: "BUY", shopSlotIndex: 0 }, prng, gameData);
+    expect(result.ok).toBe(true);
+    expect(player.gold).toBe(goldBefore - unitDef.tier);
+  });
+});

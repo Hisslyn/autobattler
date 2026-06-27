@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { gameData } from "@autobattler/data";
-import type { LootRarity } from "@autobattler/data";
+import type { LootRarity, GameData } from "@autobattler/data";
 import { createMatch, advancePhase } from "../src/match.js";
 import { generateLoot, applyLootOrb } from "../src/loot.js";
-import { buildMobBoard, pveStageForRound, isPveRound, stageForRound, previewPveStage } from "../src/rounds.js";
+import { buildMobBoard, pveStageForRound, isPveRound, stageForRound, previewPveStage, runPveRound } from "../src/rounds.js";
 import { mulberry32 } from "@autobattler/sim/src/prng.js";
 import type { MatchState } from "../src/state.js";
 import type { UnitInstance } from "@autobattler/sim/src/types.js";
@@ -417,6 +417,81 @@ describe("previewPveStage", () => {
         // PvE round but no stage entry in mobs.json — preview returns null (no stage to show)
         expect(preview, `round ${round} has no stage entry, preview should be null`).toBeNull();
       }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GAP 4: pveBaseGold exact award isolation.
+// Strategy: build a custom GameData whose loot.roundDrops for the target round
+// is empty (no drops at all), so the ONLY gold credited comes from the flat
+// pveBaseGold constant. Assert gold delta == pveBaseGold exactly.
+// A doubled pveBaseGold would result in gold delta == 2 * pveBaseGold → FAIL.
+// ---------------------------------------------------------------------------
+describe("pveBaseGold exact award (isolated from loot)", () => {
+  it("runPveRound credits exactly pveBaseGold gold per player when loot drops are zeroed", () => {
+    const { pveBaseGold } = gameData.economy;
+
+    // Build a shallow copy of gameData with empty loot drops for round 1.
+    // This isolates the base gold grant from any loot gold that might also
+    // resolve to gold entries in the loot table.
+    const noLootData: GameData = {
+      ...gameData,
+      loot: {
+        ...gameData.loot,
+        roundDrops: {
+          ...gameData.loot.roundDrops,
+          "1": [], // no orbs → no loot gold, no loot items
+        },
+      },
+    };
+
+    const state = createMatch(77, noLootData);
+    state.round = 1; // stage 1, round 1 — a known PvE round
+    // Field one unit per player so combat runs; the result doesn't affect gold.
+    for (let i = 0; i < state.players.length; i++) {
+      state.players[i]!.board[0] = makeUnit(5000 + i, "warrior");
+    }
+
+    // Zero all gold so the delta is trivially visible.
+    for (const p of state.players) p.gold = 0;
+
+    const prng = mulberry32(state.prngState);
+    runPveRound(state, prng, noLootData);
+
+    for (const p of state.players) {
+      // With no loot drops, the ONLY source of gold is pveBaseGold.
+      expect(p.gold).toBe(pveBaseGold);
+    }
+  });
+
+  it("doubling pveBaseGold in data produces exactly double the base gold grant", () => {
+    // Regression guard: verify the constant is actually what the code uses.
+    const { pveBaseGold } = gameData.economy;
+    const doubledData: GameData = {
+      ...gameData,
+      economy: {
+        ...gameData.economy,
+        pveBaseGold: pveBaseGold * 2,
+      },
+      loot: {
+        ...gameData.loot,
+        roundDrops: { ...gameData.loot.roundDrops, "1": [] },
+      },
+    };
+
+    const state = createMatch(88, doubledData);
+    state.round = 1;
+    for (let i = 0; i < state.players.length; i++) {
+      state.players[i]!.board[0] = makeUnit(6000 + i, "warrior");
+    }
+    for (const p of state.players) p.gold = 0;
+
+    const prng = mulberry32(state.prngState);
+    runPveRound(state, prng, doubledData);
+
+    for (const p of state.players) {
+      expect(p.gold).toBe(pveBaseGold * 2);
     }
   });
 });

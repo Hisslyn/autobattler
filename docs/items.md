@@ -44,7 +44,7 @@ Stat-only. `component: true` in JSON. No recipe, no passive.
 |----|------|-------|
 | `iron_sword` | Iron Sword | `ad: 100` |
 | `chain_vest` | Chain Vest | `armor: 200` |
-| `mana_crystal` | Mana Crystal | `mana: 30`, `abilityDamage: 50` |
+| `mana_crystal` | Mana Crystal | `mana: 30`,`abilityDamage: 50` |
 | `recurve_bow` | Recurve Bow | `as: 150` |
 | `negatron_cloak` | Negatron Cloak | `mr: 150` |
 | `giants_belt` | Giant's Belt | `hp: 400` |

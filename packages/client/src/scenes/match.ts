@@ -100,6 +100,14 @@ const SHOP_PANEL_HIDE_MARGIN = 4;
 // countdown can never drift from the real auto-advance.
 const RESOLUTION_AUTO_ADVANCE_MS = gameData.economy.resolutionSeconds * 1000;
 
+// Sell "+N" gold floater tuning. The floater spawns at the gold medallion's
+// CENTER, rises straight upward in a long readable arc, and holds before fading
+// so the gold gain is unmistakable as it lifts out of the gold medallion.
+const SELL_POP_TTL = 1100;            // total lifetime (ms)
+const SELL_POP_HOLD = 220;            // hold full alpha before fading (ms)
+const SELL_POP_RISE_PER_MS = 0.07;    // upward speed → ~77px rise over its life
+const SELL_POP_REDUCED_TTL = 700;     // static "+N" dwell time under reduced motion (ms)
+
 interface HexStyle {
   /** Border stroke (thin tile outline / drag highlight). */
   border?: { color: number; width: number; alpha?: number };
@@ -235,6 +243,18 @@ export class MatchScene {
   private boardGroup!: PIXI.Container;
   private boardLayer!: PIXI.Container;
   private benchLayer!: PIXI.Container;
+  /**
+   * SEPARATE board-assembly instance used for scouting/peek. Built by the SAME
+   * board/bench builders (`renderBoard`/`renderBench`) so it's visually identical
+   * by construction, but it owns its OWN layers + the peeked player's state and is
+   * fully decoupled from `boardGroup` — it can later be transformed/moved on its
+   * own without touching the real board. Hidden until a peek is active; the real
+   * `boardGroup` is hidden (never mutated) while it's shown, so exiting peek
+   * restores my own board exactly.
+   */
+  private peekGroup!: PIXI.Container;
+  private peekBoardLayer!: PIXI.Container;
+  private peekBenchLayer!: PIXI.Container;
   private shopLayer!: PIXI.Container;
   private hudLayer!: PIXI.Container;
   private toastLayer!: PIXI.Container;
@@ -422,6 +442,14 @@ export class MatchScene {
     this.boardGroup.sortableChildren = true;
     this.boardLayer = new PIXI.Container();
     this.benchLayer = new PIXI.Container();
+    // Separate peek board-assembly instance (same structure as boardGroup): its
+    // own board + bench layers, built by the shared builders into the peeked
+    // player's state, decoupled from the real board. Hidden until peeking.
+    this.peekGroup = new PIXI.Container();
+    this.peekGroup.sortableChildren = true;
+    this.peekGroup.visible = false;
+    this.peekBoardLayer = new PIXI.Container();
+    this.peekBenchLayer = new PIXI.Container();
     this.planningFxLayer = new PIXI.Container();
     // L3_WATERMARK / L4_FRAME — reserved empty layers, styling deferred.
     this.watermarkLayer = new PIXI.Container();
@@ -451,6 +479,12 @@ export class MatchScene {
     this.boardGroup.zIndex = L0_BOARD_ENV;
     this.boardLayer.zIndex = L0_BOARD_ENV;
     this.benchLayer.zIndex = L2_UNITS;
+    // Peek group mirrors the real board group's internal z-stack; the group sits
+    // one notch above boardGroup so when visible it overlays the (hidden) real
+    // board. Same board-under-bench ordering inside it.
+    this.peekGroup.zIndex = L0_BOARD_ENV + 1;
+    this.peekBoardLayer.zIndex = L0_BOARD_ENV;
+    this.peekBenchLayer.zIndex = L2_UNITS;
     this.planningFxLayer.zIndex = L2_UNITS;
     this.watermarkLayer.zIndex = L3_WATERMARK;
     this.frameLayer.zIndex = L4_FRAME;
@@ -486,6 +520,11 @@ export class MatchScene {
     this.boardGroup.addChild(this.boardLayer);
     this.boardGroup.addChild(this.benchLayer);
     this.container.addChild(this.boardGroup);
+    // Peek group: a sibling board assembly added right after the real one (its
+    // higher zIndex puts it above when visible). Hidden by default.
+    this.peekGroup.addChild(this.peekBoardLayer);
+    this.peekGroup.addChild(this.peekBenchLayer);
+    this.container.addChild(this.peekGroup);
     this.container.addChild(this.planningFxLayer);
     this.container.addChild(this.watermarkLayer);
     this.container.addChild(this.frameLayer);
@@ -732,14 +771,19 @@ export class MatchScene {
     if (!me) return;
     this.renderHud(state, me);
     if (state.phase === "PLANNING") {
-      // Peeking another player swaps ONLY the board view to their (mirrored)
-      // board + trait strip; bench/shop/HUD stay mine. View-only, no mutation.
+      // Peeking another player shows THEIR board on a SEPARATE board-assembly
+      // instance (peekGroup) built by the SAME builders as my own board, so it's
+      // identical by construction. My real board group is hidden (never mutated)
+      // while peeking, so exiting restores it exactly. View-only, no mutation.
       const peeked = this.peekTargetId !== null ? state.players[this.peekTargetId] : null;
       if (peeked) {
-        // Read-only peek: the board, trait strip, bench, and econ all show the
-        // PEEKED player (mutations are blocked elsewhere via peekTargetId guards).
-        this.scoutLayer.removeChildren();
-        this.renderPeekBoard(peeked);
+        // Hide my real board assembly (untouched), show the peek instance built
+        // from the peeked player's real, read-only state.
+        this.boardGroup.visible = false;
+        this.peekGroup.visible = true;
+        this.renderBoard(peeked, this.peekBoardLayer, { readOnly: true });
+        this.renderBench(peeked, this.peekBenchLayer, { readOnly: true });
+        this.renderTopBench(this.peekBenchLayer); // empty second-player scaffold
         // Peeked trait strip (traits only — never the item-browse tab, which would
         // read the peeked player's PRIVATE inventory).
         if (this.isLandscape) {
@@ -748,11 +792,17 @@ export class MatchScene {
         } else {
           this.renderTraitStrip(peeked);
         }
-        this.renderPeekBench(peeked);
-        this.renderTopBench(); // empty second-player bench (same layout as own POV)
-        this.renderPeekEcon(peeked);
+        // Return-to-board medallion replaces my shop toggle while peeking (the
+        // ONLY way back); clear my own shop chrome so it never lingers.
+        this.shopLayer.removeChildren();
+        this.shopPanelLayer.removeChildren();
+        this.shopBackdropLayer.removeChildren();
+        this.shopToggleLayer.removeChildren();
+        this.renderReturnToBoardButton();
       } else {
-        this.scoutLayer.removeChildren();
+        // Restore my own board assembly; the peek instance stays hidden.
+        this.peekGroup.visible = false;
+        this.boardGroup.visible = true;
         this.renderBoard(me);
         if (this.isLandscape) this.renderRailTabs(me);
         else this.renderTraitStrip(me);
@@ -1439,10 +1489,19 @@ export class MatchScene {
     }
   }
 
-  private renderBoard(me: PlayerState): void {
-    this.boardLayer.removeChildren();
-    this.drawBoardPanel(this.boardLayer);
-    this.drawArenaTorches(this.boardLayer, me, false);
+  /**
+   * Build the board (ground + hex zones + units) for `me` into `boardLayer`.
+   * The SINGLE board-look source — both my own board and the scout/peek board
+   * are built here, so peek is visually identical by construction. `readOnly`
+   * (scout/peek) renders the SAME geometry but disables every interaction except
+   * long-press-to-inspect, and ignores my-board UI state (selection halos, drag
+   * tints) since those are only meaningful for my own editable board.
+   */
+  private renderBoard(me: PlayerState, boardLayer: PIXI.Container = this.boardLayer, opts: { readOnly?: boolean } = {}): void {
+    const readOnly = opts.readOnly === true;
+    boardLayer.removeChildren();
+    this.drawBoardPanel(boardLayer);
+    this.drawArenaTorches(boardLayer, me, false);
     const offX = this.boardOffsetX;
     const playerY = this.boardOffsetY;
     const oppY = this.oppBoardOffsetY;
@@ -1451,7 +1510,8 @@ export class MatchScene {
     const tokR = this.boardTokenR;
 
     // Only a UNIT drag (not an item drag) makes player hexes valid drop targets.
-    const unitDragging = this.isDragging && this.dragItem === null;
+    // A read-only (peek) board is never a drop target.
+    const unitDragging = !readOnly && this.isDragging && this.dragItem === null;
 
     // Enemy zone (top 4 rows) — darker tint, untargetable during planning. While
     // dragging a unit, dim it so it reads as "not a valid drop zone". A PvE round
@@ -1471,7 +1531,7 @@ export class MatchScene {
         const g = new PIXI.Graphics();
         drawHex(g, bp.x, bp.y, hexR, enemyZone, unitDragging ? 0.4 : 1, {}, fwd);
         g.eventMode = "none";
-        this.boardLayer.addChild(g);
+        boardLayer.addChild(g);
       }
     }
 
@@ -1488,14 +1548,14 @@ export class MatchScene {
     }
     enemyGrid.stroke({ width: 1, color: C.boardBorder, alpha: unitDragging ? 0.12 : 0.4 });
     enemyGrid.eventMode = "none";
-    this.boardLayer.addChild(enemyGrid);
+    boardLayer.addChild(enemyGrid);
 
     // PvE creep preview: render the upcoming mob board (real BoardState from rules
     // via the driver) on the enemy half so the planned-for round is visible inline
     // instead of behind a scout overlay. Mob tokens are READ-ONLY — the only
     // interaction is long-press → inspect (the same armInspect path as board
     // units; inspectModel resolves a defId absent from data.units). No drag.
-    if (isPveRound) {
+    if (isPveRound && !readOnly) {
       const mobBoard = this.driver.getUpcomingPveBoard();
       if (mobBoard) {
         for (const unit of mobBoard.units) {
@@ -1515,7 +1575,7 @@ export class MatchScene {
           // the mob defId is absent from data.units (no extra theming here).
           // Depth-scaled piece; bars/pips stay upright + screen-aligned.
           drawUnit(uc, unit, sp.x, sp.y, Math.round(tokR * sc), false, false, true);
-          this.boardLayer.addChild(uc);
+          boardLayer.addChild(uc);
         }
       }
     }
@@ -1528,7 +1588,9 @@ export class MatchScene {
       for (let q = 0; q < BOARD_COLS; q++) {
         const slotIdx = r * BOARD_COLS + q;
         const bp = hexToPixel(q, r, offX, playerY, s);
-        const isSelected = this.selectedBoardIdx === slotIdx && me.board[slotIdx] != null;
+        // Selection / drag-over tints are my-board-only concepts; a read-only
+        // peek board always uses the plain near-half tint.
+        const isSelected = !readOnly && this.selectedBoardIdx === slotIdx && me.board[slotIdx] != null;
         const occupied = me.board[slotIdx] != null;
         const fill = isSelected
           ? C.bgBoardSel
@@ -1536,10 +1598,14 @@ export class MatchScene {
         const g = new PIXI.Graphics();
         drawHex(g, bp.x, bp.y, hexR, fill, 1, {}, fwd);
         const sp = this.fwd(bp);
-        g.eventMode = "static";
-        g.cursor = "pointer";
-        g.on("pointerdown", () => this.onHexPointerDown(slotIdx, me, sp.x, sp.y));
-        this.boardLayer.addChild(g);
+        if (readOnly) {
+          g.eventMode = "none"; // view-only: no hex interaction while peeking
+        } else {
+          g.eventMode = "static";
+          g.cursor = "pointer";
+          g.on("pointerdown", () => this.onHexPointerDown(slotIdx, me, sp.x, sp.y));
+        }
+        boardLayer.addChild(g);
       }
     }
 
@@ -1559,7 +1625,7 @@ export class MatchScene {
         : { width: 1, color: C.boardBorder, alpha: 0.4 }
     );
     playerGrid.eventMode = "none";
-    this.boardLayer.addChild(playerGrid);
+    boardLayer.addChild(playerGrid);
 
     // Draw units. Slot index order already runs back row → front row, so units
     // are added back-to-front and a nearer (larger, depth-scaled) unit renders in
@@ -1568,7 +1634,7 @@ export class MatchScene {
     for (let idx = 0; idx < BOARD_SLOTS; idx++) {
       const unit = me.board[idx];
       if (!unit) continue;
-      if (this.dragUnit?.uid === unit.uid) continue; // being dragged
+      if (!readOnly && this.dragUnit?.uid === unit.uid) continue; // being dragged
       const q = idx % BOARD_COLS;
       const r = Math.floor(idx / BOARD_COLS);
       const bp = hexToPixel(q, r, offX, playerY, s);
@@ -1576,20 +1642,29 @@ export class MatchScene {
       const r2 = Math.round(tokR * this.depthScaleAt(bp));
       // Selected (tap-to-move) unit gets a halo ring OUTSIDE its tier ring so it
       // reads as "this unit is selected" — the hex fill alone is hidden behind it.
-      if (this.selectedBoardIdx === idx && !this.isDragging) {
+      // (My-board only; a peek board has no selection.)
+      if (!readOnly && this.selectedBoardIdx === idx && !this.isDragging) {
         const halo = new PIXI.Graphics();
         halo.circle(sp.x, sp.y, r2 + 4).stroke({ width: 2, color: C.tier3, alpha: 0.75 });
         halo.eventMode = "none";
-        this.boardLayer.addChild(halo);
+        boardLayer.addChild(halo);
       }
       const uc = new PIXI.Container();
       uc.eventMode = "static";
-      uc.cursor = "grab";
-      uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBoard(idx, unit, e));
+      const u = unit;
+      if (readOnly) {
+        // View-only: no drag/select; long-press still opens inspect.
+        uc.cursor = "pointer";
+        uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.armInspect(u.defId, u, e));
+      } else {
+        uc.cursor = "grab";
+        uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBoard(idx, unit, e));
+      }
       uc.on("pointerup", () => this.clearPress());
       uc.on("pointerupoutside", () => this.clearPress());
-      drawUnit(uc, unit, sp.x, sp.y, r2, this.selectedBenchIdx !== null || (this.selectedBoardIdx !== null && this.selectedBoardIdx !== idx), true, true);
-      this.boardLayer.addChild(uc);
+      const dimmed = !readOnly && (this.selectedBenchIdx !== null || (this.selectedBoardIdx !== null && this.selectedBoardIdx !== idx));
+      drawUnit(uc, unit, sp.x, sp.y, r2, dimmed, true, true);
+      boardLayer.addChild(uc);
     }
   }
 
@@ -1637,8 +1712,15 @@ export class MatchScene {
     return benchSlotAtX(lp.x, this.benchGeom());
   }
 
-  private renderBench(me: PlayerState): void {
-    this.benchLayer.removeChildren();
+  /**
+   * Build the bench rail for `me` into `benchLayer`. The SINGLE bench-look source
+   * — my own bench and the scout/peek bench are both built here. `readOnly`
+   * (peek) renders the SAME cells/tokens but disables every interaction (no
+   * drag/select/tap) and ignores my selection state.
+   */
+  private renderBench(me: PlayerState, benchLayer: PIXI.Container = this.benchLayer, opts: { readOnly?: boolean } = {}): void {
+    const readOnly = opts.readOnly === true;
+    benchLayer.removeChildren();
 
     // Landscape: a subtle column-bg behind the left rail (trait tab bar + trait/
     // items rail) so the rail reads as a panel rather than floating chips.
@@ -1648,19 +1730,19 @@ export class MatchScene {
       colBg.roundRect(lr.x - 4, lr.y - 4, lr.w + 8, lr.h + 8, 6)
         .fill({ color: C.bgHud, alpha: 0.4 });
       colBg.eventMode = "none";
-      this.benchLayer.addChild(colBg);
+      benchLayer.addChild(colBg);
     }
 
     // Landscape: the bench is a tilted front platform on the board's plane.
     if (this.isLandscape) {
-      this.renderTiltedBench(me);
+      this.renderTiltedBench(me, benchLayer, readOnly);
       return;
     }
 
     for (let i = 0; i < 9; i++) {
       const { x: cx, y: cy } = this.benchSlotCenter(i);
       const unit = me.bench[i];
-      const isSelected = this.selectedBenchIdx === i && unit != null;
+      const isSelected = !readOnly && this.selectedBenchIdx === i && unit != null;
       const occupied = unit != null;
 
       // Cell rect: portrait uses the benchGeom slot height; landscape divides
@@ -1693,29 +1775,38 @@ export class MatchScene {
         color: isSelected ? C.tier3 : occupied ? C.chipBorder : C.benchEmptyRim,
         alpha: occupied ? 0.9 : 0.5,
       });
-      // Forgiving hit area covers the whole slot cell.
-      g.eventMode = "static";
-      g.cursor = "pointer";
-      g.hitArea = new PIXI.Rectangle(cellX, cellY, cellW, cellH);
-      g.on("pointerdown", () => this.onBenchSlotClick(i, me));
-      this.benchLayer.addChild(g);
+      // Forgiving hit area covers the whole slot cell. View-only (peek) leaves
+      // the cell non-interactive.
+      if (readOnly) {
+        g.eventMode = "none";
+      } else {
+        g.eventMode = "static";
+        g.cursor = "pointer";
+        g.hitArea = new PIXI.Rectangle(cellX, cellY, cellW, cellH);
+        g.on("pointerdown", () => this.onBenchSlotClick(i, me));
+      }
+      benchLayer.addChild(g);
 
       if (unit) {
-        if (this.dragUnit?.uid === unit.uid) continue;
+        if (!readOnly && this.dragUnit?.uid === unit.uid) continue;
         const uc = new PIXI.Container();
-        uc.eventMode = "static";
-        uc.cursor = "grab";
-        // Generous hit rect so a thumb anywhere on the slot grabs the unit.
-        uc.hitArea = new PIXI.Rectangle(cellX, cellY, cellW, cellH);
-        uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBench(i, unit, e));
-        uc.on("pointerup", () => this.clearPress());
-        uc.on("pointerupoutside", () => this.clearPress());
+        if (readOnly) {
+          uc.eventMode = "none"; // view-only: no slot interaction while peeking
+        } else {
+          uc.eventMode = "static";
+          uc.cursor = "grab";
+          // Generous hit rect so a thumb anywhere on the slot grabs the unit.
+          uc.hitArea = new PIXI.Rectangle(cellX, cellY, cellW, cellH);
+          uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBench(i, unit, e));
+          uc.on("pointerup", () => this.clearPress());
+          uc.on("pointerupoutside", () => this.clearPress());
+        }
         // Size the checkers piece to fill the slot — matches the board token look
         // (extruded volume) rather than a small flat disc. The piece's thickness
         // and star pips sit above/below the disc, so fit to the slot's short side.
         const r = Math.max(12, Math.min(18, Math.round(0.42 * Math.min(cellW, cellH))));
         drawUnit(uc, unit, cx, cy, r, false, false, true);
-        this.benchLayer.addChild(uc);
+        benchLayer.addChild(uc);
       }
     }
   }
@@ -1728,7 +1819,7 @@ export class MatchScene {
    * slot. All geometry uses the SAME forward/inverse projection as the board, so
    * dragging a unit to/from a slot lands on the correct one (see benchSlotAt).
    */
-  private renderTiltedBench(me: PlayerState): void {
+  private renderTiltedBench(me: PlayerState, benchLayer: PIXI.Container = this.benchLayer, readOnly = false): void {
     const band = this.benchBandRect();
     const fwd = (p: { x: number; y: number }): { x: number; y: number } => this.fwd(p);
 
@@ -1743,14 +1834,14 @@ export class MatchScene {
     base.poly(baseQuad).fill({ color: C.benchPlatform, alpha: 0.96 });
     base.poly(baseQuad).stroke({ width: 1, color: C.boardBorder, alpha: 0.6 });
     base.eventMode = "none";
-    this.benchLayer.addChild(base);
+    benchLayer.addChild(base);
 
     const slotW = band.w / 9;
     const insetX = slotW * 0.06;     // small board-space gaps so cells read distinct
     const insetY = band.h * 0.1;
     for (let i = 0; i < 9; i++) {
       const unit = me.bench[i];
-      const isSelected = this.selectedBenchIdx === i && unit != null;
+      const isSelected = !readOnly && this.selectedBenchIdx === i && unit != null;
       const occupied = unit != null;
 
       const sx = band.x + i * slotW + insetX;
@@ -1773,13 +1864,17 @@ export class MatchScene {
         color: isSelected ? C.tier3 : occupied ? C.chipBorder : C.benchEmptyRim,
         alpha: occupied ? 0.9 : 0.6,
       });
-      g.eventMode = "static";
-      g.cursor = "pointer";
-      g.on("pointerdown", () => this.onBenchSlotClick(i, me));
-      this.benchLayer.addChild(g);
+      if (readOnly) {
+        g.eventMode = "none"; // view-only: no slot interaction while peeking
+      } else {
+        g.eventMode = "static";
+        g.cursor = "pointer";
+        g.on("pointerdown", () => this.onBenchSlotClick(i, me));
+      }
+      benchLayer.addChild(g);
 
       if (unit) {
-        if (this.dragUnit?.uid === unit.uid) continue;
+        if (!readOnly && this.dragUnit?.uid === unit.uid) continue;
         // Fit the token to the PROJECTED slot size (perspective magnifies the
         // near platform), and keep it upright/screen-aligned like board tokens.
         const center = fwd({ x: sx + sw / 2, y: sy + sh / 2 });
@@ -1791,14 +1886,18 @@ export class MatchScene {
         const minY = Math.min(p0.y, p1.y, p2.y, p3.y);
         const maxY = Math.max(p0.y, p1.y, p2.y, p3.y);
         const uc = new PIXI.Container();
-        uc.eventMode = "static";
-        uc.cursor = "grab";
-        uc.hitArea = new PIXI.Rectangle(minX, minY, maxX - minX, maxY - minY);
-        uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBench(i, unit, e));
-        uc.on("pointerup", () => this.clearPress());
-        uc.on("pointerupoutside", () => this.clearPress());
+        if (readOnly) {
+          uc.eventMode = "none"; // view-only: no slot interaction while peeking
+        } else {
+          uc.eventMode = "static";
+          uc.cursor = "grab";
+          uc.hitArea = new PIXI.Rectangle(minX, minY, maxX - minX, maxY - minY);
+          uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.startDragBench(i, unit, e));
+          uc.on("pointerup", () => this.clearPress());
+          uc.on("pointerupoutside", () => this.clearPress());
+        }
         drawUnit(uc, unit, center.x, center.y, r, false, false, true);
-        this.benchLayer.addChild(uc);
+        benchLayer.addChild(uc);
       }
     }
   }
@@ -1810,7 +1909,7 @@ export class MatchScene {
    * it behaves identically when later populated. Our POV has no second-player
    * bench state, so it renders EMPTY and non-interactive. Part of the board group.
    */
-  private renderTopBench(): void {
+  private renderTopBench(benchLayer: PIXI.Container = this.benchLayer): void {
     if (this.isLandscape) {
       // Tilted platform on the board plane, butted against the board's back edge.
       const band = this.topBenchBandRect();
@@ -1826,7 +1925,7 @@ export class MatchScene {
       base.poly(baseQuad).fill({ color: C.benchPlatform, alpha: 0.96 });
       base.poly(baseQuad).stroke({ width: 1, color: C.boardBorder, alpha: 0.6 });
       base.eventMode = "none";
-      this.benchLayer.addChild(base);
+      benchLayer.addChild(base);
 
       const slotW = band.w / 9;
       const insetX = slotW * 0.06;
@@ -1847,7 +1946,7 @@ export class MatchScene {
         g.poly(poly).fill({ color: C.benchEmpty, alpha: 0.55 });
         g.poly(poly).stroke({ width: 1, color: C.benchEmptyRim, alpha: 0.6 });
         g.eventMode = "none"; // no second-player state to interact with
-        this.benchLayer.addChild(g);
+        benchLayer.addChild(g);
       }
       return;
     }
@@ -1864,7 +1963,7 @@ export class MatchScene {
       g.roundRect(cellX + 1, cellY, cellW - 2, cellH, 4)
         .stroke({ width: 1, color: C.benchEmptyRim, alpha: 0.5 });
       g.eventMode = "none"; // no second-player state to interact with
-      this.benchLayer.addChild(g);
+      benchLayer.addChild(g);
     }
   }
 
@@ -3553,27 +3652,43 @@ export class MatchScene {
    * (planningFxLayer sits below the HUD chrome).
    */
   private spawnSellPop(refund: number): void {
-    if (this.opts.settings.get().reducedMotion) return;
-    // Anchor over the gold/shop medallion (the money-sack toggle slot) in the
-    // bottom-right HUD — never over the sold unit. Rendered on the toast layer
-    // (L8_TOAST), the top-most always-visible overlay above the HUD chrome, so
-    // the floater is never occluded by the medallion or coupled to the loot
+    // Anchor relative to the gold/shop medallion (the money-sack toggle slot) in
+    // the bottom-right HUD — never over the sold unit. Rendered on sellPopLayer
+    // (z=880), the top-most always-visible overlay above the HUD chrome, so the
+    // floater is never occluded by the medallion or coupled to the loot
     // subsystem (whose layer is wiped on every phase transition).
     const m = this.shopToggleRect();
+    // Spawn at the medallion's own CENTER point, then travel straight upward and
+    // fade — the gold appears to lift out of the gold medallion itself.
     const x = m.x + m.w / 2;
-    const y = m.y;
-    const node = new PIXI.Container();
-    node.position.set(x, y - 6);
-    this.glyph(node, "coin", -9, 0, 10, C.accentGold);
-    this.text(node, `+${refund}`, 4, 0, 13, C.textGold, [0, 0.5], "700");
-    node.eventMode = "none";
+    const startY = m.y + m.h / 2;
+    const node = this.buildSellPopNode(refund);
+    node.position.set(x, startY);
     this.sellPopLayer.addChild(node);
+
+    // Reduced-motion: show a brief STATIC "+N" at the medallion center (no
+    // travel) instead of suppressing the gold-gain feedback entirely.
+    if (this.opts.settings.get().reducedMotion) {
+      let age = 0;
+      const ttl = SELL_POP_REDUCED_TTL;
+      const fn = (ticker: PIXI.Ticker): void => {
+        age += ticker.deltaMS;
+        if (age >= ttl) {
+          this.app.ticker.remove(fn);
+          if (node.parent) this.sellPopLayer.removeChild(node);
+          node.destroy({ children: true });
+        }
+      };
+      this.app.ticker.add(fn);
+      return;
+    }
+
     let age = 0;
-    const ttl = 720;
-    const holdMs = 140; // hold full alpha briefly so the pop is clearly seen
+    const ttl = SELL_POP_TTL;
+    const holdMs = SELL_POP_HOLD; // hold full alpha briefly so the pop is clearly seen
     const fn = (ticker: PIXI.Ticker): void => {
       age += ticker.deltaMS;
-      node.y -= ticker.deltaMS * 0.05; // float upward off the medallion
+      node.y -= ticker.deltaMS * SELL_POP_RISE_PER_MS; // float clearly upward
       node.alpha = age <= holdMs ? 1 : Math.max(0, 1 - (age - holdMs) / (ttl - holdMs));
       if (age >= ttl) {
         this.app.ticker.remove(fn);
@@ -3582,6 +3697,26 @@ export class MatchScene {
       }
     };
     this.app.ticker.add(fn);
+  }
+
+  /**
+   * Build the "+N" sell floater: a coin glyph + a BRIGHT (near-white) "+N" with a
+   * dark outline, so it reads clearly against the gold medallion it floats over.
+   */
+  private buildSellPopNode(refund: number): PIXI.Container {
+    const node = new PIXI.Container();
+    this.glyph(node, "coin", -9, 0, 10, C.accentGold);
+    const t = new PIXI.Text(`+${refund}`, {
+      fontSize: 14, fill: C.fxDamageChip, fontFamily: "monospace",
+      fontWeight: "700" as PIXI.TextStyleFontWeight,
+      stroke: { color: C.surfaceBase, width: 3, join: "round" },
+    });
+    t.anchor.set(0, 0.5);
+    t.x = 4; t.y = 0;
+    t.eventMode = "none";
+    node.addChild(t);
+    node.eventMode = "none";
+    return node;
   }
 
   private onShopBuy(idx: number): void {
@@ -3692,16 +3827,16 @@ export class MatchScene {
     }
   }
 
-  // ─── PEEK (in-board scouting: swap the board view, no popup) ───────────────
+  // ─── PEEK (in-board scouting: a separate read-only board instance) ─────────
 
   /**
-   * Peek another player: instead of a popup, swap the in-board view to show THEIR
-   * state (units + bench + candles + econ) on a board with the SAME orientation,
-   * layout, and side as your own POV — NO flip, NO mirror (their units sit on the
-   * same near/bottom side as yours). The return-to-board medallion (replacing the
-   * shop medallion) is the way back; tapping a different player's avatar switches
-   * the peek. View-only — never touches my board, bench, econ, or the sim;
-   * exiting restores my own board exactly.
+   * Peek another player: build THEIR state (units + bench + candles + traits) onto
+   * a SEPARATE board-assembly instance (peekGroup) using the SAME builders as my
+   * own board, so it's identical by construction. My real board group is hidden
+   * (never mutated) while peeking. The return-to-board medallion (replacing the
+   * shop medallion) is the ONLY way back; tapping a different player's avatar
+   * switches the peek. View-only — never touches my board, bench, econ, or the
+   * sim; exiting restores my own board exactly.
    */
   private enterPeek(playerId: number): void {
     const state = this.driver.getState();
@@ -3713,7 +3848,7 @@ export class MatchScene {
     this.selectedBoardIdx = null;
     this.closeInspect();
     // Close my own shop drop-down so its panel/backdrop never lingers over the
-    // read-only peeked econ region (tear down any in-flight slide ticker too).
+    // read-only peek (tear down any in-flight slide ticker too).
     this.shopPanelOpen = false;
     if (this.shopPanelAnimFn !== null) {
       this.app.ticker.remove(this.shopPanelAnimFn);
@@ -3728,7 +3863,10 @@ export class MatchScene {
   private exitPeek(): void {
     if (this.peekTargetId === null) return;
     this.peekTargetId = null;
-    this.scoutLayer.removeChildren();
+    this.peekGroup.visible = false;
+    this.peekBoardLayer.removeChildren();
+    this.peekBenchLayer.removeChildren();
+    this.boardGroup.visible = true;
     this.closeInspect();
     this.render(this.driver.getState());
   }
@@ -3739,184 +3877,10 @@ export class MatchScene {
    */
   private clearPeek(): void {
     this.peekTargetId = null;
-    this.scoutLayer.removeChildren();
-  }
-
-  /**
-   * Renders the peeked player's board with the SAME orientation, layout, and side
-   * as your own POV — NO flip and NO mirror of any kind. The board reads exactly
-   * like your own (neutral/empty enemy zone on the far half, your near/bottom half
-   * holding the units), but the units shown are the PEEKED player's, placed on
-   * their actual slot positions on the near side just as your own would be.
-   *
-   * Strictly view-only: long-press a token to inspect; no drag/drop, no selection,
-   * no command. Never touches any board/bench/econ/sim — exiting peek restores
-   * your own board exactly. Returning is via the bottom-right return-to-board
-   * medallion (see renderReturnToBoardButton).
-   */
-  private renderPeekBoard(target: PlayerState): void {
-    this.boardLayer.removeChildren();
-    this.drawBoardPanel(this.boardLayer);
-    // Their candles (gold meter) carried by their board-space anchors — left
-    // column lit from the PEEKED player's gold (graceful empty when gold is
-    // server-private online, exactly like the opponent column in combat).
-    this.drawArenaTorches(this.boardLayer, target, false);
-    const offX = this.boardOffsetX;
-    const playerY = this.boardOffsetY; // near (your/bottom) half — the units sit here
-    const oppY = this.oppBoardOffsetY; // far (top) half — empty neutral enemy zone
-    const s = this.boardScale;
-    const hexR = this.hexTileR;
-    const tokR = this.boardTokenR;
-    const fwd = (p: { x: number; y: number }): { x: number; y: number } => this.fwd(p);
-
-    // Enemy zone (top 4 rows) — same neutral tint/treatment as your own board's
-    // enemy half; empty, non-interactive.
-    for (let r = 0; r < BOARD_ROWS; r++) {
-      for (let q = 0; q < BOARD_COLS; q++) {
-        const fp = hexToPixel(q, r, offX, oppY, s);
-        const farG = new PIXI.Graphics();
-        drawHex(farG, fp.x, fp.y, hexR, C.enemyHex, 1, {}, fwd);
-        farG.eventMode = "none";
-        this.boardLayer.addChild(farG);
-      }
-    }
-    // Player zone (bottom 4 rows) — same near-half tint as your own board.
-    for (let r = 0; r < BOARD_ROWS; r++) {
-      for (let q = 0; q < BOARD_COLS; q++) {
-        const np = hexToPixel(q, r, offX, playerY, s);
-        const nearG = new PIXI.Graphics();
-        drawHex(nearG, np.x, np.y, hexR, C.myHex, 1, {}, fwd);
-        nearG.eventMode = "none";
-        this.boardLayer.addChild(nearG);
-      }
-    }
-    const grid = new PIXI.Graphics();
-    for (let r = 0; r < BOARD_ROWS; r++) {
-      for (let q = 0; q < BOARD_COLS; q++) {
-        const fp = hexToPixel(q, r, offX, oppY, s);
-        addHexPath(grid, fp.x, fp.y, hexR, fwd);
-        const np = hexToPixel(q, r, offX, playerY, s);
-        addHexPath(grid, np.x, np.y, hexR, fwd);
-      }
-    }
-    grid.stroke({ width: 1, color: C.boardBorder, alpha: 0.4 });
-    grid.eventMode = "none";
-    this.boardLayer.addChild(grid);
-
-    // Peeked units: placed on the near/bottom half at their ACTUAL slot position
-    // (same (q, r) mapping as your own board) — NO flip, NO mirror. Drawn
-    // back-to-front so nearer (larger, depth-scaled) tokens overlap farther ones.
-    for (let idx = 0; idx < BOARD_SLOTS; idx++) {
-      const unit = target.board[idx];
-      if (!unit) continue;
-      const q = idx % BOARD_COLS;
-      const r = Math.floor(idx / BOARD_COLS);
-      const bp = hexToPixel(q, r, offX, playerY, s);
-      const sp = this.fwd(bp);
-      const sc = this.depthScaleAt(bp);
-      const uc = new PIXI.Container();
-      uc.eventMode = "static";
-      uc.cursor = "pointer";
-      const u = unit;
-      uc.on("pointerdown", (e: PIXI.FederatedPointerEvent) => this.armInspect(u.defId, u, e));
-      uc.on("pointerup", () => this.clearPress());
-      uc.on("pointerupoutside", () => this.clearPress());
-      drawUnit(uc, unit, sp.x, sp.y, Math.round(tokR * sc), false, true, true);
-      this.boardLayer.addChild(uc);
-    }
-  }
-
-  /**
-   * Read-only peeked bench: the peeked player's bench units drawn into the
-   * existing bench region, with NO drag/sell/tap wiring. View-only.
-   */
-  private renderPeekBench(target: PlayerState): void {
-    this.benchLayer.removeChildren();
-
-    // Landscape: the column-bg panel behind the left rail (matches renderBench).
-    if (this.isLandscape && this.layout.clusters) {
-      const lr = this.layout.clusters.leftRail;
-      const colBg = new PIXI.Graphics();
-      colBg.roundRect(lr.x - 4, lr.y - 4, lr.w + 8, lr.h + 8, 6).fill({ color: C.bgHud, alpha: 0.4 });
-      colBg.eventMode = "none";
-      this.benchLayer.addChild(colBg);
-    }
-
-    for (let i = 0; i < 9; i++) {
-      const { x: cx, y: cy } = this.benchSlotCenter(i);
-      const unit = target.bench[i];
-      const occupied = unit != null;
-      let cellW: number, cellH: number, cellX: number, cellY: number;
-      if (this.isLandscape) {
-        const r = this.layout.regions.bench;
-        cellW = r.w / 9; cellH = r.h; cellX = cx - cellW / 2; cellY = cy - cellH / 2;
-      } else {
-        const { slotH, slotW } = this.benchGeom();
-        cellW = slotW; cellH = slotH; cellX = cx - slotW / 2; cellY = cy - slotH / 2;
-      }
-      const g = new PIXI.Graphics();
-      g.roundRect(cellX + 1, cellY, cellW - 2, cellH, 4)
-        .fill({ color: occupied ? C.benchOccupied : C.benchEmpty, alpha: occupied ? 1.0 : 0.5 });
-      g.roundRect(cellX + 1, cellY, cellW - 2, cellH, 4)
-        .stroke({ width: 1, color: occupied ? C.chipBorder : C.benchEmptyRim, alpha: occupied ? 0.9 : 0.5 });
-      g.eventMode = "none"; // view-only: no slot interaction while peeking
-      this.benchLayer.addChild(g);
-      if (unit) {
-        const uc = new PIXI.Container();
-        uc.eventMode = "none";
-        const r = Math.max(12, Math.min(18, Math.round(0.42 * Math.min(cellW, cellH))));
-        drawUnit(uc, unit, cx, cy, r, false, false, true);
-        this.benchLayer.addChild(uc);
-      }
-    }
-  }
-
-  /**
-   * Read-only peeked economy: the peeked player's gold + level/XP shown in the
-   * econ/HUD region (where my own controls normally sit). No interactive buttons.
-   * Clears the shop/toggle/panel layers so my own shop chrome never lingers.
-   */
-  private renderPeekEcon(target: PlayerState): void {
-    this.shopLayer.removeChildren();
-    this.shopToggleLayer.removeChildren();
-    this.shopPanelLayer.removeChildren();
-    this.shopBackdropLayer.removeChildren();
-
-    const hud = this.layout.regions.hud;
-    const cy = hud.y + hud.h / 2;
-    const x0 = hud.x + 10;
-
-    // Level badge.
-    this.glyph(this.shopLayer, "banner", x0 + 6, cy, 12, C.tier3);
-    this.text(this.shopLayer, `L${target.level}`, x0 + 16, cy, 13, C.textPrimary, [0, 0.5], "700");
-
-    // XP progress (level/XP) — a thin bar after the level badge.
-    const xp = xpProgress(target.xp, target.level, gameData.economy.levelXpThresholds);
-    const barX = x0 + 44, barW = 60, barH = 6, barY = cy - barH / 2;
-    const xpg = new PIXI.Graphics();
-    xpg.roundRect(barX, barY, barW, barH, 2).fill({ color: C.xpArcTrack, alpha: 0.9 });
-    if (xp.frac > 0) {
-      xpg.roundRect(barX, barY, Math.max(0, barW * xp.frac), barH, 2).fill({ color: C.xpPurple, alpha: 1 });
-    }
-    xpg.eventMode = "none";
-    this.shopLayer.addChild(xpg);
-
-    // Gold (coin glyph + amount).
-    const goldX = barX + barW + 16;
-    this.glyph(this.shopLayer, "coin", goldX, cy, 13, C.accentGold);
-    this.text(this.shopLayer, `${target.gold}`, goldX + 12, cy, 18, C.textGold, [0, 0.5]);
-
-    // Streak (read-only), matching the own-board econ display.
-    const streak = target.winStreak > 0 ? target.winStreak : target.loseStreak > 0 ? -target.loseStreak : 0;
-    if (streak !== 0) {
-      const sX = goldX + 64;
-      this.glyph(this.shopLayer, "flame", sX, cy, 12, C.streakOrange);
-      this.text(this.shopLayer, `${streak > 0 ? "+" : ""}${streak}`, sX + 12, cy, 12, C.streakOrange, [0, 0.5]);
-    }
-
-    // Return-to-board button — occupies the EXACT shop medallion spot (it
-    // replaces the shop toggle during peek). This is now the ONLY way back.
-    this.renderReturnToBoardButton();
+    this.peekGroup.visible = false;
+    this.peekBoardLayer.removeChildren();
+    this.peekBenchLayer.removeChildren();
+    this.boardGroup.visible = true;
   }
 
   /**

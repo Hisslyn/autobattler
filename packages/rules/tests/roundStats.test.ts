@@ -190,3 +190,90 @@ describe("lastRoundResult correctness", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// GAP 1: Streak mutation — direct assertion of winStreak/loseStreak fields
+// after runCombatPhase (PvP) and runPveRound.
+// ---------------------------------------------------------------------------
+describe("streak mutation", () => {
+  it("PvP WIN: increments winner winStreak by 1 and resets their loseStreak to 0", () => {
+    // Set a non-zero loseStreak on the future winner so the reset is observable.
+    const state = twoPlayerWin(42, 0, 1);
+    const winner = state.players[0]!;
+    const loser = state.players[1]!;
+    winner.winStreak = 2;
+    winner.loseStreak = 3; // nonzero — must be reset to 0 after a win
+    const winStreakBefore = winner.winStreak;
+
+    runCombatPhase(state, gameData);
+
+    expect(winner.winStreak).toBe(winStreakBefore + 1);
+    expect(winner.loseStreak).toBe(0);
+    // Sanity: winner must have actually won.
+    expect(state.lastRoundResult.get(0)!.status).toBe("won");
+  });
+
+  it("PvP LOSS: increments loser loseStreak by 1 and resets their winStreak to 0", () => {
+    // Set a non-zero winStreak on the future loser so the reset is observable.
+    const state = twoPlayerWin(42, 0, 1);
+    const loser = state.players[1]!;
+    loser.loseStreak = 1;
+    loser.winStreak = 4; // nonzero — must be reset to 0 after a loss
+    const loseStreakBefore = loser.loseStreak;
+
+    runCombatPhase(state, gameData);
+
+    expect(loser.loseStreak).toBe(loseStreakBefore + 1);
+    expect(loser.winStreak).toBe(0);
+    // Sanity: loser must have actually lost.
+    expect(state.lastRoundResult.get(1)!.status).toBe("lost");
+  });
+
+  it("PvP WIN+LOSS: both sides updated in the same call (winner streak up, loser streak up, each other's reset)", () => {
+    const state = twoPlayerWin(99, 0, 1);
+    const winner = state.players[0]!;
+    const loser = state.players[1]!;
+    winner.winStreak = 1;
+    winner.loseStreak = 5;
+    loser.loseStreak = 2;
+    loser.winStreak = 3;
+
+    runCombatPhase(state, gameData);
+
+    expect(winner.winStreak).toBe(2);
+    expect(winner.loseStreak).toBe(0);
+    expect(loser.loseStreak).toBe(3);
+    expect(loser.winStreak).toBe(0);
+  });
+
+  it("PvE round: winStreak and loseStreak are UNCHANGED for all alive players", () => {
+    const state = createMatch(55, gameData);
+    state.round = 1; // stage 1, all PvE
+    // Give every player distinct nonzero streaks so any mutation is visible.
+    for (let i = 0; i < state.players.length; i++) {
+      const p = state.players[i]!;
+      p.winStreak = i + 1;
+      p.loseStreak = 8 - i;
+      // Field a unit so PvE combat runs (otherwise there are no units and the
+      // combat resolves trivially, but streaks still must not change).
+      p.board[0] = makeUnit(7000 + i, "warrior", 0, 0, 0);
+    }
+
+    // Snapshot streaks before PvE.
+    const before = state.players.map((p) => ({
+      id: p.id,
+      winStreak: p.winStreak,
+      loseStreak: p.loseStreak,
+    }));
+
+    const prng = mulberry32(state.prngState);
+    runPveRound(state, prng, gameData);
+
+    // Every alive player must have exactly the same streaks as before.
+    for (const snap of before) {
+      const p = state.players[snap.id]!;
+      expect(p.winStreak).toBe(snap.winStreak);
+      expect(p.loseStreak).toBe(snap.loseStreak);
+    }
+  });
+});
