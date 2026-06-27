@@ -101,11 +101,12 @@ const SHOP_PANEL_HIDE_MARGIN = 4;
 const RESOLUTION_AUTO_ADVANCE_MS = gameData.economy.resolutionSeconds * 1000;
 
 // Sell "+N" gold floater tuning. The floater spawns at the gold medallion's
-// CENTER, rises straight upward in a long readable arc, and holds before fading
-// so the gold gain is unmistakable as it lifts out of the gold medallion.
-const SELL_POP_TTL = 1100;            // total lifetime (ms)
+// medallion's TOP edge (clear of the disc, in open space), rises straight upward
+// in a long readable arc, and holds before fading so the gold gain is unmistakable.
+const SELL_POP_TTL = 1300;            // total lifetime (ms)
 const SELL_POP_HOLD = 220;            // hold full alpha before fading (ms)
-const SELL_POP_RISE_PER_MS = 0.07;    // upward speed → ~77px rise over its life
+const SELL_POP_RISE_PER_MS = 0.1;     // upward speed → ~130px rise over its life
+const SELL_POP_SPAWN_GAP = 8;         // spawn this far ABOVE the medallion top edge
 const SELL_POP_REDUCED_TTL = 700;     // static "+N" dwell time under reduced motion (ms)
 
 interface HexStyle {
@@ -312,6 +313,17 @@ export class MatchScene {
   private dragSprite: PIXI.Container | null = null;
   /** Player being peeked (their board shown in-place); null = viewing my own board. */
   private peekTargetId: number | null = null;
+  /**
+   * While true, every board-space ⇄ screen conversion (`fwd`/`depthScaleAt`)
+   * applies a 180° rotation in BOARD SPACE about the grid frame's center BEFORE
+   * the perspective projection — so the peeked player's board reads exactly as it
+   * faces them in combat (their front row nearest me, their left → my right). The
+   * rotation happens pre-projection, so the board still sits upright on the table
+   * with correct foreshortening (we do NOT mirror the rendered screen output).
+   * Set only while rendering the SEPARATE peek instance; my real board is drawn
+   * with this false, so it is never flipped.
+   */
+  private peekFlip = false;
   /** Active item drag (inventory chip → unit EQUIP or item COMBINE). */
   private dragItem: { id: string; index: number } | null = null;
   /** True once an item drag has moved past the tap threshold (vs a tap). */
@@ -635,13 +647,24 @@ export class MatchScene {
     }
     return this.projCache.proj;
   }
-  /** Board-space point → tilted screen point. */
-  private fwd(p: { x: number; y: number }): { x: number; y: number } {
-    return this.proj.forward(p);
+  /**
+   * Rotate a board-space point 180° about the grid frame's center. Used ONLY for
+   * the peek instance (`peekFlip`): flips both axes so the peeked board faces me
+   * as it would face its owner — this is a pure BOARD-SPACE transform applied
+   * before projection, never a mirror of the rendered screen output.
+   */
+  private boardFlip(p: { x: number; y: number }): { x: number; y: number } {
+    if (!this.peekFlip) return p;
+    const f = this.gridFrame;
+    return { x: f.x + f.w - p.x, y: f.y + f.h - p.y };
   }
-  /** Depth scale (≈1 near, smaller far) at a board-space point. */
+  /** Board-space point → tilted screen point (180°-rotated first while peeking). */
+  private fwd(p: { x: number; y: number }): { x: number; y: number } {
+    return this.proj.forward(this.boardFlip(p));
+  }
+  /** Depth scale (≈1 near, smaller far) at a board-space point (flipped while peeking). */
   private depthScaleAt(p: { x: number; y: number }): number {
-    return this.proj.scaleAt(p);
+    return this.proj.scaleAt(this.boardFlip(p));
   }
   /**
    * Map a stage-global pointer point into the board group's LOCAL space. The
@@ -781,9 +804,15 @@ export class MatchScene {
         // from the peeked player's real, read-only state.
         this.boardGroup.visible = false;
         this.peekGroup.visible = true;
+        // Flip the SEPARATE peek instance 180° in board space (front row nearest
+        // me, their left → my right) so it reads as their combat-facing layout;
+        // everything attached (units, placements, bench, candle gold-meters) goes
+        // through `fwd`/`depthScaleAt` so it flips together, then projects upright.
+        this.peekFlip = true;
         this.renderBoard(peeked, this.peekBoardLayer, { readOnly: true });
         this.renderBench(peeked, this.peekBenchLayer, { readOnly: true });
         this.renderTopBench(this.peekBenchLayer); // empty second-player scaffold
+        this.peekFlip = false;
         // Peeked trait strip (traits only — never the item-browse tab, which would
         // read the peeked player's PRIVATE inventory).
         if (this.isLandscape) {
@@ -801,6 +830,7 @@ export class MatchScene {
         this.renderReturnToBoardButton();
       } else {
         // Restore my own board assembly; the peek instance stays hidden.
+        this.peekFlip = false; // my real board is never flipped
         this.peekGroup.visible = false;
         this.boardGroup.visible = true;
         this.renderBoard(me);
@@ -3658,38 +3688,31 @@ export class MatchScene {
     // floater is never occluded by the medallion or coupled to the loot
     // subsystem (whose layer is wiped on every phase transition).
     const m = this.shopToggleRect();
-    // Spawn at the medallion's own CENTER point, then travel straight upward and
-    // fade — the gold appears to lift out of the gold medallion itself.
+    // Spawn ABOVE the medallion's TOP edge (clear of the gold disc, in open
+    // space) so the "+N" reads against the dark board, NOT swallowed by the
+    // same-gold medallion beneath it; then travel straight upward and fade.
     const x = m.x + m.w / 2;
-    const startY = m.y + m.h / 2;
+    const startY = m.y - SELL_POP_SPAWN_GAP;
     const node = this.buildSellPopNode(refund);
     node.position.set(x, startY);
     this.sellPopLayer.addChild(node);
 
-    // Reduced-motion: show a brief STATIC "+N" at the medallion center (no
-    // travel) instead of suppressing the gold-gain feedback entirely.
-    if (this.opts.settings.get().reducedMotion) {
-      let age = 0;
-      const ttl = SELL_POP_REDUCED_TTL;
-      const fn = (ticker: PIXI.Ticker): void => {
-        age += ticker.deltaMS;
-        if (age >= ttl) {
-          this.app.ticker.remove(fn);
-          if (node.parent) this.sellPopLayer.removeChild(node);
-          node.destroy({ children: true });
-        }
-      };
-      this.app.ticker.add(fn);
-      return;
-    }
-
-    let age = 0;
-    const ttl = SELL_POP_TTL;
+    // Reduced-motion: show a brief STATIC "+N" (no travel) instead of
+    // suppressing the gold-gain feedback entirely.
+    const reduced = this.opts.settings.get().reducedMotion;
+    const ttl = reduced ? SELL_POP_REDUCED_TTL : SELL_POP_TTL;
     const holdMs = SELL_POP_HOLD; // hold full alpha briefly so the pop is clearly seen
+    let age = 0;
+    // Driven on the shared app ticker (the same loop combat playback / the
+    // planning timer ride) — advanced every frame by deltaMS, so the node
+    // visibly moves + fades, then is removed from its parent and the callback
+    // unregistered (no leak).
     const fn = (ticker: PIXI.Ticker): void => {
       age += ticker.deltaMS;
-      node.y -= ticker.deltaMS * SELL_POP_RISE_PER_MS; // float clearly upward
-      node.alpha = age <= holdMs ? 1 : Math.max(0, 1 - (age - holdMs) / (ttl - holdMs));
+      if (!reduced) {
+        node.y = startY - age * SELL_POP_RISE_PER_MS; // float clearly upward
+        node.alpha = age <= holdMs ? 1 : Math.max(0, 1 - (age - holdMs) / (ttl - holdMs));
+      }
       if (age >= ttl) {
         this.app.ticker.remove(fn);
         if (node.parent) this.sellPopLayer.removeChild(node);
