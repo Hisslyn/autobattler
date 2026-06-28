@@ -10,16 +10,15 @@ import { PLANNING_TIMER_MS } from "../driver.js";
 import { CombatPlayer, toDisplayHex, PLAYBACK_TIME_SCALE, TICK_HZ } from "../combat/player.js";
 import type { PlaybackSpeed } from "../combat/player.js";
 import { CombatView } from "../combat/view.js";
-import { C, tierColor, CHIP_TEXT_SIZE, CHIP_TEXT_FONT, BOARD_TILT, CANDLE_COLUMN_SCREEN_OFFSET, HAMBURGER_RAIL_GAP } from "../theme.js";
+import { C, tierColor, traitColor, CHIP_TEXT_SIZE, CHIP_TEXT_FONT, BOARD_TILT, CANDLE_COLUMN_SCREEN_OFFSET, HAMBURGER_RAIL_GAP } from "../theme.js";
 import { drawUnitToken } from "../unitToken.js";
 import { drawGlyph, glyphForTraits } from "../glyphs.js";
 import type { GlyphKind } from "../glyphs.js";
 import { traitStripModel, xpProgress, buyXpGeom } from "../hudModel.js";
 import type { TraitChip } from "../hudModel.js";
-import { inspectModel } from "../inspectModel.js";
 import { traitDetailModel } from "../traitDetailModel.js";
 import { sellValue } from "../sellValue.js";
-import { renderUnitInspect, renderTraitDetail, renderItemDetail, renderItemPicker } from "../inspectPanel.js";
+import { renderTraitDetail, renderItemDetail, renderItemPicker } from "../inspectPanel.js";
 import { inventoryModel, itemModel } from "../itemModel.js";
 import type { InventoryEntry, ItemModel } from "../itemModel.js";
 import { combinePreview } from "../combinePreview.js";
@@ -4073,11 +4072,238 @@ export class MatchScene {
   }
 
   private openUnitInspect(defId: string, unit: UnitInstance | null): void {
-    const m = inspectModel(defId, unit, gameData);
-    if (!m) return;
     this.abortDrag(); // a long-press supersedes any in-progress drag
     this.opts.audio.play("tap");
-    renderUnitInspect(this.inspectLayer, m, () => this.closeInspect(), this.layout, this.opts.settings.get().reducedMotion);
+    this.renderUnitInfoShell();
+  }
+
+  /**
+   * Static VISUAL SHELL of the selected-unit info panel (no data wiring this
+   * pass). Replicates the unit-info bible region-by-region with placeholder
+   * values, rendered into `this.inspectLayer` (torn down by closeInspect, same
+   * as the old renderUnitInspect modal). Anchored top-right, scaled to fit the
+   * active design space. Theme-token only.
+   */
+  private renderUnitInfoShell(): void {
+    const layer = this.inspectLayer;
+    layer.removeChildren();
+
+    // Full-screen transparent dismiss scrim (pointerdown anywhere closes).
+    const scrim = new PIXI.Graphics();
+    scrim.rect(0, 0, this.designW, this.designH).fill({ color: C.surfaceBase, alpha: 0 });
+    scrim.eventMode = "static";
+    scrim.hitArea = new PIXI.Rectangle(0, 0, this.designW, this.designH);
+    scrim.on("pointerdown", () => this.closeInspect());
+    layer.addChild(scrim);
+
+    // Panel design dims (the bible's 220×520 native shell).
+    const PANEL_W = 210;
+    const PANEL_H = 520;
+    const POINT = 24; // bottom point protrusion below the rect floor
+    const margin = 10;
+
+    // Panel container, anchored top-right; scale down if the full height
+    // (rect + point + margins) won't fit the active design height.
+    const totalH = PANEL_H + POINT;
+    const fit = Math.min(1, (this.designH - margin * 2) / totalH);
+    const panel = new PIXI.Container();
+    panel.scale.set(fit);
+    panel.x = this.designW - PANEL_W * fit - margin;
+    panel.y = margin;
+    panel.eventMode = "static"; // swallow taps so the scrim doesn't dismiss
+    panel.on("pointerdown", (e: PIXI.FederatedPointerEvent) => e.stopPropagation());
+    layer.addChild(panel);
+
+    const W = PANEL_W;
+    const PAD = 8;
+    const innerW = W - PAD * 2;
+    const bevel = 12;
+
+    // ── 1. Ornate tapered frame ──────────────────────────────────────────────
+    // Octagonal-ish path: top corners bevelled at 45°, bottom replaced by two
+    // angled sides meeting at a centered downward point.
+    const framePts = [
+      bevel, 0,
+      W - bevel, 0,
+      W, bevel,
+      W, PANEL_H,
+      W / 2, PANEL_H + POINT,
+      0, PANEL_H,
+      0, bevel,
+    ];
+    const frame = new PIXI.Graphics();
+    frame.poly(framePts).fill({ color: C.surfaceBase });
+    frame.poly(framePts).stroke({ width: 1.5, color: C.borderSubtle, join: "round" });
+    // Inner gold filigree hairline (shape only).
+    const inset = 3;
+    const innerPts = [
+      bevel + inset, inset,
+      W - bevel - inset, inset,
+      W - inset, bevel + inset,
+      W - inset, PANEL_H - inset,
+      W / 2, PANEL_H + POINT - inset * 1.5,
+      inset, PANEL_H - inset,
+      inset, bevel + inset,
+    ];
+    frame.poly(innerPts).stroke({ width: 0.5, color: C.accentGold, alpha: 0.9, join: "round" });
+    panel.addChild(frame);
+
+    // ── 2. Header band ───────────────────────────────────────────────────────
+    // 2a. Star (1-star) glyph, top-left.
+    this.glyph(panel, "star", PAD + 7, 6 + 7, 14, C.starGold);
+    // 2b. XP / level progress bar below the star (0% fill — track visible).
+    const xpW = innerW * 0.44;
+    const xpY = 22;
+    this.chip(panel, PAD, xpY, xpW, 4, { fill: C.manaBg, border: C.manaBg, borderW: 0, radius: 2 });
+    // (0% fill: xpPurple portion omitted — track fully visible.)
+    // 2c. Splash placeholder (header right ~40%), centered orb stub.
+    const splashW = W * 0.4 - PAD;
+    const splashX = W - PAD - splashW;
+    const splashH = 40;
+    this.chip(panel, splashX, 6, splashW, splashH, { fill: C.bgInspect, border: C.borderSubtle, borderW: 1, radius: 3 });
+    this.glyph(panel, "orb", splashX + splashW / 2, 6 + splashH / 2, 24, C.textMuted);
+
+    // ── 3. Two trait rows ────────────────────────────────────────────────────
+    const rowH = 36;
+    let cy = 56;
+    const traitRow = (
+      label: string, glyphKind: GlyphKind, color: number
+    ): void => {
+      this.chip(panel, PAD, cy, innerW, rowH, { fill: C.bgInspectRow, border: C.bgInspectRow, borderW: 0, radius: 0 });
+      // bottom divider
+      const div = new PIXI.Graphics();
+      div.moveTo(PAD, cy + rowH).lineTo(PAD + innerW, cy + rowH).stroke({ width: 1, color: C.borderSubtle });
+      panel.addChild(div);
+      this.glyph(panel, glyphKind, PAD + 4 + 14, cy + rowH / 2, 14, color);
+      this.text(panel, label, PAD + 4 + 28 + 6, cy + rowH / 2, 12, C.textPrimary, [0, 0.5], "500");
+      cy += rowH;
+    };
+    traitRow("Holy Origin", "sun", traitColor("holy"));
+    traitRow("Knight Class", "shield", traitColor("knight"));
+
+    // ── 4. Unit name bar ─────────────────────────────────────────────────────
+    const nameH = 36;
+    this.chip(panel, PAD, cy, innerW, nameH, { fill: C.surfaceRaise, border: C.surfaceRaise, borderW: 0, radius: 0 });
+    const nameDiv = new PIXI.Graphics();
+    nameDiv.moveTo(PAD, cy + nameH).lineTo(PAD + innerW, cy + nameH).stroke({ width: 1, color: C.borderActive });
+    panel.addChild(nameDiv);
+    this.text(panel, "Unit Name", PAD + 8, cy + nameH / 2, 14, C.textPrimary, [0, 0.5], "700");
+    // cost: right-aligned "1" then coin glyph to its left.
+    this.text(panel, "1", PAD + innerW - 8, cy + nameH / 2, 13, C.textGold, [1, 0.5], "600");
+    this.glyph(panel, "coin", PAD + innerW - 8 - 12 - 3 - 5, cy + nameH / 2, 10, C.accentGold);
+    cy += nameH;
+
+    // ── 5. HP bar ────────────────────────────────────────────────────────────
+    const hpH = 22;
+    this.chip(panel, PAD, cy, innerW, hpH, { fill: C.hpBg, border: C.hpBg, borderW: 0, radius: 3 });
+    this.chip(panel, PAD, cy, innerW, hpH, { fill: C.hpGreen, border: C.hpGreen, borderW: 0, radius: 3 }); // 100% fill
+    this.text(panel, "450 / 450", PAD + innerW / 2, cy + hpH / 2, 11, C.textPrimary, [0.5, 0.5], "600");
+    cy += hpH + 2;
+
+    // ── 6. Mana bar ──────────────────────────────────────────────────────────
+    const manaH = 20;
+    this.chip(panel, PAD, cy, innerW, manaH, { fill: C.manaBg, border: C.manaBg, borderW: 0, radius: 3 }); // 0% fill: track only
+    this.text(panel, "0 / 50", PAD + innerW / 2, cy + manaH / 2, 11, C.textPrimary, [0.5, 0.5], "500");
+    cy += manaH + 6;
+
+    // ── 7. Three info tiles ──────────────────────────────────────────────────
+    const tileH = 52;
+    const tileGap = 4;
+    const tileW = (innerW - tileGap * 2) / 3;
+    const tileAX = PAD;
+    const tileBX = PAD + tileW + tileGap;
+    const tileCX = PAD + (tileW + tileGap) * 2;
+    // Tile A — ability icon.
+    this.chip(panel, tileAX, cy, tileW, tileH, { fill: C.bgInspectRow, border: C.itemBorder, borderW: 1, radius: 4 });
+    this.glyph(panel, "orb", tileAX + tileW / 2, cy + tileH / 2, 20, C.xpPurple);
+    // Tile B — trait-count / 3-hex cluster (2-over-1).
+    this.chip(panel, tileBX, cy, tileW, tileH, { fill: C.bgInspectRow, border: C.chipBorder, borderW: 1, radius: 4 });
+    const hexR = 5;
+    const bcx = tileBX + tileW / 2;
+    const bcy = cy + tileH / 2;
+    const drawHexOutline = (hx: number, hy: number): void => {
+      const g = new PIXI.Graphics();
+      const pts: number[] = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (Math.PI / 180) * (60 * i - 30);
+        pts.push(hx + hexR * Math.cos(a), hy + hexR * Math.sin(a));
+      }
+      g.poly(pts).stroke({ width: 1.5, color: C.traitActive, join: "round" });
+      g.eventMode = "none";
+      panel.addChild(g);
+    };
+    drawHexOutline(bcx - hexR - 1, bcy - hexR + 1);
+    drawHexOutline(bcx + hexR + 1, bcy - hexR + 1);
+    drawHexOutline(bcx, bcy + hexR + 1);
+    // Tile C — range: "4" + bow arrow glyph.
+    this.chip(panel, tileCX, cy, tileW, tileH, { fill: C.bgInspectRow, border: C.chipBorder, borderW: 1, radius: 4 });
+    this.text(panel, "4", tileCX + tileW / 2 - 8, cy + tileH / 2, 12, C.textPrimary, [0.5, 0.5], "700");
+    this.glyph(panel, "bow", tileCX + tileW / 2 + 8, cy + tileH / 2, 14, C.textMuted);
+    cy += tileH + 6;
+
+    // ── 8. Ability bar ───────────────────────────────────────────────────────
+    const abilH = 44;
+    this.chip(panel, PAD, cy, innerW, abilH, { fill: C.bgInspectRow, border: C.itemBorder, borderW: 1, radius: 4 });
+    this.glyph(panel, "bolt", PAD + innerW * 0.275, cy + abilH / 2, 22, C.fxAbilityMagic);
+    cy += abilH + 6;
+
+    // ── 9. Three empty item slots ────────────────────────────────────────────
+    const slotGap = 4;
+    const slotW = (innerW - slotGap * 2) / 3;
+    const slotH = slotW;
+    for (let i = 0; i < 3; i++) {
+      const sx = PAD + (slotW + slotGap) * i;
+      this.chip(panel, sx, cy, slotW, slotH, { fill: C.itemComponent, border: C.itemBorder, borderW: 1, radius: 4 });
+    }
+    cy += slotH + 6;
+
+    // ── 10. Stat grid (2 rows × 5 cells) ─────────────────────────────────────
+    const statRowH = 34;
+    const cellW = innerW / 5;
+    const statCell = (col: number, rowY: number, kind: GlyphKind, value: string, glyphColor: number = C.textMuted): void => {
+      const ccx = PAD + cellW * col + cellW / 2;
+      this.glyph(panel, kind, ccx, rowY + 11, 12, glyphColor);
+      this.text(panel, value, ccx, rowY + 24, 11, C.textPrimary, [0.5, 0.5], "400");
+    };
+    const row1Y = cy;
+    // Col 3 (Crit "spark") tinted xpPurple and Col 5 (Magic Resist "orb") tinted
+    // manaBlue so they read distinct from AD's sword / Armor's shield (bible §10).
+    const row1: [GlyphKind, string, number][] = [
+      ["sword", "15", C.textMuted], ["orb", "0%", C.textMuted], ["spark", "0%", C.xpPurple],
+      ["shield", "15", C.textMuted], ["orb", "15", C.manaBlue],
+    ];
+    row1.forEach(([k, v, c], i) => statCell(i, row1Y, k, v, c));
+    // row divider
+    const statDiv = new PIXI.Graphics();
+    statDiv.moveTo(PAD, row1Y + statRowH).lineTo(PAD + innerW, row1Y + statRowH).stroke({ width: 1, color: C.borderSubtle });
+    panel.addChild(statDiv);
+    const row2Y = row1Y + statRowH;
+    const row2: [GlyphKind, string][] = [
+      ["bolt", "0.70"], ["heart", "25%"], ["dagger", "0%"], ["bow", "0%"], ["droplet", "0%"],
+    ];
+    row2.forEach(([k, v], i) => statCell(i, row2Y, k, v));
+    cy = row2Y + statRowH + 4;
+
+    // ── 11. Sell button (VISUAL PLACEHOLDER — not wired) ─────────────────────
+    const sellH = 32;
+    const sellW = innerW;
+    const sellX = PAD;
+    const sellY = Math.min(cy, PANEL_H - sellH - 2);
+    this.chip(panel, sellX, sellY, sellW, sellH, { fill: C.bgSellChip, border: C.accentGold, borderW: 1.5, radius: 4 });
+    // Inline: "Sell for" + coin + "1", centered as a group.
+    const labelStr = "Sell for";
+    const labelT = this.text(panel, labelStr, 0, sellY + sellH / 2, 12, C.textSell, [0, 0.5], "500");
+    const coinSize = 10;
+    const numStr = "1";
+    const numT = this.text(panel, numStr, 0, sellY + sellH / 2, 12, C.textGold, [0, 0.5], "700");
+    const gap = 5;
+    const groupW = labelT.width + gap + coinSize + gap + numT.width;
+    let gx = sellX + (sellW - groupW) / 2;
+    labelT.x = gx;
+    gx += labelT.width + gap;
+    this.glyph(panel, "coin", gx + coinSize / 2, sellY + sellH / 2, coinSize, C.accentGold);
+    gx += coinSize + gap;
+    numT.x = gx;
   }
 
   /** Cancel an in-progress drag without issuing a move (long-press took over). */
