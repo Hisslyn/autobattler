@@ -439,6 +439,320 @@ ${themeCssVars()}
 .mm-play-label { position: relative; z-index: 1; }
 .mm-play-btn .ui-icon { position: relative; z-index: 1; }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   MODE SELECT — pre-match flow (references/mode-select.md, screens-spec §1).
+   Full-bleed grid: top bar (back + identity + currency/settings), two centered
+   mode cards (PRACTICE selected / PVP disabled), bottom-right PLAY chevron.
+   ══════════════════════════════════════════════════════════════════════════ */
+.ms-screen {
+  position: absolute; inset: 0;
+  display: grid;
+  grid-template-rows: 9% 1fr;
+  overflow: hidden;
+  background: ${cssVar("bgPage")};
+}
+.ms-topbar {
+  grid-row: 1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.4%; gap: 1.2%;
+  background: ${cssVar("surfaceRaise")};
+  height: 100%;
+  position: relative; z-index: 5;
+}
+
+/* Shared back-button language (Mode Select + Lobby). */
+.meta-back-btn {
+  appearance: none; cursor: pointer; font-family: inherit;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  height: 36px; padding: 0 14px; border-radius: 9px;
+  background: ${cssVar("bgPanelRaise")}; border: 1px solid ${cssVar("chipBorder")};
+  color: ${cssVar("textPrimary")};
+  font-size: 13px; flex: 0 0 auto;
+  transition: filter .12s, transform .08s, border-color .12s;
+}
+.meta-back-btn .ui-icon svg { transform: scaleX(-1); }  /* flip arrowRight → back chevron */
+.meta-back-btn:hover { filter: brightness(1.15); border-color: ${cssVar("accentGold")}; }
+.meta-back-btn:active { filter: brightness(0.88); transform: scale(0.98); transform-origin: center; }
+.meta-back-btn:focus-visible { outline: 2px solid ${cssVar("accentGold")}; outline-offset: 2px; }
+
+.ms-content {
+  grid-row: 2;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  height: 100%;
+  /* Reserve room below the card row for the diamond badge overhang (the badge
+     straddles the bottom edge, 50% inside / 50% outside) so card tops never
+     push above the top bar. */
+  padding-block: 2%;
+}
+.ms-card-row {
+  display: flex; align-items: center; justify-content: center;
+  height: 80%;            /* leaves headroom inside .ms-content for badge overhang */
+  gap: 6%;
+}
+
+.ms-card {
+  position: relative;
+  height: 100%;
+  width: auto;
+  aspect-ratio: 2 / 3;     /* PRESERVED — do not change */
+  border-radius: 1.2vmin;
+  overflow: visible;
+  display: flex; flex-direction: column;
+  background: ${cssVar("surfaceRaise")};
+  border: 2px solid ${cssVar("borderSubtle")};
+  cursor: pointer;
+  transition: filter .12s, transform .08s, border-color .12s, box-shadow .12s;
+}
+.ms-card-art {
+  flex: 1 1 75%;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  background: ${cssVar("surfaceFloat")};
+  border-radius: 1vmin 1vmin 0 0;
+  color: ${cssVar("textMuted")};
+}
+.ms-card-name {
+  flex: 0 0 25%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: clamp(0.7rem, 2.4vh, 1.15rem);
+  font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+  background: color-mix(in srgb, ${cssVar("bgScrim")} 35%, ${cssVar("surfaceRaise")} 65%);
+  border-radius: 0 0 1vmin 1vmin;
+}
+
+/* ── Card 1 — PRACTICE: rest = gold border (kept), no checkmark badge ───────── */
+.ms-card--practice { border-color: ${cssVar("accentGold")}; }
+.ms-card--practice .ms-card-name { color: ${cssVar("accentGold")}; }
+
+/* Hover glow — fine pointer only, per Step 3. */
+@media (hover: hover) and (pointer: fine) {
+  .ms-card--practice:hover {
+    filter: brightness(1.1);
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, ${cssVar("accentGold")} 35%, transparent),
+      0 0 2.4vh 0.6vh color-mix(in srgb, ${cssVar("stageProgress")} 30%, transparent);
+  }
+  .ms-card--practice:hover .ms-card-art { filter: brightness(1.12); }
+}
+
+/* Press glow — works for mouse AND touch (pointerdown/up), see app.ts A3. */
+.ms-card--practice.ms-card--pressed {
+  filter: brightness(1.18);
+  transform: scale(0.985);
+  transform-origin: center;
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, ${cssVar("accentGold")} 55%, transparent),
+    0 0 3.2vh 1vh color-mix(in srgb, ${cssVar("stageProgress")} 50%, transparent);
+}
+.ms-card--practice.ms-card--pressed .ms-card-art { filter: brightness(1.2); }
+
+/* ── Card 2 — PVP: permanently disabled, no hover/press feedback ───────────── */
+.ms-card--pvp {
+  border-color: ${cssVar("borderSubtle")};
+  cursor: default;
+  pointer-events: none;     /* belt-and-suspenders: no hover/press/click ever fires */
+}
+.ms-card--pvp .ms-card-art { opacity: 0.55; color: ${cssVar("textDimmed")}; }
+.ms-card--pvp .ms-card-art::after {
+  content: ""; position: absolute; inset: 0; background: ${cssVar("bgScrim")}; opacity: 0.45;
+  border-radius: inherit;
+}
+.ms-card--pvp .ms-card-name { color: ${cssVar("textDimmed")}; }
+.ms-coming-soon {
+  position: absolute; left: 6%; right: 6%; top: 50%; transform: translateY(-50%);
+  z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  height: 14%;
+  background: color-mix(in srgb, ${cssVar("bgScrim")} 70%, transparent);
+  color: ${cssVar("textDimmed")};
+  font-size: clamp(0.55rem, 1.5vh, 0.8rem); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+}
+
+/* Mode-glyph diamond badges — 22% of card width, point-to-point, straddling
+   the card's bottom edge. % resolves against the .ms-card box (its positioned
+   ancestor) so the badge scales with the card's rendered size, not the viewport. */
+.ms-glyph-badge {
+  position: absolute; left: 50%; bottom: 0; transform: translate(-50%, 50%) rotate(45deg);
+  width: 22%;              /* % of the .ms-card box width — height derives from aspect-ratio */
+  aspect-ratio: 1;         /* height = width → perfect square (diamond) at every card size */
+  border-radius: 18%;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--dia, ${cssVar("textMuted")});
+  z-index: 2;
+}
+.ms-glyph-badge .ui-icon {
+  transform: rotate(-45deg);   /* counter-rotate the glyph upright */
+  width: 100%; height: 100%;   /* definite box so the svg % below resolves against the badge */
+  display: flex; align-items: center; justify-content: center;
+}
+.ms-glyph-badge .ui-icon svg { width: 50%; height: 50%; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LOBBY — pre-match seats (references/lobby.md, screens-spec §2). 3-column grid
+   of 8 seats (7 empty "+" + 1 filled local-player card), X + START bottom bar.
+   ══════════════════════════════════════════════════════════════════════════ */
+.lobby-screen {
+  position: absolute; inset: 0;
+  display: grid;
+  grid-template-rows: 9% 1fr;
+  overflow: hidden;
+  background: ${cssVar("bgPage")};
+}
+.lobby-topbar {
+  grid-row: 1;
+  display: flex; align-items: center; gap: 1.6%;
+  padding: 0 1.4%;
+  background: ${cssVar("surfaceRaise")};
+  height: 100%;
+  position: relative; z-index: 5;
+}
+.lobby-title {
+  font-size: clamp(0.75rem, 2.6vh, 1.25rem);
+  font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  color: ${cssVar("textPrimary")};
+  flex: 0 0 auto;
+}
+.lobby-topbar .mm-topbar-right { margin-left: auto; }
+
+.lobby-content {
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  column-gap: 2.5%;
+  row-gap: 4.5%;
+  align-items: stretch; justify-items: stretch;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 3% 4%;
+}
+
+.lobby-slot--empty {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.8vmin;
+  border: 1.5px dashed ${cssVar("borderSubtle")};
+  background: color-mix(in srgb, ${cssVar("surfaceRaise")} 55%, transparent);
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.lobby-slot--empty .ui-icon { color: ${cssVar("textDimmed")}; opacity: 0.6; }
+.lobby-slot--empty .ui-icon svg { width: clamp(0.9rem, 2.6vh, 1.5rem); height: clamp(0.9rem, 2.6vh, 1.5rem); }
+
+.lobby-slot--c1r1 { grid-column: 1; grid-row: 1; }
+.lobby-slot--c1r2 { grid-column: 1; grid-row: 2; }
+.lobby-slot--c1r3 { grid-column: 1; grid-row: 3; }
+.lobby-slot--c3r1 { grid-column: 3; grid-row: 1; }
+.lobby-slot--c3r2 { grid-column: 3; grid-row: 2; }
+.lobby-slot--c3r3 { grid-column: 3; grid-row: 3; }
+.lobby-slot--c2r3 { grid-column: 2; grid-row: 3; }
+
+.lobby-card--local {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 100%;
+  height: 100%;
+  border-radius: 0.8vmin;
+  background: ${cssVar("surfaceOver")};
+  border: 2px solid ${cssVar("accentGold")};
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: flex-start;
+  padding: 4% 6% 5%;
+  gap: 3%;
+  box-sizing: border-box;
+}
+.lobby-crown-badge {
+  position: absolute; top: 0; left: 0; transform: translate(-30%, -30%);
+  width: 13%; height: 13%;     /* % of card's own box */
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: ${cssVar("accentGold")}; color: ${cssVar("surfaceBase")};
+  z-index: 2;
+}
+.lobby-crown-badge .ui-icon svg { width: 55%; height: 55%; }
+.lobby-avatar-ring {
+  width: 26%; aspect-ratio: 1; border-radius: 50%;
+  margin-top: 4%;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid ${cssVar("accentGold")};
+  background: ${cssVar("bgUnit")};
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.lobby-avatar-ring .mm-avatar-glyph { width: 100%; height: 100%; border-radius: 50%; }
+.lobby-username {
+  font-size: clamp(0.65rem, 2vh, 1rem);
+  font-weight: 600; color: ${cssVar("textPrimary")};
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 0 0 auto;
+}
+.lobby-board-preview {
+  width: 60%; aspect-ratio: 16 / 10;
+  border-radius: 0.5vmin;
+  background: ${cssVar("surfaceFloat")};
+  display: flex; align-items: center; justify-content: center;
+  color: ${cssVar("textMuted")};
+  margin-top: auto;
+  margin-bottom: 8%;
+  flex: 0 0 auto;
+}
+.lobby-board-preview .ui-icon svg { width: clamp(0.9rem, 3vh, 1.6rem); height: clamp(0.9rem, 3vh, 1.6rem); }
+
+.lobby-close-btn {
+  position: absolute; left: 3%; bottom: 4%;
+  width: 9vh; height: 9vh;        /* comfortably large touch target, fluid */
+  aspect-ratio: 1;
+  border-radius: 50%;
+  appearance: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: ${cssVar("bgCloseBtn")};
+  border: 2px solid ${cssVar("accentGold")};
+  color: ${cssVar("textPrimary")};
+  transition: filter .12s, transform .08s;
+  z-index: 6;
+}
+.lobby-close-btn .ui-icon svg { width: 42%; height: 42%; }
+.lobby-close-btn:hover { filter: brightness(1.15); }
+.lobby-close-btn:active { filter: brightness(0.88); transform: scale(0.96); transform-origin: center; }
+.lobby-close-btn:focus-visible { outline: 2px solid ${cssVar("accentGold")}; outline-offset: 2px; }
+
+.lobby-start-btn {
+  position: absolute; right: 3%; bottom: 4%;
+  appearance: none; border: 1px solid ${cssVar("accentGold")}; cursor: pointer;
+  background: ${cssVar("bgContinue")};
+  color: ${cssVar("textPrimary")};
+  display: flex; align-items: center; justify-content: center; gap: 3%;
+  height: 9vh; width: 28vh; min-height: 0;
+  border-radius: 999px;
+  font-family: inherit; font-size: clamp(0.8rem, 2.6vh, 1.15rem); font-weight: 800; letter-spacing: 0.06em;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, ${cssVar("accentGold")} 14%, transparent),
+    0 0 1.8vh 0.5vh color-mix(in srgb, ${cssVar("stageProgress")} 35%, transparent),
+    0 0.8vh 2.4vh rgba(0,0,0,0.45);
+  transition: filter .12s, transform .08s, box-shadow .12s;
+  z-index: 6;
+}
+.lobby-start-btn::before {
+  content: ""; position: absolute; top: 0; left: 6%; right: 6%; height: 38%;
+  border-radius: 999px 999px 0 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 100%);
+  pointer-events: none;
+}
+.lobby-start-btn:hover {
+  filter: brightness(1.1);
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, ${cssVar("accentGold")} 20%, transparent),
+    0 0 2.2vh 0.7vh color-mix(in srgb, ${cssVar("stageProgress")} 45%, transparent),
+    0 0.8vh 2.4vh rgba(0,0,0,0.45);
+}
+.lobby-start-btn:active { filter: brightness(0.88); transform: scale(0.97); transform-origin: center; }
+.lobby-start-label { position: relative; z-index: 1; }
+.lobby-start-btn .ui-icon { position: relative; z-index: 1; }
+
 /* Reduced motion: disable menu transitions (combat fx handled in CombatView). */
 .reduced-motion * { transition: none !important; animation: none !important; }
 /* Honor the OS preference even without the DOM class (button press transforms). */
@@ -448,6 +762,11 @@ ${themeCssVars()}
   .mm-identity, .mm-currency-chip, .mm-util-btn, .mm-nav-row, .mm-promo-card, .mm-mode-chip, .mm-play-btn { transition: none; }
   .mm-identity:active, .mm-currency-chip:active, .mm-util-btn:active, .mm-nav-row:active,
   .mm-promo-card:active, .mm-mode-chip:active, .mm-play-btn:active { transform: none; }
+  .ms-card, .meta-back-btn { transition: none; }
+  .ms-card:active, .meta-back-btn:active { transform: none; }
+  .ms-card--practice.ms-card--pressed { transform: none; box-shadow: none; }
+  .lobby-card--local, .lobby-close-btn, .lobby-start-btn { transition: none; }
+  .lobby-close-btn:active, .lobby-start-btn:active { transform: none; }
 }
 
 /* ── Landscape meta-screen comfort (additive; portrait unaffected) ──────────── */
@@ -507,6 +826,45 @@ ${themeCssVars()}
   .mm-keyart-stage { grid-column: 1; grid-row: 3; min-height: 160px; }
   .mm-promo-card { position: static; width: 100%; height: auto; grid-column: 1; grid-row: 4; clip-path: none; padding: 12px 16px; }
   .mm-play-cluster { position: static; grid-column: 1; grid-row: 5; justify-content: center; padding: 12px; }
+
+  /* Mode Select portrait fallback: keep cards side-by-side, just shrink via the
+     same fluid .ms-card-row/.ms-card rules — only the row height ratio changes
+     (portrait has more height to spend, less width) and the gap narrows. */
+  .ms-content { padding-block: 3%; }
+  .ms-card-row { height: 60%; gap: 4%; }
+
+  /* Lobby portrait fallback: stack columns instead of 3-across. */
+  .lobby-content {
+    grid-template-columns: 1fr;
+    grid-auto-rows: auto;
+    overflow-y: auto;
+    height: auto;
+    padding: 3% 6%;
+    row-gap: 2.5%;
+    column-gap: 0;
+  }
+  .lobby-card--local,
+  .lobby-slot--c1r1, .lobby-slot--c1r2, .lobby-slot--c1r3,
+  .lobby-slot--c3r1, .lobby-slot--c3r2, .lobby-slot--c3r3,
+  .lobby-slot--c2r3 {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .lobby-card--local {
+    order: -1;
+    width: 56%;
+    height: auto;
+    aspect-ratio: 1 / 1.1;
+    margin: 0 auto;
+  }
+  .lobby-slot--empty {
+    width: 30%;
+    height: auto;
+    aspect-ratio: 2.8 / 1;
+    margin: 0 auto;
+  }
+  .lobby-close-btn { width: 8vh; height: 8vh; }
+  .lobby-start-btn { height: 8vh; width: 26vh; }
 }
 `;
 }

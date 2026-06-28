@@ -10,7 +10,9 @@ Design canvas: landscape-first (this screen is reached from Play on the Main Men
 
 ## TOP BAR
 
-Full-width strip pinned to the top of the content area. Height ≈ 8% of viewport height (matches the reference's slim bar). Dark, flat, no border — a single horizontal `.ui-row`-style container, NOT a card (no rounded corners, spans edge-to-edge).
+Full-width strip pinned to the top of the content area. Height = **9% of viewport height** (`grid-template-rows: 9% 1fr`; bumped from 8% to bank a little extra headroom for the diamond-badge overhang below the cards). Dark, flat, no border — a single horizontal `.ui-row`-style container, NOT a card (no rounded corners, spans edge-to-edge).
+
+> **Implemented layout is fully fluid (no fixed px).** The current build sizes Mode Select entirely off the viewport: the `.ms-screen` grid is `9% 1fr` (top bar / content), the top bar fills `height:100%`, and the content region uses a nested-flex height chain so the cards derive their size from a true percentage of the viewport with no `vh`/`px` floor and no `min-width`/`min-height`. Derived proportional relationships now in use: **top bar 9% vh**; **card row height ≈ 80% of the content region** (leaving headroom for the badge overhang, `padding-block: 2%` on `.ms-content`); **card aspect 2:3** (`aspect-ratio: 2 / 3`, height-driven so card height = `100%` of the row); **gap between the two cards ≈ 6% of a card's width** (`gap: 6%` on the centered flex row); **diamond mode-glyph badge = 22% of the card box** (`width/height: 22%` against the `position:relative` card, straddling its bottom edge). Portrait fallback keeps the two cards side-by-side via the same rules (`.ms-card-row { height: 60%; gap: 4% }`). All colors via `cssVar(...)`.
 
 ### Left cluster: identity
 - **Avatar circle** — anchor: far left, vertically centered in the bar, ~16px inset from the left safe-area edge. Shape: perfect circle, diameter ≈ 64% of bar height. Ring: 2px border. [REPLICATE structure]
@@ -39,8 +41,8 @@ The reference shows a column of circular category-filter icons (flag/trophy/coin
 Anchor: horizontally centered as a group in the main content region, vertically centered with a slight upward bias to leave room for the mode-glyph badges below each card. The two cards sit side by side with a fixed gap between them (~32px at this scale), NOT stretched to fill — the pair as a whole is centered, mirroring the reference's centered card cluster.
 
 Each card:
-- **Shape**: tall rounded-rect, aspect ratio ≈ 1:1.5 (width:height), corner radius ~12px.
-- **Size**: card height ≈ 70% of the main content region's height; width derived from the aspect ratio.
+- **Shape**: tall rounded-rect, aspect ratio **exactly 2:3** (width:height, `aspect-ratio: 2 / 3` — preserved), corner radius (fluid `1.2vmin`).
+- **Size**: card height = 100% of the card row (`.ms-card-row`, itself ≈ 80% of the content region's height); width derived from the 2:3 aspect ratio. No fixed-px / `vh` / `min-*` floor — the height is a pure percentage chain down from the viewport.
 - **Structure** (top to bottom, all one card body):
   1. **Art region** — top ~75% of the card height. [COPYRIGHTED -> placeholder, see PLACEHOLDER section]
   2. **Name band** — bottom ~25% of the card height, a darkened/scrim overlay strip distinct from the art region above it, containing the mode name in ALL CAPS, centered horizontally, bold weight, large size (reads as the card's primary label).
@@ -48,16 +50,16 @@ Each card:
 - **Mode-glyph badge** — anchor: centered horizontally below the card, vertically straddling the card's bottom edge (badge top half overlaps the card, bottom half hangs below it — diamond shape touches down past the card boundary). Shape: 45°-rotated square (diamond), ~56px point-to-point. Contains a small centered glyph representing the mode (crossed-swords for Practice, a rank/crest glyph for PvP). [COPYRIGHTED -> placeholder for exact glyph art; REPLICATE structure for diamond shape/position — same diamond-badge language already used in our trait/tier chips per `ui-diamond` in `app.ts`'s How-to-Play motifs, so reuse that existing component]
 
 #### Card 1 — "PRACTICE"
-- **Default/current state: SELECTED BY DEFAULT.** This is the only selectable, enabled card.
+- **Default/current state: the only selectable, enabled card.** Clicking it is the screen's primary proceed action.
 - Border: `accentGold` colored border, ~2-3px width, full perimeter, fully opaque.
-- **Selected badge**: a small circular checkmark badge, anchor top-right corner of the card art region, overlapping the card's top-right corner (badge center sits ON the corner, half outside / half inside). Diameter ≈ 40px. Fill: `accentGold`. Checkmark glyph: dark ink (e.g. `surfaceBase` or `bgPage`) for contrast against the gold fill. [REPLICATE structure — generic checkmark glyph, not copyrighted art]
-- Name band text: "PRACTICE", ALL CAPS, `textPrimary` or `accentGold`-tinted, bold.
-- Mode-glyph badge below: diamond outline in `accentGold`, fill `surfaceOver`, glyph in `textPrimary`.
+- **Checkmark badge: REMOVED.** The earlier circular `accentGold` checkmark badge (formerly anchored at the card's top-right corner to denote "selected") no longer exists — there is nothing to "select" on this screen now that clicking the card directly navigates forward, so the selection affordance was dropped. (`.ms-badge-check` and its DOM element are gone.)
+- Name band text: "PRACTICE", ALL CAPS, `accentGold`-tinted, bold.
+- Mode-glyph badge below: diamond outline in `accentGold`, fill `surfaceOver`, glyph in `textPrimary` (now sized at **22% of the card box**, fluid).
 - **State behavior**:
-  - Default: selected (gold border + checkmark badge visible), exactly as described above — this is the resting/initial state on screen load.
-  - Hover (pointer devices only): subtle brightness lift on the art region (e.g. `filter: brightness(1.08)`), border stays gold.
-  - Pressed: `transform: scale(0.98)` dip, consistent with the existing `.ui-btn:active` convention.
-  - It is ALREADY selected by default, so tapping it again is a no-op re-confirmation (no visual change, since it can't become "more selected"). Tapping it when PVP was hypothetically selectable would return focus to Practice — but since PvP can never be selected (see below), Practice is permanently the selected state in this build.
+  - Rest: gold border, normal art brightness — the resting/initial state on screen load.
+  - **Hover (fine pointer only)**: gated behind `@media (hover: hover) and (pointer: fine)`. Brightness lift on the card + art (`filter: brightness(1.1)` / `1.12`) plus a soft `box-shadow` ring (35% `accentGold` ring + a `stageProgress` teal glow at 30%). Does NOT appear on touch devices.
+  - **Press (mouse AND touch)**: implemented via an explicit `.ms-card--pressed` class toggle in `app.ts` (added on `pointerdown`, removed on `pointerup`/`pointerleave`/`pointercancel`) so it releases symmetrically for both input types — `:active` alone wasn't reliable across mouse+touch. Stronger glow: `brightness(1.18)` / `1.2` on art, `scale(0.985)`, ring at 55% `accentGold` + 1vh `stageProgress` glow at 50%.
+  - **Click → navigate**: tapping the Practice card now sets `modeSelectChoice = "practice"` and immediately navigates to the **Lobby** (`references/lobby.md`). The card IS the proceed affordance — there is no separate confirm step.
   - No disabled state — Practice is always available.
 
 #### Card 2 — "PVP"
@@ -84,9 +86,11 @@ Anchor: bottom-left of the main content region, below/beside the card row, parti
 
 ## BOTTOM BAR
 
+> **PLAY button REMOVED.** The current build has **no PLAY button and no mode-indicator chip** on Mode Select — clicking the PRACTICE card itself navigates straight to the Lobby (see Card 1 "Click → navigate" above). The `.ms-play-btn` element, its handler, and all its CSS rules were deleted; `modeSelectScreen()`'s return shape is now just `[topbar, .ms-content > .ms-card-row]` with no bottom-bar control sibling. The reference's bottom-right PLAY/chevron control has no counterpart in the shipped screen. The text below is retained only as the historical reference description of the source image's bottom bar.
+
 A slim strip-like region at the very bottom of the main content area (not a separate full-width bar like the top bar — in the reference it's just the bottom-right corner of the content region that carries the controls).
 
-### Bottom-right: mode chip + PLAY button
+### Bottom-right: mode chip + PLAY button (reference only — not built)
 - **Small mode-indicator chip** — anchor: directly left of the PLAY button, vertically aligned with it. Shape: small circle (~48px) containing a tiny replica of the selected mode's glyph, with a small circular "swap/cycle" arrow badge overlapping its bottom-right corner, and a text label ("NORMAL" in the reference) centered below the circle. [REPLICATE structure — generic glyph + cycle-arrow, not copyrighted] In our build with only one selectable mode, this chip is REDUNDANT (there's nothing to cycle to) — recommend OMITTING in our implementation, or rendering it inert/static showing "PRACTICE" with no cycle-arrow (since PvP is never selectable, cycling is meaningless). Note for coder: prefer omission for a cleaner two-mode UI; documented here for completeness against the reference only.
 - **PLAY button** — anchor: far bottom-right, ~16-24px inset from the right/bottom safe-area edges. Shape: large horizontal pill/chevron-capped rect (right edge comes to a shallow outward-pointing chevron point, like an arrow button), height ≈ 9-10% of viewport height, width ≈ 22-26% of viewport width. Reuses the existing `.ui-btn-primary`/`.ui-btn-wide` button language scaled up, with an added chevron-point right edge (a CSS clip-path or an SVG/Canvas-drawn shape achieving the angled point) and a bright rim outline.
   - **Default/enabled state** (active when Practice — the only selectable card — is selected, which is always, since Practice is selected by default and PvP can never be selected): fill `accentGold`-adjacent gold/bronze gradient look using `cssVar("accentGold")` as the base, bright cyan/teal rim highlight reminiscent of the reference's glow — substitute with `cssVar("stageProgress")` or `cssVar("xpArcFill")` (closest existing bright teal/cyan accent tokens) for the rim glow since the reference's exact cyan isn't a defined token; label "PLAY", ALL CAPS, bold, large, centered, `surfaceBase`-dark text for contrast against the gold fill (or `textPrimary` if fill is darker — verify contrast ≥ 4.5:1 at build time).
@@ -99,10 +103,9 @@ A slim strip-like region at the very bottom of the main content area (not a sepa
 
 ## Navigation summary
 
-- Selecting the Practice card (tap) → re-confirms selection (already selected), no navigation. (Card itself is not a "confirm and go" tap target — only PLAY navigates.)
-- Tapping the PvP card → no-op, never selects, never navigates.
-- Tapping PLAY (always enabled, since Practice is the permanent default selection) → navigates to **Lobby** (`references/lobby.md`).
-- Back navigation (if a back affordance exists in our shell, e.g. the existing `wrap(..., withBack=true)` pattern) → returns to Main Menu.
+- **Tapping the Practice card → navigates to Lobby** (`references/lobby.md`). The card click IS the proceed action (sets `modeSelectChoice = "practice"` then `navigate("lobby")`). There is no separate PLAY button anymore.
+- Tapping the PvP card → no-op, never selects, never navigates (`pointer-events: none`; no listeners attached).
+- Back navigation (the top-bar `metaBackBtn`) → returns to Main Menu.
 
 ---
 

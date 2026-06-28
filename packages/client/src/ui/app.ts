@@ -27,12 +27,13 @@ export interface UiAppOptions {
   onStartMatch: (mode: PlayMode) => void;
 }
 
-type ScreenId = "main" | "play" | "profile" | "leaderboard" | "howto" | "settings";
+type ScreenId = "main" | "play" | "modeSelect" | "lobby" | "profile" | "leaderboard" | "howto" | "settings";
 
 /** Minimal inline-SVG line icons for the main-menu chrome (no emoji, no webfont —
  * mirrors the canvas glyph system's "draw it ourselves" approach, but in DOM).
  * Strokes use currentColor so CSS controls tint via cssVar(...), never a literal. */
-type IconName = "person" | "book" | "bell" | "gear" | "coin" | "trophy" | "arrowRight" | "ticket";
+type IconName = "person" | "book" | "bell" | "gear" | "coin" | "trophy" | "arrowRight" | "ticket"
+  | "check" | "plus" | "close" | "crown" | "swords" | "shield" | "grid";
 
 const ICON_PATHS: Record<IconName, string> = {
   person: "M12 12.5a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8c0-3.6 3.2-6.5 7-6.5s7 2.9 7 6.5",
@@ -43,6 +44,13 @@ const ICON_PATHS: Record<IconName, string> = {
   trophy: "M7 4.5h10v3.5a5 5 0 0 1-10 0V4.5ZM7 6H4v1.5A3.5 3.5 0 0 0 7 11M17 6h3v1.5A3.5 3.5 0 0 1 17 11M10.5 14.5h3v2.5h-3z M8.5 19.5h7l-.7-2.5h-5.6Z",
   arrowRight: "M5 12h13.5M13 6.5 18.5 12 13 17.5",
   ticket: "M4.5 9a2 2 0 0 0 0 6v2a1.5 1.5 0 0 0 1.5 1.5h12A1.5 1.5 0 0 0 19.5 17v-2a2 2 0 0 1 0-6V7A1.5 1.5 0 0 0 18 5.5H6A1.5 1.5 0 0 0 4.5 7v2Zm6.5-2.5v11",
+  check: "M5 12.5 10 17.5 19 7",
+  plus: "M12 5v14M5 12h14",
+  close: "M6 6l12 12M18 6 6 18",
+  crown: "M4 17h16l-1.5-7-3.5 3-3-5-3 5-3.5-3L4 17Zm0 0v2h16v-2",
+  swords: "M5 19 16 8m-2-2 3-3 3 3-3 3M19 19 8 8m2-2-3-3-3 3 3 3",
+  shield: "M12 3.5 19 6.5v5c0 5-3.5 7.7-7 9-3.5-1.3-7-4-7-9v-5L12 3.5Z",
+  grid: "M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z",
 };
 
 /** Build a small inline SVG icon (stroke = currentColor; tint via CSS). */
@@ -74,6 +82,9 @@ export class UiApp {
   /** Currently-selected match mode for the main-menu play cluster (defaults to
    * offline Practice). Set by the mode picker; read by the PLAY button. */
   private playMode: PlayMode = "local";
+
+  /** Mode Select's chosen card (Practice is the only ever-enabled option). */
+  private modeSelectChoice: "practice" = "practice";
 
   auth: AuthState | null;
 
@@ -121,6 +132,8 @@ export class UiApp {
     switch (id) {
       case "main": return this.mainMenu();
       case "play": return this.playMenu();
+      case "modeSelect": return this.modeSelectScreen();
+      case "lobby": return this.lobbyScreen();
       case "profile": return this.profileScreen();
       case "leaderboard": return this.leaderboardScreen();
       case "howto": return this.howToScreen();
@@ -254,7 +267,7 @@ export class UiApp {
       el("span", { class: "mm-nav-icon" }, [icon("ticket", 20)]),
       el("div", { class: "mm-nav-col" }, [el("span", { class: "mm-nav-label", text: "Play" })]),
     ]);
-    tertiary.addEventListener("click", () => this.navigate("play"));
+    tertiary.addEventListener("click", () => this.navigate("modeSelect"));
 
     return el("div", { class: "mm-leftnav" }, [primary, secondary, tertiary]);
   }
@@ -302,7 +315,7 @@ export class UiApp {
       el("span", { class: "mm-play-label", text: "PLAY" }),
       icon("arrowRight", 20),
     ]);
-    playBtn.addEventListener("click", () => this.opts.onStartMatch(this.playMode));
+    playBtn.addEventListener("click", () => this.navigate("modeSelect"));
 
     return el("div", { class: "mm-play-cluster" }, [modeChip, playBtn]);
   }
@@ -322,13 +335,12 @@ export class UiApp {
   private onOpenPromo(): void { /* stub: no-op until a season-pass feature exists */ }
 
   /**
-   * stub: opens the mode picker (Practice/Online). Wire to reuse the existing
-   * playMenu()'s Practice/Online cards or a compact inline popover; on
-   * selection set `this.playMode` and re-render. Left as a no-op landing on
-   * the existing Play screen for now so the destination still works end to end.
+   * Opens mode selection. All main-menu play entry points (PLAY button, this
+   * chip, the left-nav Play row) funnel through the Mode Select screen so it is
+   * the single source of mode choice — no path bypasses it into the match.
    */
   private onOpenModePicker(_anchor: HTMLElement): void {
-    this.navigate("play");
+    this.navigate("modeSelect");
   }
 
   /** Title + subtitle tap-card (Play submenu). */
@@ -349,6 +361,159 @@ export class UiApp {
       practice,
       online,
       this.auth ? null : el("div", { class: "ui-muted", text: "Online requires a reachable server." }),
+    ]);
+  }
+
+  // ─── Mode Select + Lobby (pre-match flow) ──────────────────────────────────
+
+  /** Shared back-affordance button for Mode Select + Lobby top bars (flipped
+   * arrowRight glyph + optional label, styled by `.meta-back-btn`). */
+  private metaBackBtn(): HTMLElement {
+    const b = el("button", { class: "meta-back-btn", attrs: { type: "button", "aria-label": "Back" } }, [
+      icon("arrowRight", 16),
+      el("span", { text: "Back" }),
+    ]);
+    b.addEventListener("click", () => this.back());
+    return b;
+  }
+
+  /** The minimal right cluster (currency chip + Settings only) shared by the
+   * Mode Select + Lobby top bars — a trimmed mirror of `mmTopBar()`'s cluster. */
+  private metaTopbarRight(): HTMLElement {
+    const currency = button("", () => this.onTapCurrency(), "mm-currency-chip");
+    currency.appendChild(icon("coin", 16));
+    currency.appendChild(el("span", { class: "mm-currency-val", text: "0" }));
+
+    const settings = el("button", { class: "mm-util-btn", attrs: { type: "button", "aria-label": "Settings" } }, [icon("gear", 18)]);
+    settings.addEventListener("click", () => this.navigate("settings"));
+
+    return el("div", { class: "mm-topbar-right" }, [currency, settings]);
+  }
+
+  /** Identity cluster for the Mode Select top bar — a tap target to Profile,
+   * reusing the main-menu avatar/level/name/rank markup verbatim. */
+  private metaIdentity(): HTMLElement {
+    const name = this.auth?.profile.name ?? "Guest";
+    const rank = this.auth ? mmrToRank(this.auth.profile.mmr) : null;
+    const identity = el("button", { class: "mm-identity", attrs: { type: "button", "aria-label": "Profile" } }, [
+      el("span", { class: "mm-avatar-frame" }, [
+        this.mmAvatarPortrait(),
+        el("span", { class: "mm-level-badge", text: "1" }),
+      ]),
+      el("span", { class: "mm-identity-text" }, [
+        el("span", { class: "mm-player-name", text: name }),
+        rank ? this.rankBadge(rank) : null,
+      ]),
+    ]);
+    identity.addEventListener("click", () => this.navigate("profile"));
+    return identity;
+  }
+
+  /**
+   * Mode Select: two centered cards — PRACTICE (the only enabled option,
+   * tapping it navigates straight to the Lobby) and PVP (permanently disabled,
+   * "COMING SOON", non-interactive). No PLAY button — the card click is the
+   * proceed affordance. Fluid grid layout (no `wrap()`), like the main menu.
+   * See screens-spec §1.
+   */
+  private modeSelectScreen(): HTMLElement {
+    const topbar = el("div", { class: "ms-topbar" }, [
+      this.metaBackBtn(),
+      this.metaIdentity(),
+      this.metaTopbarRight(),
+    ]);
+
+    // Practice card (selected; the only enabled state). Clicking it navigates
+    // straight to the Lobby (the PLAY button has been removed).
+    const practiceCard = el("div", { class: "ms-card ms-card--practice ms-card--selected" }, [
+      el("div", { class: "ms-card-art" }, [icon("swords", 48)]),
+      el("div", { class: "ms-card-name", text: "PRACTICE" }),
+      this.msGlyphBadge("swords", cssVar("accentGold"), cssVar("surfaceOver"), cssVar("textPrimary")),
+    ]);
+    practiceCard.addEventListener("click", () => {
+      this.modeSelectChoice = "practice";
+      this.navigate("lobby");
+    });
+    // Press feedback (mouse + touch via Pointer Events): toggle a class on
+    // down, release symmetrically on up/leave/cancel.
+    const PRESS_CLASS = "ms-card--pressed";
+    practiceCard.addEventListener("pointerdown", () => practiceCard.classList.add(PRESS_CLASS));
+    const release = (): void => practiceCard.classList.remove(PRESS_CLASS);
+    practiceCard.addEventListener("pointerup", release);
+    practiceCard.addEventListener("pointerleave", release);
+    practiceCard.addEventListener("pointercancel", release);
+
+    // PvP card (permanently disabled — no click/pointer listeners attached).
+    const pvpCard = el("div", { class: "ms-card ms-card--pvp ms-card--disabled" }, [
+      el("div", { class: "ms-card-art" }, [
+        icon("shield", 48),
+        el("div", { class: "ms-coming-soon", text: "COMING SOON" }),
+      ]),
+      el("div", { class: "ms-card-name", text: "PVP" }),
+      this.msGlyphBadge("shield", cssVar("borderSubtle"), cssVar("surfaceRaise"), cssVar("textDimmed")),
+    ]);
+
+    return el("div", { class: "ms-screen" }, [
+      topbar,
+      el("div", { class: "ms-content" }, [
+        el("div", { class: "ms-card-row" }, [practiceCard, pvpCard]),
+      ]),
+    ]);
+  }
+
+  /** Larger diamond mode-glyph badge straddling a card's bottom edge: a rotated
+   * square (border + bg via inline vars) wrapping a counter-rotated glyph. */
+  private msGlyphBadge(name: IconName, diaCss: string, bgCss: string, glyphCss: string): HTMLElement {
+    const badge = el("div", { class: "ms-glyph-badge" }, [icon(name, 20)]);
+    badge.style.setProperty("--dia", diaCss);
+    badge.style.background = bgCss;
+    badge.style.color = glyphCss;
+    return badge;
+  }
+
+  /**
+   * Lobby: a 3-column grid of 8 seats (7 empty "+" placeholders + the filled
+   * local-player card in the center column), a bottom-left X and a bottom-right
+   * START that launches the practice match. Full-bleed layout. See spec §2.
+   */
+  private lobbyScreen(): HTMLElement {
+    const topbar = el("div", { class: "lobby-topbar" }, [
+      this.metaBackBtn(),
+      el("div", { class: "lobby-title", text: "PRACTICE" }),
+      this.metaTopbarRight(),
+    ]);
+
+    const emptySlot = (posClass: string): HTMLElement =>
+      el("div", { class: `lobby-slot lobby-slot--empty ${posClass}` }, [icon("plus", 22)]);
+
+    const slotPositions = [
+      "lobby-slot--c1r1", "lobby-slot--c1r2", "lobby-slot--c1r3",
+      "lobby-slot--c3r1", "lobby-slot--c3r2", "lobby-slot--c3r3",
+      "lobby-slot--c2r3",
+    ];
+    const placeholders = slotPositions.map((p) => emptySlot(p));
+
+    const localCard = el("div", { class: "lobby-card lobby-card--local" }, [
+      el("span", { class: "lobby-crown-badge" }, [icon("crown", 18)]),
+      el("span", { class: "lobby-avatar-ring" }, [this.mmAvatarPortrait()]),
+      el("div", { class: "lobby-username", text: this.auth?.profile.name ?? "Guest" }),
+      el("div", { class: "lobby-board-preview" }, [icon("grid", 28)]),
+    ]);
+
+    const closeBtn = el("button", { class: "lobby-close-btn", attrs: { type: "button", "aria-label": "Leave lobby" } }, [icon("close", 24)]);
+    closeBtn.addEventListener("click", () => this.back());
+
+    const startBtn = el("button", { class: "lobby-start-btn", attrs: { type: "button" } }, [
+      el("span", { class: "lobby-start-label", text: "START" }),
+      icon("arrowRight", 20),
+    ]);
+    startBtn.addEventListener("click", () => this.opts.onStartMatch("local"));
+
+    return el("div", { class: "lobby-screen" }, [
+      topbar,
+      el("div", { class: "lobby-content" }, [...placeholders, localCard]),
+      closeBtn,
+      startBtn,
     ]);
   }
 
