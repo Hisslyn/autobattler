@@ -7,6 +7,7 @@ const ROOT = path.resolve(__dirname, "..");
 // Uses a plugin so longer matches take precedence over shorter ones.
 const workspaceMap: Record<string, string> = {
   "@autobattler/data": `${ROOT}/data/src/loader.ts`,
+  "@autobattler/data/asset-manifest": `${ROOT}/data/src/assetManifest.ts`,
   "@autobattler/sim": `${ROOT}/sim/src/engine.ts`,
   "@autobattler/sim/src/prng.js": `${ROOT}/sim/src/prng.ts`,
   "@autobattler/sim/src/types.js": `${ROOT}/sim/src/types.ts`,

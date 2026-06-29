@@ -35,6 +35,7 @@ import {
   onAvatarArtReady,
 } from "../avatars.js";
 import { drawItemIcon, onItemArtReady } from "../itemIconDraw.js";
+import { drawLayeredItemIconById, onLayerArtReady } from "../itemLayerRenderer.js";
 import {
   Z_COMBAT_HEADER, Z_RESOLUTION_OVERLAY, Z_RESOLUTION_BUTTON, Z_RESOLUTION_CONTROL,
   L0_BOARD_ENV, L2_UNITS, L3_WATERMARK, L4_FRAME, L5_HUD, L6_INSPECT, L8_TOAST,
@@ -377,6 +378,7 @@ export class MatchScene {
   private unsub: () => void = () => {};
   private unsubArt: () => void = () => {};
   private unsubItemArt: () => void = () => {};
+  private unsubLayerArt: () => void = () => {};
   private unsubAvatarArt: () => void = () => {};
   /** Cosmetic seat→avatar map, generated once at match init and stable for the
    *  whole match (seat 0 = the human's PLAYER_1_AVATAR_NUM, others random distinct).
@@ -421,6 +423,10 @@ export class MatchScene {
       if (s.phase === "PLANNING") this.render(s);
     });
     this.unsubItemArt = onItemArtReady(() => {
+      const s = this.driver.getState();
+      if (s.phase === "PLANNING") this.render(s);
+    });
+    this.unsubLayerArt = onLayerArtReady(() => {
       const s = this.driver.getState();
       if (s.phase === "PLANNING") this.render(s);
     });
@@ -2197,10 +2203,17 @@ export class MatchScene {
     // Distinct procedural item icon (component emblem / composed completed icon),
     // or the drop-in PNG if present. Reduced motion skips the shine sweep.
     const ig = new PIXI.Container();
-    drawItemIcon(ig, entry.id, cx, cy, {
-      radius: size * 0.34,
-      reducedMotion: this.opts.settings.get().reducedMotion,
+    const layered = drawLayeredItemIconById(entry.id, cx, cy, {
+      size: Math.round(size * 0.68), // preserves the existing icon footprint
+      parent: ig,
+      scaleMode: "linear",
     });
+    if (!layered) {
+      drawItemIcon(ig, entry.id, cx, cy, {
+        radius: size * 0.34,
+        reducedMotion: this.opts.settings.get().reducedMotion,
+      });
+    }
     ig.eventMode = "none";
     layer.addChild(ig);
   }
@@ -4145,7 +4158,7 @@ export class MatchScene {
       inset, PANEL_H - inset,
       inset, bevel + inset,
     ];
-    frame.poly(innerPts).stroke({ width: 0.5, color: C.accentGold, alpha: 0.9, join: "round" });
+    frame.poly(innerPts).stroke({ width: 0.5, color: C.accentGold, alpha: 0.35, join: "round" });
     panel.addChild(frame);
 
     // ── 2. Header band ───────────────────────────────────────────────────────
@@ -4159,7 +4172,7 @@ export class MatchScene {
     // 2c. Splash placeholder (header right ~40%), centered orb stub.
     const splashW = W * 0.4 - PAD;
     const splashX = W - PAD - splashW;
-    const splashH = 40;
+    const splashH = 48;
     this.chip(panel, splashX, 6, splashW, splashH, { fill: C.bgInspect, border: C.borderSubtle, borderW: 1, radius: 3 });
     this.glyph(panel, "orb", splashX + splashW / 2, 6 + splashH / 2, 24, C.textMuted);
 
@@ -4197,6 +4210,14 @@ export class MatchScene {
     const hpH = 22;
     this.chip(panel, PAD, cy, innerW, hpH, { fill: C.hpBg, border: C.hpBg, borderW: 0, radius: 3 });
     this.chip(panel, PAD, cy, innerW, hpH, { fill: C.hpGreen, border: C.hpGreen, borderW: 0, radius: 3 }); // 100% fill
+    const maxHp = 450;
+    for (let seg = 300; seg < maxHp; seg += 300) {
+      const sx = PAD + innerW * (seg / maxHp);
+      const tick = new PIXI.Graphics();
+      tick.rect(sx, cy, 1, hpH).fill({ color: C.hpSegment });
+      tick.eventMode = "none";
+      panel.addChild(tick);
+    }
     this.text(panel, "450 / 450", PAD + innerW / 2, cy + hpH / 2, 11, C.textPrimary, [0.5, 0.5], "600");
     cy += hpH + 2;
 
@@ -4216,6 +4237,10 @@ export class MatchScene {
     // Tile A — ability icon.
     this.chip(panel, tileAX, cy, tileW, tileH, { fill: C.bgInspectRow, border: C.itemBorder, borderW: 1, radius: 4 });
     this.glyph(panel, "orb", tileAX + tileW / 2, cy + tileH / 2, 20, C.xpPurple);
+    const tileDiv = new PIXI.Graphics();
+    tileDiv.moveTo(tileBX - tileGap / 2, cy + 6).lineTo(tileBX - tileGap / 2, cy + tileH - 6).stroke({ width: 1, color: C.borderSubtle });
+    tileDiv.eventMode = "none";
+    panel.addChild(tileDiv);
     // Tile B — trait-count / 3-hex cluster (2-over-1).
     this.chip(panel, tileBX, cy, tileW, tileH, { fill: C.bgInspectRow, border: C.chipBorder, borderW: 1, radius: 4 });
     const hexR = 5;
@@ -4228,7 +4253,7 @@ export class MatchScene {
         const a = (Math.PI / 180) * (60 * i - 30);
         pts.push(hx + hexR * Math.cos(a), hy + hexR * Math.sin(a));
       }
-      g.poly(pts).stroke({ width: 1.5, color: C.traitActive, join: "round" });
+      g.poly(pts).stroke({ width: 1.5, color: C.textLabel, join: "round" });
       g.eventMode = "none";
       panel.addChild(g);
     };
@@ -4243,8 +4268,9 @@ export class MatchScene {
 
     // ── 8. Ability bar ───────────────────────────────────────────────────────
     const abilH = 44;
-    this.chip(panel, PAD, cy, innerW, abilH, { fill: C.bgInspectRow, border: C.itemBorder, borderW: 1, radius: 4 });
-    this.glyph(panel, "bolt", PAD + innerW * 0.275, cy + abilH / 2, 22, C.fxAbilityMagic);
+    const abilW = Math.round(innerW * 0.55);
+    this.chip(panel, PAD, cy, abilW, abilH, { fill: C.bgInspectRow, border: C.itemBorder, borderW: 1, radius: 4 });
+    this.glyph(panel, "bolt", PAD + abilW / 2, cy + abilH / 2, 22, C.fxAbilityMagic);
     cy += abilH + 6;
 
     // ── 9. Three empty item slots ────────────────────────────────────────────
@@ -4270,7 +4296,7 @@ export class MatchScene {
     // manaBlue so they read distinct from AD's sword / Armor's shield (bible §10).
     const row1: [GlyphKind, string, number][] = [
       ["sword", "15", C.textMuted], ["orb", "0%", C.textMuted], ["spark", "0%", C.xpPurple],
-      ["shield", "15", C.textMuted], ["orb", "15", C.manaBlue],
+      ["shield", "15", C.tier3], ["orb", "15", C.manaBlue],
     ];
     row1.forEach(([k, v, c], i) => statCell(i, row1Y, k, v, c));
     // row divider
@@ -4289,10 +4315,10 @@ export class MatchScene {
     const sellW = innerW;
     const sellX = PAD;
     const sellY = Math.min(cy, PANEL_H - sellH - 2);
-    this.chip(panel, sellX, sellY, sellW, sellH, { fill: C.bgSellChip, border: C.accentGold, borderW: 1.5, radius: 4 });
+    this.chip(panel, sellX, sellY, sellW, sellH, { fill: C.manaBg, border: C.accentGold, borderW: 1.5, radius: 4 });
     // Inline: "Sell for" + coin + "1", centered as a group.
     const labelStr = "Sell for";
-    const labelT = this.text(panel, labelStr, 0, sellY + sellH / 2, 12, C.textSell, [0, 0.5], "500");
+    const labelT = this.text(panel, labelStr, 0, sellY + sellH / 2, 12, C.manaBlue, [0, 0.5], "500");
     const coinSize = 10;
     const numStr = "1";
     const numT = this.text(panel, numStr, 0, sellY + sellH / 2, 12, C.textGold, [0, 0.5], "700");
@@ -4957,11 +4983,18 @@ export class MatchScene {
     } else {
       // Distinct item icon, tinted by the orb's rarity for a consistent read.
       const ic = new PIXI.Container();
-      drawItemIcon(ic, step.content.id, -10, 0, {
-        radius: 8,
-        rarity: step.rarity,
-        reducedMotion: this.opts.settings.get().reducedMotion,
+      const layered = drawLayeredItemIconById(step.content.id, -10, 0, {
+        size: 16,
+        parent: ic,
+        scaleMode: "nearest",
       });
+      if (!layered) {
+        drawItemIcon(ic, step.content.id, -10, 0, {
+          radius: 8,
+          rarity: step.rarity,
+          reducedMotion: this.opts.settings.get().reducedMotion,
+        });
+      }
       label.addChild(ic);
       this.text(label, step.content.name, 4, 0, 8, C.textPrimary, [0, 0.5]);
     }
@@ -5133,6 +5166,7 @@ export class MatchScene {
     this.unsub();
     this.unsubArt();
     this.unsubItemArt();
+    this.unsubLayerArt();
     this.unsubAvatarArt();
     if (this.container.parent) this.container.parent.removeChild(this.container);
     this.container.destroy({ children: true });

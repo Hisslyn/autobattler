@@ -9,6 +9,7 @@ import { C, tierColor } from "./theme.js";
 import { drawGlyph, glyphForTraits } from "./glyphs.js";
 import { resolveUnitTexture, unitTextureLookup, requestUnitArt } from "./sprites.js";
 import { drawItemIcon } from "./itemIconDraw.js";
+import { drawLayeredItemIconById } from "./itemLayerRenderer.js";
 
 const RING_W = 2.5;
 
@@ -202,11 +203,20 @@ export function drawUnitToken(
       parent.addChild(bg);
       if (it.id) {
         const ic = new PIXI.Container();
-        drawItemIcon(ic, it.id, baseX + i * gap, dotY, {
-          radius: dotR,
-          dimmed: dim,
-          reducedMotion: opts.reducedMotion ?? true, // tiny: never animate the shine
+        const dotSize = Math.max(5, Math.round(dotR * 2));
+        const layered = drawLayeredItemIconById(it.id, baseX + i * gap, dotY, {
+          size: dotSize,
+          parent: ic,
+          alpha: dim ? 0.5 : 1,
+          scaleMode: "nearest", // always nearest at this size
         });
+        if (!layered) {
+          drawItemIcon(ic, it.id, baseX + i * gap, dotY, {
+            radius: dotR,
+            dimmed: dim,
+            reducedMotion: opts.reducedMotion ?? true, // tiny: never animate the shine
+          });
+        }
         parent.addChild(ic);
       } else {
         const pip = new PIXI.Graphics();

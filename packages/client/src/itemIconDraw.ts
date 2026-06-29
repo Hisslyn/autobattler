@@ -303,12 +303,19 @@ function drawCompletedFrame(
   const mask = new PIXI.Graphics();
   mask.roundRect(x - r, y - r, r * 2, r * 2, r * 0.42).fill({ color: C.itemShine });
   sweep.mask = mask;
+  // The mask only clips once it has been processed by the renderer; painting the
+  // sweep on its very first frame (before the mask binds) lets the full-height
+  // diagonal sliver show UNMASKED, which reads as a bright diagonal streak across
+  // a freshly re-rendered grid (e.g. switching item-carousel pages). Start hidden
+  // and reveal on the first ticker tick, by which point the mask is bound.
+  sweep.renderable = false;
   parent.addChild(mask);
   parent.addChild(sweep);
   const start = performance.now();
   const periodMs = 2600;
   const tick = (): void => {
     if (sweep.destroyed) return;
+    sweep.renderable = true;
     const k = ((performance.now() - start) % periodMs) / periodMs;
     sweep.x = x - r + k * (r * 2 + r * 0.6);
   };

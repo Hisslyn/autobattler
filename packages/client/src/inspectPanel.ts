@@ -7,6 +7,7 @@ import { C, tierColor, traitColor } from "./theme.js";
 import { drawUnitToken } from "./unitToken.js";
 import { drawGlyph, glyphForTraits } from "./glyphs.js";
 import { drawItemIcon } from "./itemIconDraw.js";
+import { drawLayeredItemIconById } from "./itemLayerRenderer.js";
 import type { InspectModel } from "./inspectModel.js";
 import type { TraitDetailModel } from "./traitDetailModel.js";
 import type { ItemModel } from "./itemModel.js";
@@ -244,7 +245,12 @@ export function renderUnitInspect(
       chip.eventMode = "none";
       panel.addChild(chip);
       const ig = new PIXI.Container();
-      drawItemIcon(ig, item.id, ix + 12, chipY + 12, { radius: 8, reducedMotion: true });
+      const layered = drawLayeredItemIconById(item.id, ix + 12, chipY + 12, {
+        size: 16,
+        parent: ig,
+        scaleMode: "nearest",
+      });
+      if (!layered) drawItemIcon(ig, item.id, ix + 12, chipY + 12, { radius: 8, reducedMotion: true });
       ig.eventMode = "none";
       panel.addChild(ig);
       text(panel, item.name, ix + 22, chipY + 12, 8, C.textPrimary, [0, 0.5]);
@@ -312,7 +318,12 @@ export function renderItemDetail(
   disc.eventMode = "none";
   panel.addChild(disc);
   const g = new PIXI.Container();
-  drawItemIcon(g, m.id, x + 32, y + 34, { radius: 16, reducedMotion });
+  const layered = drawLayeredItemIconById(m.id, x + 32, y + 34, {
+    size: 32,
+    parent: g,
+    scaleMode: "linear",
+  });
+  if (!layered) drawItemIcon(g, m.id, x + 32, y + 34, { radius: 16, reducedMotion });
   g.eventMode = "none";
   panel.addChild(g);
   text(panel, m.name, x + 60, y + 22, 13, C.textPrimary, [0, 0]);
@@ -398,7 +409,12 @@ export function renderItemPicker(
     panel.addChild(row);
 
     const ig = new PIXI.Container();
-    drawItemIcon(ig, item.id, x + 14 + 18, ry + rowH / 2, { radius: 12, reducedMotion: true });
+    const layered = drawLayeredItemIconById(item.id, x + 14 + 18, ry + rowH / 2, {
+      size: 24,
+      parent: ig,
+      scaleMode: "linear",
+    });
+    if (!layered) drawItemIcon(ig, item.id, x + 14 + 18, ry + rowH / 2, { radius: 12, reducedMotion: true });
     ig.eventMode = "none";
     panel.addChild(ig);
     text(panel, item.name, x + 14 + 38, ry + rowH / 2, 11, C.textPrimary, [0, 0.5]);

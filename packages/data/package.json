@@ -4,6 +4,7 @@
   "type": "module",
   "main": "./src/loader.ts",
   "exports": {
-    ".": "./src/loader.ts"
+    ".": "./src/loader.ts",
+    "./asset-manifest": "./src/assetManifest.ts"
   }
 }

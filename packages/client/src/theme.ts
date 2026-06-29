@@ -195,6 +195,12 @@ export const C = {
   // already established (no new tint invented for the radiant badge itself).
   radiantBadge:       0xf0a830,  // = lootLegendary
 
+  // ─── Layered item icon renderer (manifest-based compositing) ──────────────
+  // Loading-state fill a call site may draw inside the icon box while every
+  // layer PNG is still loading (first render only). Aliases surfaceFloat so it
+  // matches the chip/slot fill and reads as "loading" not "empty".
+  itemLayerPlaceholder: 0x1c2232,  // = surfaceFloat
+
   // ─── Arena torch pillars (gold meter, renderer-only) ─────────────────────
   // Cylindrical pillars flanking the board edges; lit count = a side's gold meter.
   torchStone:     0x3a4152,  // column body (warm-grey stone, reads on the dark board)
